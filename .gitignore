@@ -24,3 +24,10 @@ target
 # Added by cargo
 
 /target
+
+# original C++ code
+cpp
+
+# Original game resources
+properties
+*.pak
