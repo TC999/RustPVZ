@@ -12,7 +12,8 @@ use crate::lawn::projectile::Projectile;
 use crate::lawn::coin::Coin;
 use crate::lawn::lawn_mower::LawnMower;
 use crate::lawn::grid_item::GridItem;
-use crate::lawn::cursor_object::{CursorObject, CursorPreview, MessageWidget, SeedBank, GameButton, ToolTipWidget};
+use crate::lawn::cursor_object::{CursorObject, CursorPreview, MessageWidget, GameButton, ToolTipWidget};
+use crate::lawn::seed_packet::{SeedBank, SeedPacket};
 use crate::lawn::cut_scene::CutScene;
 use crate::lawn::challenge::Challenge;
 use crate::sexy_app_framework::misc::mtrand::MTRand;
@@ -395,6 +396,217 @@ impl Board {
 
     pub unsafe fn GetNumWavesPerFlag(&self) -> i32 {
         if self.IsFirstTimeAdventureMode() && self.mNumWaves < 10 { self.mNumWaves } else { 10 }
+    }
+
+    pub unsafe fn InitLevel(&mut self) {
+        self.mMainCounter = 0;
+        self.mBoardUpdateCounter = 0;
+        self.mEnableGraveStones = false;
+        self.mSodPosition = 0;
+        self.mPrevBoardResult = (*self.mApp).mBoardResult as i32;
+
+        let aGameMode = (*self.mApp).mGameMode as i32;
+        if aGameMode != GameMode::GAMEMODE_TREE_OF_WISDOM as i32 && aGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN as i32 {
+            // mApp->mMusic->StopAllMusic();
+        }
+        self.mLevel = if self.IsAdventureMode() {
+            1 // TODO: mApp->mPlayerInfo->mLevel
+        } else {
+            0
+        };
+        self.PickBackground();
+        // self.InitZombieWaves();  // calls PickZombieWaves internally
+
+        // Initial sun
+        if aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED as i32 || aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST as i32
+            || self.IsScaryPotterLevel() || self.IsWhackAZombieLevel()
+        {
+            self.mSunMoney = 0;
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32 {
+            self.mSunMoney = 5000;
+        } else if self.IsIZombieLevel() {
+            self.mSunMoney = 150;
+        } else if self.IsFirstTimeAdventureMode() && self.mLevel == 1 {
+            self.mSunMoney = 150;
+        } else {
+            self.mSunMoney = 50;
+        }
+
+        // Initialize row arrays
+        for aRow in 0..MAX_GRID_SIZE_Y as usize {
+            self.mWaveRowGotLawnMowered[aRow] = -100;
+            self.mIceMinX[aRow] = BOARD_ICE_START;
+            self.mIceTimer[aRow] = 0;
+            self.mIceParticleID[aRow] = u32::MAX;
+            self.mRowPickingArray[aRow] = TodSmoothArray::new();
+            self.mRowPickingArray[aRow].m_item = aRow as i32;
+        }
+        self.mNumSunsFallen = 0;
+        if !self.StageIsNight() {
+            self.mSunCountDown = crate::sexy_tod_lib::tod_common::rand_range_int(425, 700);
+        }
+
+        // Initialize help display flags
+        for i in 0..100usize { self.mHelpDisplayed[i] = false; }
+
+        // Initialize seed bank
+        (*self.mSeedBank).mNumPackets = self.GetNumSeedsInBank();
+        (*self.mSeedBank).UpdateWidth();
+        for i in 0..SEEDBANK_MAX as usize {
+            let packet = &mut (*self.mSeedBank).mSeedPackets[i];
+            packet.mIndex = i as i32;
+            packet.mX = self.GetSeedPacketPositionX(i as i32);
+            packet.mY = 8;
+            packet.mPacketType = SeedType::SEED_NONE;
+        }
+
+        // Fixed seed packets for specific game modes
+        if self.IsSlotMachineLevel() {
+            // assert mSeedBank->mNumPackets == 3
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_SUNFLOWER);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_PEASHOOTER);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_SNOWPEA);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_ICE as i32 {
+            // assert 6 packets
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_PEASHOOTER);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_CHERRYBOMB);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_WALLNUT);
+            (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_REPEATER);
+            (*self.mSeedBank).mSeedPackets[4].SetPacketType(SeedType::SEED_SNOWPEA);
+            (*self.mSeedBank).mSeedPackets[5].SetPacketType(SeedType::SEED_CHOMPER);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_1 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_2 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_SCREEN_DOOR);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_3 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_4 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_5 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
+            (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_BALLOON);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_6 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_GARGANTUAR);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_7 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_DANCER);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_8 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
+            (*self.mSeedBank).mSeedPackets[4].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
+            (*self.mSeedBank).mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_9 as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
+            (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[4].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
+            (*self.mSeedBank).mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
+            (*self.mSeedBank).mSeedPackets[6].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
+            (*self.mSeedBank).mSeedPackets[7].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
+            (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+            (*self.mSeedBank).mSeedPackets[4].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
+            (*self.mSeedBank).mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
+            (*self.mSeedBank).mSeedPackets[6].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
+            (*self.mSeedBank).mSeedPackets[7].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
+            (*self.mSeedBank).mSeedPackets[8].SetPacketType(SeedType::SEED_ZOMBIE_DANCER);
+        } else if self.IsScaryPotterLevel() {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_CHERRYBOMB);
+        } else if self.IsWhackAZombieLevel() {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_POTATOMINE);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_GRAVEBUSTER);
+            (*self.mSeedBank).mSeedPackets[2].SetPacketType(
+                if self.IsAdventureMode() { SeedType::SEED_CHERRYBOMB } else { SeedType::SEED_ICESHROOM }
+            );
+        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM as i32 {
+            (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIQUARIUM_SNORKLE);
+            (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIQUARIUM_TROPHY);
+        } else if !self.ChooseSeedsOnCurrentLevel() && !self.HasConveyorBeltSeedBank() {
+            (*self.mSeedBank).mNumPackets = self.GetNumSeedsInBank();
+            for i in 0..(*self.mSeedBank).mNumPackets as usize {
+                (*self.mSeedBank).mSeedPackets[i].SetPacketType(unsafe { std::mem::transmute(i as i32) });
+            }
+        }
+
+        // MarkAllDirty()
+        self.mPaused = false;
+        self.mOutOfMoneyCounter = 0;
+        if self.StageHasFog() {
+            self.mFogBlownCountDown = 200;
+            self.mFogOffset = (1065 - self.LeftFogColumn() * 80) as f32;
+        }
+        // mChallenge->InitLevel();
+    }
+
+    // === Helper Methods ===
+    pub unsafe fn StageIsNight(&self) -> bool {
+        self.mBackground as i32 == BackgroundType::BACKGROUND_2_NIGHT as i32
+    }
+
+    pub unsafe fn StageHasFog(&self) -> bool {
+        self.mBackground as i32 == BackgroundType::BACKGROUND_4_FOG as i32
+    }
+
+    pub unsafe fn StageHasGraveStones(&self) -> bool {
+        self.mBackground as i32 == BackgroundType::BACKGROUND_2_NIGHT as i32
+    }
+
+    pub unsafe fn IsIZombieLevel(&self) -> bool {
+        let mode = (*self.mApp).mGameMode as i32;
+        mode >= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_1 as i32
+            && mode <= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32
+    }
+
+    pub unsafe fn IsSlotMachineLevel(&self) -> bool {
+        (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_SLOT_MACHINE as i32
+    }
+
+    pub unsafe fn ChooseSeedsOnCurrentLevel(&self) -> bool {
+        let mode = (*self.mApp).mGameMode as i32;
+        mode == GameMode::GAMEMODE_ADVENTURE as i32
+            || mode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32
+        // In the full game this has more conditions
+    }
+
+    pub unsafe fn HasConveyorBeltSeedBank(&self) -> bool {
+        false // stub
+    }
+
+    pub unsafe fn GetNumSeedsInBank(&self) -> i32 {
+        if self.ChooseSeedsOnCurrentLevel() { 7 } else { 10 }
+    }
+
+    pub unsafe fn GetSeedPacketPositionX(&self, index: i32) -> i32 {
+        index * 55 + 15 // stub - actual position calculation
+    }
+
+    pub unsafe fn LeftFogColumn(&self) -> i32 {
+        0 // stub
+    }
+
+    pub unsafe fn StageHasZombieWalkInFromRight(&self) -> bool {
+        true // stub
     }
 
     pub unsafe fn PickZombieWaves(&mut self) {
