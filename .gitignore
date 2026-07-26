@@ -31,3 +31,6 @@ cpp
 # Original game resources
 properties
 *.pak
+
+# AI terminals
+.reasonix
