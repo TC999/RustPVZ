@@ -528,6 +528,8 @@ pub enum GridItemType {
     GRIDITEM_BOSS_DRIVER,
     GRIDITEM_TV,
     GRIDITEM_ZOMBIQUARIUM,
+    GRIDITEM_GRAVESTONE,
+    GRIDITEM_SCARY_POT,
     NUM_GRIDITEMS,
 }
 
@@ -932,6 +934,10 @@ pub enum ReanimationType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum RenderLayer {
+    RENDER_LAYER_ROW_OFFSET     = 10000,
+    RENDER_LAYER_UI_BOTTOM      = 100000,
+    RENDER_LAYER_GROUND         = 200000,
+    RENDER_LAYER_LAWN           = 300000,
     RENDER_LAYER_GRAVE_STONE = 301000,
     RENDER_LAYER_PLANT = 302000,
     RENDER_LAYER_ZOMBIE = 303000,

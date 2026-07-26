@@ -32,6 +32,15 @@ fn get_saved_game_name(the_game_mode: i32, the_player_id: i32) -> String {
     format!("save_{:04}_{:04}.dat", the_game_mode, the_player_id)
 }
 
+fn aGameMode_check_early_return(mode: i32) -> bool {
+    mode == GameMode::GAMEMODE_CHALLENGE_ICE as i32
+        || mode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN as i32
+        || mode == GameMode::GAMEMODE_TREE_OF_WISDOM as i32
+        || mode == GameMode::GAMEMODE_UPSELL as i32
+        || mode == GameMode::GAMEMODE_INTRO as i32
+        || mode == GameMode::GAMEMODE_CHALLENGE_FINAL_BOSS as i32
+}
+
 // Board struct - all fields public, matching C++ layout
 pub struct Board {
     pub mApp: *mut LawnApp,
@@ -398,6 +407,15 @@ impl Board {
         if self.IsFirstTimeAdventureMode() && self.mNumWaves < 10 { self.mNumWaves } else { 10 }
     }
 
+    pub unsafe fn TryToSaveGame(&self) {
+        if self.mBoardFadeOutCounter > 0 { return; }
+        // if (NeedSaveGame()) { LawnSaveGame(self, ...); }
+    }
+
+    pub fn MakeRenderOrder(theRenderLayer: RenderLayer, theRow: i32, theLayerOffset: i32) -> i32 {
+        theRow * RenderLayer::RENDER_LAYER_ROW_OFFSET as i32 + theRenderLayer as i32 + theLayerOffset
+    }
+
     pub unsafe fn InitLevel(&mut self) {
         self.mMainCounter = 0;
         self.mBoardUpdateCounter = 0;
@@ -607,6 +625,189 @@ impl Board {
 
     pub unsafe fn StageHasZombieWalkInFromRight(&self) -> bool {
         true // stub
+    }
+
+    // === DataArray iteration helpers ===
+    pub unsafe fn IterateZombies(&self, theItem: &mut *mut Zombie) -> bool {
+        self.mZombies.iterate_next(theItem)
+    }
+    pub unsafe fn IteratePlants(&self, theItem: &mut *mut Plant) -> bool {
+        self.mPlants.iterate_next(theItem)
+    }
+    pub unsafe fn IterateProjectiles(&self, theItem: &mut *mut Projectile) -> bool {
+        self.mProjectiles.iterate_next(theItem)
+    }
+    pub unsafe fn IterateCoins(&self, theItem: &mut *mut Coin) -> bool {
+        self.mCoins.iterate_next(theItem)
+    }
+    pub unsafe fn IterateLawnMowers(&self, theItem: &mut *mut LawnMower) -> bool {
+        self.mLawnMowers.iterate_next(theItem)
+    }
+    pub unsafe fn IterateGridItems(&self, theItem: &mut *mut GridItem) -> bool {
+        self.mGridItems.iterate_next(theItem)
+    }
+
+    pub unsafe fn PlaceRake(&mut self) {
+        // if !mApp->mPlayerInfo->mPurchases[STORE_ITEM_RAKE] return;
+        let mut aGridX = 7;
+        if self.IsScaryPotterLevel() {
+            let mut aGridItem: *mut GridItem = std::ptr::null_mut();
+            while self.IterateGridItems(&mut aGridItem) {
+                if (*aGridItem).mGridItemType as i32 == GridItemType::GRIDITEM_SCARY_POT as i32
+                    && (*aGridItem).mGridX <= aGridX && (*aGridItem).mGridX > 0
+                {
+                    aGridX = (*aGridItem).mGridX - 1;
+                }
+            }
+        } else {
+            if !self.StageHasZombieWalkInFromRight()
+                || (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_BEGHOULED as i32
+                || (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST as i32
+                || (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_BOBSLED_BONANZA as i32
+            {
+                return;
+            }
+        }
+
+        let mut aPickCount = 0i32;
+        let mut aPickArray: [crate::sexy_tod_lib::tod_common::TodWeightedArray; 6] = unsafe { std::mem::zeroed() };
+        for aRow in 0..MAX_GRID_SIZE_Y as usize {
+            if aRow != 5 && self.mPlantRow[aRow] == 1 {
+                aPickArray[aPickCount as usize].m_weight = 1;
+                aPickArray[aPickCount as usize].m_item = aRow as isize;
+                aPickCount += 1;
+            }
+        }
+        if aPickCount == 0 { return; }
+
+        let aGridY = crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_array(&aPickArray[..aPickCount as usize]);
+        // mApp->mPlayerInfo->mPurchases[STORE_ITEM_RAKE]--;
+        let aRake = self.mGridItems.data_array_alloc();
+        (*aRake).mGridItemType = GridItemType::GRIDITEM_RAKE;
+        (*aRake).mGridX = aGridX;
+        (*aRake).mGridY = aGridY as i32;
+        (*aRake).mPosX = self.GridToPixelX(aGridX, aGridY as i32) as f32;
+        (*aRake).mPosY = self.GridToPixelY(aGridX, aGridY as i32) as f32;
+        (*aRake).mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_GRAVE_STONE, aGridY as i32, 9);
+    }
+
+    pub unsafe fn InitLawnMowers(&mut self) {
+        let aGameMode = (*self.mApp).mGameMode as i32;
+        if aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED as i32
+            || aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST as i32
+            || aGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN as i32
+            || aGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM as i32
+            || aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32
+            || aGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM as i32
+            || self.IsIZombieLevel()
+        {
+            return;
+        }
+
+        for aRow in 0..MAX_GRID_SIZE_Y as usize {
+            if self.mPlantRow[aRow] != 0 /* PLANTROW_DIRT */ {
+                let aLawnMower = self.mLawnMowers.data_array_alloc();
+                // aLawnMower->LawnMowerInitialize(aRow);
+                (*aLawnMower).mRow = aRow as i32;
+                (*aLawnMower).mVisible = false;
+            }
+        }
+    }
+
+    pub unsafe fn StartLevel(&mut self) {
+        self.mCoinBankFadeCount = 0;
+        // mApp->mLastLevelStats->Reset();
+        // mChallenge->StartLevel();
+
+        let aSurvivalStage = (*self.mApp).mGameMode as u32 - GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_1 as u32;
+        if aSurvivalStage <= 4 {
+            // ReportAchievement check
+        }
+
+        if self.IsSurvivalMode() && !self.mChallenge.is_null() && (*self.mChallenge).mSurvivalStage > 0 {
+            // FreezeEffectsForCutscene(false);
+            // mApp->mSoundSystem->GamePause(false);
+        }
+
+        if aGameMode_check_early_return((*self.mApp).mGameMode as i32) {
+            return;
+        }
+        // mApp->mMusic->StartGameMusic();
+    }
+
+    pub unsafe fn GetBottomLawnMower(&self) -> *mut LawnMower {
+        let mut aLawnMower: *mut LawnMower = std::ptr::null_mut();
+        let mut aBottomMower: *mut LawnMower = std::ptr::null_mut();
+        while self.IterateLawnMowers(&mut aLawnMower) {
+            if (*aLawnMower).mMowerState as i32 == MowerState::MOWER_TRIGGERED as i32
+                || (*aLawnMower).mMowerState as i32 == MowerState::MOWER_TRIGGERED_SQUASHED as i32
+            {
+                continue;
+            }
+            if aBottomMower.is_null() || (*aBottomMower).mRow < (*aLawnMower).mRow {
+                aBottomMower = aLawnMower;
+            }
+        }
+        aBottomMower
+    }
+
+    pub unsafe fn UpdateLevelEndSequence(&mut self) {
+        if self.mNextSurvivalStageCounter > 0 {
+            // if !IsScaryPotterDaveTalking()
+            {
+                self.mNextSurvivalStageCounter -= 1;
+            }
+
+            if self.mNextSurvivalStageCounter == 1 && self.IsSurvivalMode() {
+                self.TryToSaveGame();
+            }
+
+            if self.mNextSurvivalStageCounter == 0 {
+                if self.IsScaryPotterLevel() {
+                    if self.IsAdventureMode() { return; }
+                    // if !IsFinalScaryPotterStage() {
+                    //     mChallenge->PuzzleNextStageClear();
+                    //     mChallenge->ScaryPotterPopulate();
+                    // }
+                } else if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32 {
+                    // ClearAdvice(ADVICE_NONE);
+                } else {
+                    self.mLevelComplete = true;
+                    // RemoveZombiesForRepick();
+                }
+                return;
+            }
+        }
+
+        if self.mBoardFadeOutCounter < 0 { return; }
+
+        self.mBoardFadeOutCounter -= 1;
+        if self.mBoardFadeOutCounter == 0 {
+            self.mLevelComplete = true;
+            return;
+        }
+        if self.mBoardFadeOutCounter == 300 {
+            // Play sample SOUND_LIGHTFILL
+        }
+
+        if self.mScoreNextMowerCounter > 0 {
+            self.mScoreNextMowerCounter -= 1;
+            if self.mScoreNextMowerCounter != 0 { return; }
+        }
+
+        // if CanDropLoot() && !IsSurvivalStageWithRepick() {
+        //     self.mScoreNextMowerCounter = 40;
+        //     LawnMower* aLawnMower = GetBottomLawnMower();
+        // }
+    }
+
+    // === Helpers ===
+    pub unsafe fn GridToPixelX(&self, gridX: i32, _gridY: i32) -> i32 {
+        gridX * 80 + 40 // stub
+    }
+
+    pub unsafe fn GridToPixelY(&self, _gridX: i32, gridY: i32) -> i32 {
+        80 + gridY * 100 // stub
     }
 
     pub unsafe fn PickZombieWaves(&mut self) {
