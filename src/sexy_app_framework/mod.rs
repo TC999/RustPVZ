@@ -6,3 +6,4 @@ pub mod sound;
 pub mod paklib;
 pub mod imagelib;
 pub mod sexy_app_base;
+pub mod resources;
