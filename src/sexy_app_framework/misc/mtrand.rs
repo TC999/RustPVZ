@@ -59,7 +59,7 @@ impl MTRand {
         }
         for i in (MTRAND_N - 397)..(MTRAND_N - 1) {
             let y = (self.mt[i] & 0x80000000) | (self.mt[i + 1] & 0x7FFFFFFF);
-            self.mt[i] = self.mt[i + (397 - MTRAND_N)] ^ (y >> 1) ^ (if y & 1 == 1 { 0x9908B0DF } else { 0 });
+            self.mt[i] = self.mt[i - (MTRAND_N - 397)] ^ (y >> 1) ^ (if y & 1 == 1 { 0x9908B0DF } else { 0 });
         }
         let y = (self.mt[MTRAND_N - 1] & 0x80000000) | (self.mt[0] & 0x7FFFFFFF);
         self.mt[MTRAND_N - 1] = self.mt[396] ^ (y >> 1) ^ (if y & 1 == 1 { 0x9908B0DF } else { 0 });
