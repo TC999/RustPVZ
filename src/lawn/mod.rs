@@ -16,3 +16,4 @@ pub mod tool_tip_widget;
 pub mod zen_garden;
 pub mod system;
 pub mod widget;
+pub mod board_consts;

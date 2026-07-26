@@ -91,6 +91,17 @@ pub fn tod_pick_from_weighted_grid_array(the_array: &[TodWeightedGridArray]) -> 
     None
 }
 
+impl TodSmoothArray {
+    pub fn new() -> Self {
+        TodSmoothArray {
+            m_item: 0,
+            m_weight: 0.0,
+            m_last_picked: 0.0,
+            m_second_last_picked: 0.0,
+        }
+    }
+}
+
 pub fn tod_calc_smooth_weight(weight: f32, last_picked: f32, second_last_picked: f32) -> f32 {
     weight - last_picked * 0.5 - second_last_picked * 0.25
 }

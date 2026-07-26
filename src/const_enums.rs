@@ -554,6 +554,31 @@ pub enum LawnMowerType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
+pub enum GridSquareType {
+    GRIDSQUARE_NONE = 0,
+    GRIDSQUARE_GRASS = 1,
+    GRIDSQUARE_DIRT = 2,
+    GRIDSQUARE_POOL = 3,
+    GRIDSQUARE_HIGH_GROUND = 4,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
+pub enum HelmType {
+    HELMTYPE_NONE = 0,
+    HELMTYPE_TRAFFIC_CONE = 1,
+    HELMTYPE_PAIL = 2,
+    HELMTYPE_FOOTBALL = 3,
+    HELMTYPE_DIGGER = 4,
+    HELMTYPE_REDEYES = 5,
+    HELMTYPE_HEADBAND = 6,
+    HELMTYPE_BOBSLED = 7,
+    HELMTYPE_WALLNUT = 8,
+    HELMTYPE_TALLNUT = 9,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
 pub enum LevelFlags {
     LEVEL_FLAG_SIX_ARM_PEN = 0,
     LEVEL_FLAG_GRAVE_STONES = 1,
