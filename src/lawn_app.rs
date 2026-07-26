@@ -38,8 +38,8 @@ pub struct LawnApp {
     pub m_mod: String,
     pub m_register_resources_loaded: bool,
     pub m_tod_cheat_keys: bool,
-    pub m_game_mode: GameMode,
-    pub m_game_scene: GameScenes,
+    pub mGameMode: GameMode,
+    pub mGameScene: GameScenes,
     pub m_loading_zombies_thread_completed: bool,
     pub m_first_time_game_selector: bool,
     pub m_games_played: i32,
@@ -67,8 +67,10 @@ pub struct LawnApp {
     pub m_session_id: isize,
     pub m_play_time_active_session: i32,
     pub m_play_time_inactive_session: i32,
-    pub m_board_result: BoardResult,
-    pub m_saw_yeti: bool,
+    pub mBoardResult: BoardResult,
+    pub mSawYeti: bool,
+    pub mAppRandSeed: i32,
+    pub mPlayerInfo: *mut std::ffi::c_void,
     pub m_konami_check: *mut std::ffi::c_void,
     pub m_mustache_check: *mut std::ffi::c_void,
     pub m_moustache_check: *mut std::ffi::c_void,
@@ -109,8 +111,8 @@ impl LawnApp {
             m_mod: String::new(),
             m_register_resources_loaded: false,
             m_tod_cheat_keys: false,
-            m_game_mode: GameMode::GAMEMODE_ADVENTURE,
-            m_game_scene: GameScenes::SCENE_LOADING,
+            mGameMode: GameMode::GAMEMODE_ADVENTURE,
+            mGameScene: GameScenes::SCENE_LOADING,
             m_loading_zombies_thread_completed: false,
             m_first_time_game_selector: true,
             m_games_played: 0,
@@ -138,8 +140,10 @@ impl LawnApp {
             m_session_id: 0,
             m_play_time_active_session: 0,
             m_play_time_inactive_session: 0,
-            m_board_result: BoardResult::BOARDRESULT_NONE,
-            m_saw_yeti: false,
+            mBoardResult: BoardResult::BOARDRESULT_NONE,
+            mSawYeti: false,
+            mAppRandSeed: 0,
+            mPlayerInfo: std::ptr::null_mut(),
             m_konami_check: std::ptr::null_mut(),
             m_mustache_check: std::ptr::null_mut(),
             m_moustache_check: std::ptr::null_mut(),
@@ -164,41 +168,41 @@ impl LawnApp {
     }
 
     pub fn is_adventure_mode(&self) -> bool {
-        self.m_game_mode == GameMode::GAMEMODE_ADVENTURE
+        self.mGameMode == GameMode::GAMEMODE_ADVENTURE
     }
 
     pub fn is_survival_mode(&self) -> bool {
-        let mode = self.m_game_mode as i32;
+        let mode = self.mGameMode as i32;
         mode >= GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1 as i32 
             && mode <= GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_5 as i32
     }
 
     pub fn is_art_challenge(&self) -> bool {
-        let mode = self.m_game_mode as i32;
+        let mode = self.mGameMode as i32;
         mode >= GameMode::GAMEMODE_CHALLENGE_WAR_AND_PEAS as i32 
             && mode <= GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS_2 as i32
     }
 
     pub fn is_challenge_without_seed_bank(&self) -> bool {
-        self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_SLOT_MACHINE
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_LITTLE_TROUBLE
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_COLUMN
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_POGO_PARTY
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING_2
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_ZOMBIES_ON_THE_ROCKS
+        self.mGameMode == GameMode::GAMEMODE_CHALLENGE_SLOT_MACHINE
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_LITTLE_TROUBLE
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_POGO_PARTY
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING_2
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIES_ON_THE_ROCKS
     }
 
     pub fn is_shovel_level(&self) -> bool {
-        (self.m_game_mode as i32) >= GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING as i32
-            && (self.m_game_mode as i32) <= GameMode::GAMEMODE_CHALLENGE_LITTLE_TROUBLE as i32
+        (self.mGameMode as i32) >= GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING as i32
+            && (self.mGameMode as i32) <= GameMode::GAMEMODE_CHALLENGE_LITTLE_TROUBLE as i32
     }
 
     pub fn is_wallnut_bowling_level(&self) -> bool {
-        self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING
-            || self.m_game_mode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING_2
+        self.mGameMode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING_2
     }
 
     pub fn is_night(&self) -> bool {
@@ -206,11 +210,13 @@ impl LawnApp {
     }
 
     pub fn can_show_almanac(&self) -> bool {
-        self.m_game_scene == GameScenes::SCENE_PLAYING
-            || self.m_game_scene == GameScenes::SCENE_CHALLENGE
+        self.mGameScene == GameScenes::SCENE_PLAYING
+            || self.mGameScene == GameScenes::SCENE_CHALLENGE
     }
 
     pub fn end_level(&self) {
         // Placeholder
     }
 }
+
+
