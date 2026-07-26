@@ -1,6 +1,12 @@
 [package]
 name = "RustPVZ"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+sdl2 = { version = "0.37", optional = true }
+gl = { version = "0.14", optional = true }
+
+[features]
+default = []
+sdl = ["sdl2", "gl"]
