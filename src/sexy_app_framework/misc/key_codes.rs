@@ -52,6 +52,19 @@ pub const KEYCODE_W: u32 = 87;
 pub const KEYCODE_X: u32 = 88;
 pub const KEYCODE_Y: u32 = 89;
 pub const KEYCODE_Z: u32 = 90;
+
+/// 根据名称获取 KeyCode（简化实现：单字符返回其大写 ASCII 值）
+pub fn get_key_code_from_name(the_key_name: &str) -> u32 {
+    let bytes = the_key_name.as_bytes();
+    if bytes.len() == 1 {
+        let c = bytes[0];
+        if c >= b'a' && c <= b'z' {
+            return (c - b'a' + b'A') as u32;
+        }
+        return c as u32;
+    }
+    KEYCODE_UNKNOWN
+}
 pub const KEYCODE_F1: u32 = 112;
 pub const KEYCODE_F2: u32 = 113;
 pub const KEYCODE_F3: u32 = 114;
