@@ -83,6 +83,7 @@ pub struct Image {
     pub m_height: i32,
     pub m_num_rows: i32,
     pub m_num_cols: i32,
+    pub m_cached_texture_id: Option<usize>,
 }
 
 impl Image {
@@ -94,6 +95,7 @@ impl Image {
             m_height: height,
             m_num_rows: 1,
             m_num_cols: 1,
+            m_cached_texture_id: None,
         }
     }
 
@@ -240,7 +242,9 @@ impl Graphics {
     }
 
     pub fn fill_rect(&mut self, x: i32, y: i32, width: i32, height: i32) {
-        // Placeholder - actual pixel fill would go here
+        let tx = self.state.m_trans_x as i32;
+        let ty = self.state.m_trans_y as i32;
+        crate::sexy_app_framework::graphics::renderer::fill_rect(x + tx, y + ty, width, height, &self.state.m_color);
     }
 
     pub fn fill_rect_r(&mut self, rect: &Rect) {
@@ -248,7 +252,9 @@ impl Graphics {
     }
 
     pub fn draw_rect(&mut self, x: i32, y: i32, width: i32, height: i32) {
-        // Placeholder
+        let tx = self.state.m_trans_x as i32;
+        let ty = self.state.m_trans_y as i32;
+        crate::sexy_app_framework::graphics::renderer::draw_rect(x + tx, y + ty, width, height, &self.state.m_color);
     }
 
     pub fn draw_rect_r(&mut self, rect: &Rect) {
@@ -256,7 +262,8 @@ impl Graphics {
     }
 
     pub fn draw_string(&self, text: &str, x: i32, y: i32) {
-        // Placeholder
+        // TODO: Use sdl2::ttf to render text
+        // Requires Font containing TTF font data
     }
 
     pub fn set_clip_rect(&mut self, x: i32, y: i32, width: i32, height: i32) {
@@ -388,14 +395,13 @@ impl MemoryImage {
     pub fn re_init(&mut self) { /* placeholder */ }
     pub fn delete_native_data(&mut self) { /* placeholder */ }
 
-    pub fn fill_rect(&mut self, _the_rect: &Rect, _the_color: &Color, _the_draw_mode: i32) { /* placeholder */ }
-    pub fn clear_rect(&mut self, _the_rect: &Rect) { /* placeholder */ }
-    pub fn draw_line(&mut self, _start_x: f64, _start_y: f64, _end_x: f64, _end_y: f64, _the_color: &Color, _the_draw_mode: i32) { /* placeholder */ }
-    pub fn blt(&mut self, _the_image: &Image, _the_x: i32, _the_y: i32, _the_src_rect: &Rect, _the_color: &Color, _the_draw_mode: i32, _linear_filter: bool) { /* placeholder */ }
-    pub fn stretch_blt(&mut self, _the_image: &Image, _the_dest_rect: &Rect, _the_src_rect: &Rect, _the_clip_rect: &Rect, _the_color: &Color, _the_draw_mode: i32, _fast_stretch: bool) { /* placeholder */ }
-
-    pub fn normal_blt(&mut self, _the_image: &Image, _the_x: i32, _the_y: i32, _the_src_rect: &Rect, _the_color: &Color) { /* placeholder */ }
-    pub fn additive_blt(&mut self, _the_image: &Image, _the_x: i32, _the_y: i32, _the_src_rect: &Rect, _the_color: &Color) { /* placeholder */ }
+    pub fn fill_rect(&mut self, _rect: &Rect, _color: &Color, _draw_mode: i32) { /* MemoryImage stub */ }
+    pub fn clear_rect(&mut self, _rect: &Rect) { /* MemoryImage stub */ }
+    pub fn draw_line(&mut self, _start_x: f64, _start_y: f64, _end_x: f64, _end_y: f64, _color: &Color, _draw_mode: i32) { /* MemoryImage stub */ }
+    pub fn blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color, _draw_mode: i32, _linear_filter: bool) { /* MemoryImage stub */ }
+    pub fn stretch_blt(&mut self, _image: &Image, _dest_rect: &Rect, _src_rect: &Rect, _clip_rect: &Rect, _color: &Color, _draw_mode: i32, _fast_stretch: bool) { /* MemoryImage stub */ }
+    pub fn normal_blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color) { /* MemoryImage stub */ }
+    pub fn additive_blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color) { /* MemoryImage stub */ }
 }
 
 // ============================================================
