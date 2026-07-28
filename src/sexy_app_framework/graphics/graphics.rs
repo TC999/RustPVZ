@@ -28,6 +28,7 @@ pub struct GraphicsState {
     pub m_clip_rect: Rect,
     pub m_color: Color,
     pub m_font: Option<Box<Font>>,
+    pub m_font_raw: *mut Font,  // C++ 兼容原始字体指针
     pub m_draw_mode: i32,
     pub m_colorize_images: bool,
     pub m_fast_stretch: bool,
@@ -46,6 +47,7 @@ impl GraphicsState {
             m_clip_rect: Rect::new(0, 0, 800, 600),
             m_color: Color::new(),
             m_font: None,
+            m_font_raw: std::ptr::null_mut(),
             m_draw_mode: 0,
             m_colorize_images: false,
             m_fast_stretch: true,
@@ -175,6 +177,46 @@ impl Graphics {
 
     pub fn set_font(&mut self, font: Option<Box<Font>>) {
         self.state.m_font = font;
+        self.state.m_font_raw = std::ptr::null_mut();
+    }
+
+    /// C++ 兼容：通过原始指针设置字体
+    pub fn set_font_ptr(&mut self, font: *mut Font) {
+        self.state.m_font_raw = font;
+        if !font.is_null() {
+            unsafe {
+                self.state.m_font = Some(Box::from_raw(font));
+                let _ = Box::into_raw(self.state.m_font.take().unwrap());
+                self.state.m_font = Some(Box::from_raw(font));
+            }
+        } else {
+            self.state.m_font = None;
+        }
+    }
+
+    /// C++ 兼容：SetFont( Font* )
+    pub fn SetFont(&mut self, font: *mut Font) {
+        self.set_font_ptr(font);
+    }
+
+    /// C++ 兼容：SetColor( Color )
+    pub fn SetColor(&mut self, color: Color) {
+        self.state.m_color = color;
+    }
+
+    /// C++ 兼容：FillRect( x, y, w, h )
+    pub fn FillRect(&mut self, x: i32, y: i32, w: i32, h: i32) {
+        self.fill_rect(x, y, w, h);
+    }
+
+    /// C++ 兼容：DrawRect( x, y, w, h )
+    pub fn DrawRect(&mut self, x: i32, y: i32, w: i32, h: i32) {
+        self.draw_rect(x, y, w, h);
+    }
+
+    /// C++ 兼容：DrawString( str, x, y )
+    pub fn DrawString(&self, text: &str, x: i32, y: i32) {
+        self.draw_string(text, x, y);
     }
 
     pub fn get_font(&self) -> Option<&Font> {

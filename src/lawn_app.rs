@@ -219,4 +219,7 @@ impl LawnApp {
     }
 }
 
+// C++ gLawnApp 全局指针的 Rust 映射
+pub static mut G_LAWN_APP: *mut LawnApp = std::ptr::null_mut();
+
 

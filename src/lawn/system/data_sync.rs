@@ -291,6 +291,10 @@ impl DataSync {
         self.m_version = the_version;
     }
 
+    pub fn is_reader(&self) -> bool {
+        self.m_reader.is_some()
+    }
+
     fn get_reader(&self) -> &mut DataReader {
         unsafe { &mut *self.m_reader.unwrap() }
     }

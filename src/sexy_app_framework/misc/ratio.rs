@@ -1,5 +1,5 @@
-// [TRANSLATION_NOTE]: Ratio.h -> Rust
-// 比例计算工具
+// [TRANSLATION_NOTE]: Ratio.h + Ratio.cpp -> Rust
+// 比例计算工具，使用欧几里得算法化简分数
 
 use std::ops::{Mul, Div};
 
@@ -11,16 +11,27 @@ pub struct Ratio {
 
 impl Ratio {
     pub fn new() -> Self {
-        Ratio { m_numerator: 0, m_denominator: 0 }
+        Ratio { m_numerator: 1, m_denominator: 1 }
     }
 
     pub fn with_values(the_numerator: i32, the_denominator: i32) -> Self {
-        Ratio { m_numerator: the_numerator, m_denominator: the_denominator }
+        let mut r = Ratio { m_numerator: 1, m_denominator: 1 };
+        r.set(the_numerator, the_denominator);
+        r
     }
 
     pub fn set(&mut self, the_numerator: i32, the_denominator: i32) {
-        self.m_numerator = the_numerator;
-        self.m_denominator = the_denominator;
+        // find the greatest-common-denominator of theNumerator and theDenominator.
+        let mut a = the_numerator;
+        let mut b = the_denominator;
+        while b != 0 {
+            let t = b;
+            b = a % b;
+            a = t;
+        }
+        // divide by the g-c-d to reduce to lowest terms.
+        self.m_numerator = the_numerator / a;
+        self.m_denominator = the_denominator / a;
     }
 }
 
@@ -32,9 +43,6 @@ impl PartialOrd for Ratio {
         let a = self.m_numerator * other.m_denominator / self.m_denominator;
         let b = other.m_numerator;
         Some(a.cmp(&b))
-        // Equivalent to C++ logic:
-        // (mNumerator*theRatio.mDenominator/mDenominator < theRatio.mNumerator)
-        // || (mNumerator < theRatio.mNumerator*mDenominator/theRatio.mDenominator)
     }
 }
 
