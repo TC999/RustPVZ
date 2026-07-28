@@ -217,6 +217,43 @@ impl LawnApp {
     pub fn end_level(&self) {
         // Placeholder
     }
+
+    pub fn IsFirstTimeAdventureMode(&self) -> bool {
+        self.mGameScene == GameScenes::SCENE_LEVEL_INTRO
+            && self.mGameMode == GameMode::GAMEMODE_ADVENTURE
+    }
+
+    pub fn IsScaryPotterLevel(&self) -> bool {
+        let mode = self.mGameMode as i32;
+        mode >= GameMode::GAMEMODE_SCARY_POTTER_1 as i32
+            && mode <= GameMode::GAMEMODE_SCARY_POTTER_ENDLESS as i32
+    }
+
+    pub fn IsEndlessScaryPotter(&self, theGameMode: GameMode) -> bool {
+        theGameMode as i32 == GameMode::GAMEMODE_SCARY_POTTER_ENDLESS as i32
+    }
+
+    pub fn IsStormyNightLevel(&self) -> bool {
+        self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_STORMY_NIGHT as i32
+    }
+
+    pub fn IsFinalBossLevel(&self) -> bool {
+        self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_FINAL_BOSS as i32
+    }
+
+    pub fn IsWhackAZombieLevel(&self) -> bool {
+        self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_WHACK_A_ZOMBIE as i32
+    }
+
+    pub fn IsSlotMachineLevel(&self) -> bool {
+        self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_SLOT_MACHINE as i32
+    }
+
+    pub fn IsIZombieLevel(&self) -> bool {
+        let mode = self.mGameMode as i32;
+        mode >= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_1 as i32
+            && mode <= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32
+    }
 }
 
 // C++ gLawnApp 全局指针的 Rust 映射

@@ -3,6 +3,7 @@
 
 use crate::const_enums::*;
 use crate::sexy_app_framework::misc::rect::Rect;
+use crate::sexy_app_framework::graphics::graphics::Graphics;
 use super::game_object::GameObject;
 
 pub const MAX_MAGNET_ITEMS: i32 = 5;
@@ -323,5 +324,140 @@ impl Plant {
 impl Default for Plant {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// =========================================================================
+// ★ PlantDefinition — 植物类型定义 (from Plant.h)
+// =========================================================================
+#[derive(Clone, Copy)]
+pub struct PlantDefinition {
+    pub mSeedType: SeedType,
+    pub mReanimationType: ReanimationType,
+    pub mPlantCost: i32,
+    pub mPlantHealth: i32,
+    pub mPlantValue: i32,
+    pub mStartingLevel: i32,
+    pub mNumBoost: i32,
+    pub mEatDelay: i32,
+    pub mEatCount: i32,
+}
+
+pub static mut G_PLANT_DEFS: [PlantDefinition; 49] = [PlantDefinition {
+    mSeedType: SeedType::SEED_PEASHOOTER,
+    mReanimationType: ReanimationType::REANIM_NONE,
+    mPlantCost: 100,
+    mPlantHealth: 300,
+    mPlantValue: 0,
+    mStartingLevel: 0,
+    mNumBoost: 0,
+    mEatDelay: 0,
+    mEatCount: 0,
+}; 49];
+
+pub fn GetPlantDefinition(theSeedType: SeedType) -> &'static PlantDefinition {
+    unsafe { &G_PLANT_DEFS[theSeedType as usize] }
+}
+
+// =========================================================================
+// ★ Plant 游戏逻辑核心方法
+// =========================================================================
+
+impl Plant {
+    unsafe fn board(&self) -> &'static mut super::board::Board {
+        &mut *(self.base.m_board as *mut super::board::Board)
+    }
+
+    unsafe fn app(&self) -> &'static mut crate::lawn_app::LawnApp {
+        &mut *(self.base.m_app as *mut crate::lawn_app::LawnApp)
+    }
+
+    /// C++ Plant::Update() — 主更新 (from Plant.cpp line 2853)
+    pub unsafe fn Update(&mut self) {
+        let mut do_update = false;
+        let board = self.board();
+        let app = self.app();
+
+        if self.base.m_visible && app.mGameScene as i32 == GameScenes::SCENE_LEVEL_INTRO as i32
+            && app.is_wallnut_bowling_level()
+        {
+            do_update = true;
+        } else if self.base.m_visible
+            && app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN as i32
+        {
+            do_update = true;
+        } else if self.base.m_visible && !board.mCutScene.is_null()
+            && (*board.mCutScene).ShouldRunUpsellBoard()
+        {
+            do_update = true;
+        } else if !self.base.m_visible
+            || app.mGameScene as i32 == GameScenes::SCENE_PLAYING as i32
+        {
+            do_update = true;
+        }
+
+        if do_update {
+            self.UpdateAbilities();
+            self.Animate();
+
+            if self.m_plant_health < 0 {
+                self.Die();
+            }
+
+            self.UpdateReanim();
+        }
+    }
+
+    /// C++ Plant::BeginDraw — 绘制前准备
+    pub unsafe fn BeginDraw(&self, g: &mut Graphics) -> bool {
+        if !self.base.m_visible || self.m_dead {
+            return false;
+        }
+        self.base.begin_draw(g)
+    }
+
+    pub unsafe fn EndDraw(&self, g: &mut Graphics) {
+        self.base.end_draw(g);
+    }
+
+    /// C++ Plant::Draw() (stub - rendering depends on Reanimation/Image system)
+    pub unsafe fn Draw(&self, _g: &mut Graphics) {
+        // TODO: Draw plant based on seed type
+        // Uses m_body_reanim_id, m_head_reanim_id etc.
+        // Rendering through Reanimation system
+    }
+
+    pub unsafe fn DrawMagnetItems(&self, _g: &mut Graphics) {
+        // TODO: Draw magnet items above plant
+    }
+
+    pub unsafe fn Die(&mut self) {
+        self.m_dead = true;
+        self.base.m_visible = false;
+    }
+
+    pub unsafe fn UpdateAbilities(&mut self) {
+        // TODO: Dispatch to plant-type-specific updates
+        // This is the main ability/action dispatch method
+    }
+
+    pub unsafe fn Animate(&mut self) {
+        // TODO: Frame and reanimation animation update
+    }
+
+    pub unsafe fn UpdateReanim(&mut self) {
+        // TODO: Reanimation update
+    }
+
+    pub unsafe fn NotOnGround(&self) -> bool {
+        if self.m_seed_type == SeedType::SEED_SQUASH {
+            if self.m_state == PlantState::STATE_SQUASH_RISING
+                || self.m_state == PlantState::STATE_SQUASH_FALLING
+                || self.m_state == PlantState::STATE_SQUASH_DONE_FALLING
+            {
+                return true;
+            }
+        }
+        self.m_squished || self.m_on_bungee_state == PlantOnBungeeState::RISING_WITH_BUNGEE || self.m_dead
     }
 }

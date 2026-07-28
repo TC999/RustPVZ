@@ -75,6 +75,58 @@ impl Projectile {
             m_last_portal_x: 0,
         }
     }
+
+    pub unsafe fn ProjectileInitialize(&mut self, theX: i32, theY: i32, theRenderOrder: i32, theRow: i32, theProjectileType: ProjectileType) {
+        self.m_pos_x = theX as f32;
+        self.m_pos_y = theY as f32;
+        self.base.m_render_order = theRenderOrder;
+        self.base.m_row = theRow;
+        self.m_projectile_type = theProjectileType;
+        self.m_dead = false;
+        self.m_projectile_age = 0;
+        // Set velocity based on projectile type
+        match theProjectileType {
+            ProjectileType::PROJECTILE_PEA => { self.m_vel_x = 4.0; }
+            ProjectileType::PROJECTILE_SNOWPEA => { self.m_vel_x = 4.0; }
+            ProjectileType::PROJECTILE_CABBAGE => { self.m_vel_x = 3.0; self.m_vel_z = -5.0; self.m_acc_z = 0.2; }
+            ProjectileType::PROJECTILE_MELON => { self.m_vel_x = 2.8; self.m_vel_z = -4.5; self.m_acc_z = 0.18; }
+            _ => { self.m_vel_x = 3.0; }
+        }
+    }
+
+    pub unsafe fn Update(&mut self) {
+        if self.m_dead { return; }
+        self.m_projectile_age += 1;
+        self.m_pos_x += self.m_vel_x;
+        self.m_pos_y += self.m_vel_y;
+        self.m_pos_z += self.m_vel_z;
+        self.m_vel_z += self.m_acc_z;
+
+        // Rotation for some projectile types
+        if self.m_rotation_speed != 0.0 {
+            self.m_rotation += self.m_rotation_speed;
+        }
+
+        // Check if projectile is offscreen
+        if self.m_pos_x > 900.0 || self.m_pos_x < -100.0 || self.m_pos_y > 700.0 {
+            self.m_dead = true;
+        }
+
+        // Animation
+        self.m_anim_counter += 1;
+        if self.m_anim_counter >= 6 {
+            self.m_anim_counter = 0;
+            self.m_frame += 1;
+            if self.m_frame >= self.m_num_frames {
+                self.m_frame = 0;
+            }
+        }
+    }
+
+    pub unsafe fn Draw(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        if self.m_dead { return; }
+        // TODO: Draw projectile sprite based on projectile_type and frame
+    }
 }
 
 impl Default for Projectile {

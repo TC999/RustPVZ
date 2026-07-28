@@ -7,12 +7,15 @@ use crate::game_constants::*;
 use crate::const_enums::*;
 use crate::lawn_app::LawnApp;
 use crate::lawn::plant::Plant;
+use crate::lawn::plant::{PlantState, PlantOnBungeeState};
 use crate::lawn::zombie::Zombie;
+use crate::lawn::zombie::ZOMBIE_START_RANDOM_OFFSET;
 use crate::lawn::projectile::Projectile;
 use crate::lawn::coin::Coin;
 use crate::lawn::lawn_mower::LawnMower;
 use crate::lawn::grid_item::GridItem;
-use crate::lawn::cursor_object::{CursorObject, CursorPreview, MessageWidget, GameButton, ToolTipWidget};
+use crate::lawn::cursor_object::{CursorObject, CursorPreview, GameButton, ToolTipWidget};
+use crate::lawn::message_widget::MessageWidget;
 use crate::lawn::seed_packet::{SeedBank, SeedPacket};
 use crate::lawn::cut_scene::CutScene;
 use crate::lawn::challenge::Challenge;
@@ -20,6 +23,7 @@ use crate::sexy_app_framework::misc::mtrand::MTRand;
 use crate::sexy_app_framework::common;
 use crate::sexy_tod_lib::data_array::DataArray;
 use crate::sexy_tod_lib::tod_common::{TodSmoothArray, clamp_int};
+use crate::sexy_app_framework::misc::rect::Rect;
 use crate::lawn::board_consts::*;
 
 pub static mut gShownMoreSunTutorial: bool = false;
@@ -164,6 +168,13 @@ pub struct Board {
     pub mPottedPlantsCollected: u32,
     pub mChocolateCollected: u32,
     pub mClip: bool,
+    // Widget base class fields (for Board's Widget inheritance in C++)
+    pub mUpdateCnt: u32,
+    pub mX: i32,
+    pub mY: i32,
+    pub mWidth: i32,
+    pub mHeight: i32,
+    pub mDirty: bool,
 }
 
 impl Board {
@@ -290,6 +301,12 @@ impl Board {
             mPottedPlantsCollected: 0,
             mChocolateCollected: 0,
             mClip: false,
+            mUpdateCnt: 0,
+            mX: 0,
+            mY: 0,
+            mWidth: 800,
+            mHeight: 600,
+            mDirty: true,
         }
     }
 }
@@ -1066,6 +1083,611 @@ impl Board {
 
     pub fn GetNumWavesPerSurvivalStage(&self) -> i32 {
         10
+    }
+
+    // =========================================================================
+    // ★ Board::Update() — 主更新循环 (from Board.cpp line 5809)
+    // =========================================================================
+    pub unsafe fn Update(&mut self) {
+        // Widget::Update();
+        self.mUpdateCnt += 1;
+        self.MarkDirty();
+
+        self.mBoardUpdateCounter += 1;
+        if !self.mCutScene.is_null() {
+            (*self.mCutScene).Update();
+        }
+        self.UpdateMousePosition();
+        if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN as i32 {
+            // mApp->mZenGarden->ZenGardenUpdate();
+        }
+        // if IsScaryPotterDaveTalking() { mApp->UpdateCrazyDave(); }
+
+        if self.mPaused {
+            if !self.mChallenge.is_null() {
+                (*self.mChallenge).Update();
+            }
+            if !self.mCursorPreview.is_null() {
+                (*self.mCursorPreview).mVisible = false;
+            }
+            if !self.mCursorObject.is_null() {
+                (*self.mCursorObject).mVisible = false;
+            }
+            return;
+        }
+
+        let aDisabled = !self.CanInteractWithBoardButtons() || self.mIgnoreMouseUp;
+        if !self.mMenuButton.is_null() && !(*self.mMenuButton).mBtnNoDraw {
+            (*self.mMenuButton).mDisabled = aDisabled;
+        }
+        if !self.mMenuButton.is_null() {
+            (*self.mMenuButton).Update();
+        }
+        if !self.mStoreButton.is_null() {
+            (*self.mStoreButton).mDisabled = aDisabled;
+            (*self.mStoreButton).Update();
+        }
+
+        // mApp->mEffectSystem->Update();
+        if !self.mAdvice.is_null() {
+            (*self.mAdvice).Update();
+        }
+        self.UpdateTutorial();
+
+        if self.mCobCannonCursorDelayCounter > 0 {
+            self.mCobCannonCursorDelayCounter -= 1;
+        }
+        if self.mOutOfMoneyCounter > 0 {
+            self.mOutOfMoneyCounter -= 1;
+        }
+        if self.mShakeCounter > 0 {
+            self.mShakeCounter -= 1;
+            if self.mShakeCounter == 0 {
+                self.mX = 0;
+                self.mY = 0;
+            } else {
+                // C++: if (!Rand(3)) mShakeAmountX = -mShakeAmountX;
+                // Use counter as simple pseudo-random source
+                if self.mShakeCounter % 3 == 0 {
+                    self.mShakeAmountX = -self.mShakeAmountX;
+                }
+                // TodAnimateCurve for shake effect (stub)
+                self.mX = self.mShakeAmountX;
+                self.mY = self.mShakeAmountY;
+            }
+        }
+        if self.mCoinBankFadeCount > 0 {
+            // if mApp->GetDialog(DIALOG_PURCHASE_PACKET_SLOT) == nullptr
+            self.mCoinBankFadeCount -= 1;
+        }
+        self.UpdateLayers();
+
+        if self.mTimeStopCounter > 0 {
+            return;
+        }
+
+        self.mEffectCounter += 1;
+        if self.StageHasPool() && self.mIceTrapCounter == 0
+            && (*self.mApp).mGameScene as i32 != GameScenes::SCENE_ZOMBIES_WON as i32
+            && (self.mCutScene.is_null() || !(*self.mCutScene).IsSurvivalRepick())
+        {
+            // mApp->mPoolEffect->mPoolCounter++;
+        }
+        if self.mBackground as i32 == BackgroundType::BACKGROUND_3_POOL as i32
+            && self.mPoolSparklyParticleID == u32::MAX
+        {
+            // int aRenderPosition = MakeRenderOrder(RENDER_LAYER_GROUND, 2, 0);
+            // mApp->AddTodParticle(...);
+        }
+
+        self.UpdateGridItems();
+        self.UpdateFwoosh();
+        self.UpdateGame();
+        self.UpdateFog();
+        if !self.mChallenge.is_null() {
+            (*self.mChallenge).Update();
+        }
+        // UpdateLevelEndSequence is called from UpdateGame's flow
+        // mPrevMouseX/Y updated elsewhere
+        self.mPrevMouseX = 0; // mApp->mWidgetManager->mLastMouseX
+        self.mPrevMouseY = 0;
+    }
+
+    pub unsafe fn MarkDirty(&mut self) {
+        // Corresponds to Widget::MarkDirty
+        self.mDirty = true;
+    }
+
+    pub unsafe fn UpdateLayers(&mut self) {
+        // WidgetManager::MarkAllDirty equivalent
+        // for each dialog in mApp->mDialogList: BringToFront + MarkDirty
+    }
+
+    pub unsafe fn UpdateMousePosition(&mut self) {
+        // stub: would update from WidgetManager
+    }
+
+    pub unsafe fn CanInteractWithBoardButtons(&self) -> bool {
+        let aScene = (*self.mApp).mGameScene;
+        aScene as i32 == GameScenes::SCENE_PLAYING as i32
+            || aScene as i32 == GameScenes::SCENE_ZOMBIES_WON as i32
+    }
+
+    pub unsafe fn StageHasPool(&self) -> bool {
+        self.mBackground as i32 == BackgroundType::BACKGROUND_3_POOL as i32
+            || self.mBackground as i32 == BackgroundType::BACKGROUND_4_FOG as i32
+    }
+
+    pub unsafe fn RowCanHaveZombies(&self, theRow: i32) -> bool {
+        if theRow < 0 || theRow >= MAX_GRID_SIZE_Y {
+            return false;
+        }
+        ((*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RESODDED as i32 && theRow <= 4)
+            || self.mPlantRow[theRow as usize] != 1  // PLANTROW_DIRT = 0, PLANTROW_NORMAL = 1
+    }
+
+    pub fn GetIceZPos(&self, theRow: i32) -> i32 {
+        Self::MakeRenderOrder(RenderLayer::RENDER_LAYER_GROUND, theRow, 2)
+    }
+
+    // =========================================================================
+    // ★ Board::UpdateGame() (from Board.cpp line 5747)
+    // =========================================================================
+    pub unsafe fn UpdateGame(&mut self) {
+        self.UpdateGameObjects();
+        if self.StageHasFog() && self.mFogBlownCountDown > 0 {
+            let aMaxFogOffset = 1065.0 - self.LeftFogColumn() as f32 * 80.0;
+            if (*self.mApp).mGameScene as i32 == GameScenes::SCENE_LEVEL_INTRO as i32 {
+                // Fog animation during intro
+                self.mFogOffset = aMaxFogOffset;
+            } else if self.mFogBlownCountDown < 2000 {
+                self.mFogOffset = aMaxFogOffset;
+            } else if self.mFogOffset < aMaxFogOffset {
+                self.mFogOffset = aMaxFogOffset;
+            }
+        }
+
+        if (*self.mApp).mGameScene as i32 != GameScenes::SCENE_PLAYING as i32
+            && (self.mCutScene.is_null() || !(*self.mCutScene).ShouldRunUpsellBoard())
+        {
+            return;
+        }
+
+        self.mMainCounter += 1;
+        self.UpdateSunSpawning();
+        self.UpdateZombieSpawning();
+        self.UpdateIce();
+        if self.mIceTrapCounter > 0 {
+            self.mIceTrapCounter -= 1;
+            if self.mIceTrapCounter == 0 && self.mPoolSparklyParticleID != u32::MAX {
+                // TodParticleSystem* p = mApp->ParticleTryToGet(mPoolSparklyParticleID);
+                // if (p) p->mDontUpdate = false;
+            }
+        }
+
+        if self.mFogBlownCountDown > 0 {
+            self.mFogBlownCountDown -= 1;
+        }
+
+        if self.mMainCounter == 1 && (*self.mApp).IsFirstTimeAdventureMode() {
+            if self.mLevel == 1 {
+                // SetTutorialState(TUTORIAL_LEVEL_1_PICK_UP_PEASHOOTER);
+            } else if self.mLevel == 2 {
+                // SetTutorialState(TUTORIAL_LEVEL_2_PICK_UP_SUNFLOWER);
+                // DisplayAdvice("[ADVICE_PLANT_SUNFLOWER1]", ...);
+                self.mTutorialTimer = 500;
+            }
+        }
+
+        self.UpdateProgressMeter();
+    }
+
+    // =========================================================================
+    // ★ 子函数 stubs (需后续实现完整逻辑)
+    // =========================================================================
+
+    pub unsafe fn UpdateGameObjects(&mut self) {
+        // TODO: Iterate all zombies, plants, projectiles and update them
+        // Corresponds to Board.cpp ~line 5780 area
+    }
+
+    pub unsafe fn UpdateSunSpawning(&mut self) {
+        // TODO: Natural sun drops, sunflower sun production
+    }
+
+    pub unsafe fn UpdateZombieSpawning(&mut self) {
+        // TODO: Spawn zombies based on wave definitions
+    }
+
+    pub unsafe fn UpdateIce(&mut self) {
+        // TODO: Ice melting logic
+        for aRow in 0..MAX_GRID_SIZE_Y as usize {
+            if self.mIceTimer[aRow] > 0 {
+                self.mIceTimer[aRow] -= 1;
+                if self.mIceTimer[aRow] == 0 {
+                    // Remove ice particles
+                }
+            }
+        }
+    }
+
+    pub unsafe fn UpdateProgressMeter(&mut self) {
+        // TODO: Update progress meter based on zombie health
+    }
+
+    pub unsafe fn UpdateTutorial(&mut self) {
+        // TODO: Tutorial state machine
+    }
+
+    pub unsafe fn UpdateFog(&mut self) {
+        // TODO: Fog scrolling logic
+    }
+
+    pub unsafe fn UpdateFwoosh(&mut self) {
+        // TODO: Fwoosh (lawn mower trail) update
+        if self.mFwooshCountDown > 0 {
+            self.mFwooshCountDown -= 1;
+        }
+    }
+
+    pub unsafe fn UpdateGridItems(&mut self) {
+        // TODO: Update grid items (graves, mushrooms, etc.)
+    }
+
+    // =========================================================================
+    // ★ Board helpers (predicate methods)
+    // =========================================================================
+
+    pub unsafe fn IsScaryPotterDaveTalking(&self) -> bool {
+        (*self.mApp).IsScaryPotterLevel() && self.mNextSurvivalStageCounter > 0
+            // && (*self.mApp).mCrazyDaveState != CrazyDaveState::CRAZY_DAVE_OFF
+    }
+
+    pub unsafe fn IsSurvivalStageWithRepick(&self) -> bool {
+        (*self.mApp).is_survival_mode() && !self.IsFinalSurvivalStage()
+    }
+
+    pub unsafe fn IsFinalSurvivalStage(&self) -> bool {
+        let mode = (*self.mApp).mGameMode as i32;
+        mode == GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_5 as i32
+            || mode == GameMode::GAMEMODE_SURVIVAL_HARD_STAGE_5 as i32
+            || mode == GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_5 as i32
+    }
+
+    pub unsafe fn IsFinalScaryPotterStage(&self) -> bool {
+        if !(*self.mApp).IsScaryPotterLevel() { return false; }
+        if (*self.mApp).is_adventure_mode() {
+            return !self.mChallenge.is_null() && (*self.mChallenge).mSurvivalStage == 2;
+        }
+        // !IsEndlessScaryPotter
+        (*self.mApp).mGameMode as i32 != GameMode::GAMEMODE_SCARY_POTTER_ENDLESS as i32
+    }
+
+    pub unsafe fn IsLastStandFinalStage(&self) -> bool {
+        // TODO: check last stand stage
+        false
+    }
+
+    pub unsafe fn CanDropLoot(&self) -> bool {
+        (!self.mCutScene.is_null() && !(*self.mCutScene).ShouldRunUpsellBoard())
+            && (!(*self.mApp).IsFirstTimeAdventureMode() || self.mLevel >= 11)
+    }
+
+    // =========================================================================
+    // ★ Board::MouseDown() — 鼠标按下 (from Board.cpp line 4481)
+    // =========================================================================
+    pub unsafe fn MouseDown(&mut self, x: i32, y: i32, theClickCount: i32) {
+        self.UpdateMousePosition();
+        // Widget::MouseDown(x, y, theClickCount);
+        self.mIgnoreMouseUp = !self.CanInteractWithBoardButtons();
+        if self.mTimeStopCounter > 0 { return; }
+
+        // HitResult aHitResult;
+        // MouseHitTest(x, y, &aHitResult);
+        // if mChallenge->MouseDown(x, y, theClickCount, &aHitResult) { return; }
+
+        if !self.mMenuButton.is_null() && self.CanInteractWithBoardButtons() && theClickCount > 0 {
+            // Play sample SOUND_GRAVEBUTTON
+        }
+
+        if (*self.mApp).mGameScene as i32 == GameScenes::SCENE_ZOMBIES_WON as i32 {
+            if !self.mCutScene.is_null() {
+                // mCutScene->ZombieWonClick();
+            }
+            return;
+        }
+        if (*self.mApp).mGameScene as i32 == GameScenes::SCENE_LEVEL_INTRO as i32 {
+            if !self.mCutScene.is_null() {
+                // mCutScene->MouseDown(x, y);
+            }
+        }
+
+        // Cheat key handling
+        if (*self.mApp).m_tod_cheat_keys && !(*self.mApp).IsScaryPotterLevel() && self.mNextSurvivalStageCounter > 0 {
+            self.mNextSurvivalStageCounter = 2;
+            for i in 0..MAX_GRID_SIZE_Y as usize {
+                if self.mIceTimer[i] > 2 { self.mIceTimer[i] = 2; }
+            }
+        }
+
+        // Cursor-based dispatch (stub)
+        // TODO: Full mouse dispatch: CursorObject, SeedPacket, ZenGarden tools etc.
+        // UpdateCursor();
+    }
+
+    pub unsafe fn MouseUp(&mut self, x: i32, y: i32, theClickCount: i32) {
+        // Widget::MouseUp(x, y, theClickCount);
+        if self.mIgnoreMouseUp {
+            self.mIgnoreMouseUp = false;
+            return;
+        }
+
+        // if mChallenge->MouseUp(x, y) && theClickCount > 0 { return; }
+
+        if self.CanInteractWithBoardButtons() && theClickCount > 0 {
+            // Menu button handling
+            if !self.mMenuButton.is_null() {
+                // if mMenuButton->IsMouseOver() && !GetDialog(DIALOG_GAME_OVER) ...
+                // mMenuButton->mIsOver = false;
+                // mMenuButton->mIsDown = false;
+                // UpdateCursor();
+                // ClearCursor();
+            }
+            // Store button handling
+            if !self.mStoreButton.is_null() {
+                // if mStoreButton->IsMouseOver() ...
+            }
+        }
+        // UpdateCursor();
+    }
+
+    pub unsafe fn MouseMove(&mut self, _x: i32, _y: i32) {
+        // Widget::MouseMove(x, y);
+        // UpdateCursor();
+    }
+
+    pub unsafe fn MouseDrag(&mut self, _x: i32, _y: i32) {
+        // Widget::MouseDrag(x, y);
+    }
+
+    // =========================================================================
+    // ★ Board::Draw() — 主渲染 (from Board.cpp line 7616)
+    // =========================================================================
+    pub unsafe fn Draw(&mut self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // if mApp->GetDialog(DIALOG_STORE) || mApp->GetDialog(DIALOG_ALMANAC) { return; }
+        // g->SetLinearBlend(true);
+
+        // FPS stats update (stub: timing infrastructure not yet available)
+        self.mDrawCount += 1;
+        self.DrawGameObjects(_g);
+    }
+
+    pub unsafe fn DrawGameObjects(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // TODO: Full render list building and sorting
+        // In C++: creates RenderItem array, sorts by Z-order, dispatches each item
+        // The rendering pipeline depends on Graphics, Image, Reanimation, Particle
+        // subsystems that are partially implemented.
+        // This is a structural placeholder.
+    }
+
+    // =========================================================================
+    // ★ Board::KeyDown() / KeyChar() — 键盘输入 (from Board.cpp)
+    // =========================================================================
+    pub unsafe fn KeyDown(&mut self, _key: i32) {
+        // Widget::KeyDown(key);
+        // DoTypingCheck(key);
+    }
+
+    pub unsafe fn KeyChar(&mut self, _c: char) {
+        // Widget::KeyChar(c);
+    }
+
+    // =========================================================================
+    // ★ 游戏对象管理方法
+    // =========================================================================
+
+    /// Board::AddPlant (from Board.cpp:2148)
+    pub unsafe fn AddPlant(&mut self, theGridX: i32, theGridY: i32, theSeedType: SeedType, theImitaterType: SeedType) -> *mut Plant {
+        // NewPlant creates a new plant and adds it to mPlants
+        let aPlant = self.NewPlant(theGridX, theGridY, theSeedType as i32, theImitaterType as i32);
+        // DoPlantingEffects(theGridX, theGridY, aPlant);
+        if !self.mChallenge.is_null() {
+            (*self.mChallenge).PlantAdded(aPlant);
+        }
+
+        // Track sun-producer count
+        let aSunPlantsCount = self.CountPlantByType(SeedType::SEED_SUNSHROOM)
+            + self.CountPlantByType(SeedType::SEED_SUNFLOWER);
+        if aSunPlantsCount > self.mMaxSunPlants {
+            self.mMaxSunPlants = aSunPlantsCount;
+        }
+
+        // Track used plant types for challenge/trophy conditions
+        match theSeedType {
+            SeedType::SEED_PEASHOOTER | SeedType::SEED_SNOWPEA | SeedType::SEED_REPEATER
+            | SeedType::SEED_THREEPEATER | SeedType::SEED_SPLITPEA | SeedType::SEED_GATLINGPEA => {
+                self.mPeaShooterUsed = true;
+            }
+            SeedType::SEED_CABBAGEPULT | SeedType::SEED_KERNELPULT
+            | SeedType::SEED_MELONPULT | SeedType::SEED_WINTERMELON => {
+                self.mCatapultPlantsUsed = true;
+            }
+            _ => {}
+        }
+
+        let aIsFungi = Plant::is_fungus(theSeedType);
+        if !Plant::is_flying(theSeedType) && !aIsFungi {
+            self.mMushroomAndCoffeeBeansOnly = false;
+        }
+        if aIsFungi {
+            self.mMushroomsUsed = true;
+        }
+
+        aPlant
+    }
+
+    /// Board::NewPlant — 创建新植物实例 (from Board.cpp ~line 2100)
+    pub unsafe fn NewPlant(&mut self, theGridX: i32, theGridY: i32, theSeedType: i32, theImitaterType: i32) -> *mut Plant {
+        let aPlant = self.mPlants.data_array_alloc();
+        if aPlant.is_null() { return std::ptr::null_mut(); }
+
+        (*aPlant).m_seed_type = std::mem::transmute(theSeedType);
+        (*aPlant).m_plant_col = theGridX;
+        (*aPlant).base.m_row = theGridY;
+        (*aPlant).m_plant_health = 300; // default health
+        (*aPlant).m_plant_max_health = 300;
+        (*aPlant).m_frame = 0;
+        (*aPlant).m_anim_counter = 0;
+        (*aPlant).m_frame_length = 12;
+        (*aPlant).m_num_frames = 1;
+        (*aPlant).m_state = PlantState::STATE_NOTREADY;
+        (*aPlant).m_on_bungee_state = PlantOnBungeeState::NOT_ON_BUNGEE;
+        (*aPlant).m_is_asleep = Plant::is_fungus((*aPlant).m_seed_type) && self.StageIsNight();
+        (*aPlant).m_imitater_type = theImitaterType;
+        (*aPlant).m_potted_plant_index = -1;
+        (*aPlant).base.m_x = self.GridToPixelX(theGridX, theGridY);
+        (*aPlant).base.m_y = self.GridToPixelY(theGridX, theGridY);
+        (*aPlant).base.m_visible = true;
+        (*aPlant).base.m_board = self as *mut Board as *mut std::ffi::c_void;
+        // Set plant rect
+        (*aPlant).m_plant_rect = Rect::new(10, 0, 60, 80);
+        (*aPlant).m_plant_attack_rect = Rect::new(0, 0, 0, 0);
+
+        aPlant
+    }
+
+    /// Board::AddProjectile (from Board.cpp:2403)
+    pub unsafe fn AddProjectile(&mut self, theX: i32, theY: i32, theRenderOrder: i32, theRow: i32, theProjectileType: ProjectileType) -> *mut Projectile {
+        let aProjectile = self.mProjectiles.data_array_alloc();
+        if aProjectile.is_null() { return std::ptr::null_mut(); }
+        (*aProjectile).ProjectileInitialize(theX, theY, theRenderOrder, theRow, theProjectileType);
+        aProjectile
+    }
+
+    /// Board::AddCoin (from Board.cpp:2031)
+    pub unsafe fn AddCoin(&mut self, theX: i32, theY: i32, theCoinType: CoinType, theCoinMotion: CoinMotion) -> *mut Coin {
+        let aCoin = self.mCoins.data_array_alloc();
+        if aCoin.is_null() { return std::ptr::null_mut(); }
+        (*aCoin).CoinInitialize(theX, theY, theCoinType, theCoinMotion);
+        if (*self.mApp).IsFirstTimeAdventureMode() && self.mLevel == 1 {
+            // DisplayAdvice("[ADVICE_CLICK_ON_SUN]", ...);
+        }
+        aCoin
+    }
+
+    /// Board::AddZombie (from Board.cpp:2729)
+    pub unsafe fn AddZombie(&mut self, theZombieType: ZombieType, theFromWave: i32) -> *mut Zombie {
+        let aZombie = self.mZombies.data_array_alloc();
+        if aZombie.is_null() { return std::ptr::null_mut(); }
+        // ZombieInitialize simplified
+        let aRow = if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RESODDED as i32 {
+            crate::sexy_tod_lib::tod_common::rand_range_int(0, 4)
+        } else {
+            crate::sexy_tod_lib::tod_common::rand_range_int(0, MAX_GRID_SIZE_Y - 1)
+        };
+        self.AddZombieInRow(theZombieType, aRow, theFromWave)
+    }
+
+    /// Board::AddZombieInRow (from Board.cpp:2702)
+    pub unsafe fn AddZombieInRow(&mut self, theZombieType: ZombieType, theRow: i32, theFromWave: i32) -> *mut Zombie {
+        let aZombie = self.mZombies.data_array_alloc();
+        if aZombie.is_null() { return std::ptr::null_mut(); }
+        if theRow < 0 || theRow >= MAX_GRID_SIZE_Y || !self.RowCanHaveZombies(theRow) {
+            return std::ptr::null_mut();
+        }
+
+        (*aZombie).m_zombie_type = theZombieType;
+        (*aZombie).base.m_row = theRow;
+        (*aZombie).m_from_wave = theFromWave;
+        (*aZombie).m_pos_x = 780.0 + crate::sexy_tod_lib::tod_common::rand_range_int(0, ZOMBIE_START_RANDOM_OFFSET - 1) as f32;
+        (*aZombie).m_pos_y = 0.0; // GetPosYBasedOnRow(theRow)
+        (*aZombie).m_body_health = 270; // default
+        (*aZombie).m_body_max_health = 270;
+        (*aZombie).m_zombie_phase = ZombiePhase::PHASE_ZOMBIE_NORMAL;
+        (*aZombie).m_anim_ticks_per_frame = 12;
+        (*aZombie).m_anim_frames = 12;
+        (*aZombie).m_dead = false;
+        (*aZombie).m_has_head = true;
+        (*aZombie).m_has_arm = true;
+        (*aZombie).m_dropped_loot = false;
+        (*aZombie).m_related_zombie_id = ZombieID::ZOMBIEID_NULL;
+        (*aZombie).base.m_render_order = crate::lawn::zombie::RENDER_GROUP_SHIELD;
+        (*aZombie).base.m_board = self as *mut Board as *mut std::ffi::c_void;
+        (*aZombie).m_zombie_rect = Rect::new(36, 0, 42, 115);
+        (*aZombie).m_zombie_attack_rect = Rect::new(50, 0, 20, 115);
+
+        aZombie
+    }
+
+    /// Board::CanPlantAt (from Board.cpp:2779)
+    pub unsafe fn CanPlantAt(&self, theGridX: i32, theGridY: i32, theSeedType: SeedType) -> PlantingReason {
+        if theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y {
+            return PlantingReason::PLANTING_NOT_HERE;
+        }
+
+        // Challenge-specific checks
+        if !self.mChallenge.is_null() {
+            let aReason = (*self.mChallenge).CanPlantAt(theGridX, theGridY, theSeedType);
+            if aReason != PlantingReason::PLANTING_OK {
+                return aReason;
+            }
+        }
+
+        // Basic grid checks
+        let gridSquare = self.mGridSquareType[theGridX as usize][theGridY as usize];
+        if gridSquare == GridSquareType::GRIDSQUARE_DIRT || gridSquare == GridSquareType::GRIDSQUARE_NONE {
+            return PlantingReason::PLANTING_NOT_HERE;
+        }
+
+        // TODO: Full CanPlantAt logic with grave/highground/flowerpot/lilypad checks
+        PlantingReason::PLANTING_OK
+    }
+
+    // === Board helpers for plant management ===
+
+    pub unsafe fn CountPlantByType(&self, theSeedType: SeedType) -> i32 {
+        let mut count = 0;
+        let mut aPlant: *mut Plant = std::ptr::null_mut();
+        while self.IteratePlants(&mut aPlant) {
+            if (*aPlant).m_seed_type == theSeedType && !(*aPlant).m_dead {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    pub unsafe fn IsPlantInCursor(&self) -> bool {
+        if self.mCursorObject.is_null() { return false; }
+        let ct = (*self.mCursorObject).mType;
+        ct == CursorType::CURSOR_TYPE_PLANT_FROM_BANK
+            || ct == CursorType::CURSOR_TYPE_PLANT_FROM_USABLE_COIN
+            || ct == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE
+            || ct == CursorType::CURSOR_TYPE_PLANT_FROM_DUPLICATOR
+            || ct == CursorType::CURSOR_TYPE_PLANT_FROM_WHEEL_BARROW
+    }
+
+    pub unsafe fn GetPumpkinAt(&self, theGridX: i32, theGridY: i32) -> *mut Plant {
+        let mut aPlant: *mut Plant = std::ptr::null_mut();
+        while self.IteratePlants(&mut aPlant) {
+            if (*aPlant).m_plant_col == theGridX && (*aPlant).base.m_row == theGridY
+                && !(*aPlant).NotOnGround() && (*aPlant).m_seed_type == SeedType::SEED_PUMPKINSHELL
+            {
+                return aPlant;
+            }
+        }
+        std::ptr::null_mut()
+    }
+
+    pub unsafe fn GetFlowerPotAt(&self, theGridX: i32, theGridY: i32) -> *mut Plant {
+        let mut aPlant: *mut Plant = std::ptr::null_mut();
+        while self.IteratePlants(&mut aPlant) {
+            if (*aPlant).m_plant_col == theGridX && (*aPlant).base.m_row == theGridY
+                && !(*aPlant).NotOnGround() && (*aPlant).m_seed_type == SeedType::SEED_FLOWERPOT
+            {
+                return aPlant;
+            }
+        }
+        std::ptr::null_mut()
     }
 }
 

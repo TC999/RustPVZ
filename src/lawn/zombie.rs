@@ -3,6 +3,7 @@
 
 use crate::const_enums::*;
 use super::game_object::GameObject;
+use crate::sexy_app_framework::graphics::graphics::Graphics;
 
 pub const MAX_ZOMBIE_FOLLOWERS: i32 = 4;
 pub const NUM_BOBSLED_FOLLOWERS: i32 = 3;
@@ -257,4 +258,243 @@ impl Default for Zombie {
     fn default() -> Self {
         Self::new()
     }
+}
+
+// =========================================================================
+// ★ ZombieDefinition — 僵尸类型定义数据 (from Zombie.h:423)
+// =========================================================================
+#[derive(Clone, Copy)]
+pub struct ZombieDefinition {
+    pub mZombieType: ZombieType,
+    pub mReanimationType: ReanimationType,
+    pub mZombieValue: i32,
+    pub mStartingLevel: i32,
+    pub mFirstAllowedWave: i32,
+    pub mPickWeight: i32,
+}
+
+pub const NUM_ZOMBIE_TYPES: i32 = 34;
+
+// gZombieDefs array (stub - will be populated properly in future)
+pub static mut G_ZOMBIE_DEFS: [ZombieDefinition; 34] = [ZombieDefinition {
+    mZombieType: ZombieType::ZOMBIE_NORMAL,
+    mReanimationType: ReanimationType::REANIM_NONE,
+    mZombieValue: 0,
+    mStartingLevel: 0,
+    mFirstAllowedWave: 0,
+    mPickWeight: 1,
+}; 34];
+
+pub fn GetZombieDefinition(theZombieType: ZombieType) -> &'static ZombieDefinition {
+    unsafe { &G_ZOMBIE_DEFS[theZombieType as usize] }
+}
+
+// =========================================================================
+// ★ Zombie 游戏逻辑核心方法
+// =========================================================================
+
+impl Zombie {
+    /// 获取所属 Board 的可变引用
+    unsafe fn board(&self) -> &'static mut super::board::Board {
+        let ptr = self.base.m_board as *mut super::board::Board;
+        debug_assert!(!ptr.is_null());
+        &mut *ptr
+    }
+
+    /// 获取所属 LawnApp 的可变引用
+    unsafe fn app(&self) -> &'static mut crate::lawn_app::LawnApp {
+        &mut *(self.base.m_app as *mut crate::lawn_app::LawnApp)
+    }
+
+    pub unsafe fn IsDeadOrDying(&self) -> bool {
+        self.m_dead
+            || self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_DYING
+            || self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_BURNED
+            || self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_MOWERED
+    }
+
+    pub unsafe fn IsOnBoard(&self) -> bool {
+        !self.base.m_board.is_null()
+    }
+
+    /// C++ Zombie::Update() — 主更新循环 (lines 4270-4361)
+    pub unsafe fn Update(&mut self) {
+        // TOD_ASSERT(!mDead)
+        self.m_zombie_age += 1;
+        let mut do_update = false;
+
+        let board = self.board();
+        if (*self.app()).mGameScene as i32 == GameScenes::SCENE_LEVEL_INTRO as i32
+            && self.m_zombie_type == ZombieType::ZOMBIE_BOSS
+        {
+            do_update = true;
+        } else if self.IsOnBoard() && !board.mCutScene.is_null()
+            && (*board.mCutScene).ShouldRunUpsellBoard()
+        {
+            do_update = true;
+        } else if (*self.app()).mGameScene as i32 == GameScenes::SCENE_PLAYING as i32
+            || !self.IsOnBoard()
+            || self.m_from_wave == crate::lawn::zombie::ZOMBIE_WAVE_WINNER
+        {
+            do_update = true;
+        }
+
+        if do_update {
+            if self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_BURNED {
+                self.UpdateBurn();
+            } else if self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_MOWERED {
+                self.UpdateMowered();
+            } else if self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_DYING {
+                self.UpdateDeath();
+                self.UpdateZombieWalking();
+            } else {
+                if self.m_phase_counter > 0 && !self.IsImmobilizied() {
+                    self.m_phase_counter -= 1;
+                }
+
+                if (*self.app()).mGameScene as i32 == GameScenes::SCENE_ZOMBIES_WON as i32 {
+                    if !board.mCutScene.is_null() {
+                        // if board->mCutScene->ShowZombieWalking()
+                        self.UpdateZombieChimney();
+                        self.UpdateZombieWalking();
+                    }
+                } else if self.IsOnBoard() {
+                    self.UpdatePlaying();
+                }
+
+                // Zombie-type-specific updates
+                if self.m_zombie_type == ZombieType::ZOMBIE_BUNGEE {
+                    self.UpdateZombieBungee();
+                }
+                if self.m_zombie_type == ZombieType::ZOMBIE_POGO {
+                    self.UpdateZombiePogo();
+                }
+
+                self.Animate();
+            }
+
+            if self.m_just_got_shot_counter > 0 {
+                self.m_just_got_shot_counter -= 1;
+            }
+            if self.m_shield_just_got_shot_counter > 0 {
+                self.m_shield_just_got_shot_counter -= 1;
+            }
+            if self.m_shield_recoil_counter > 0 {
+                self.m_shield_recoil_counter -= 1;
+            }
+            if self.m_zombie_fade > 0 {
+                self.m_zombie_fade -= 1;
+                if self.m_zombie_fade == 0 {
+                    self.DieNoLoot();
+                }
+            }
+
+            self.base.m_x = self.m_pos_x as i32;
+            self.base.m_y = self.m_pos_y as i32;
+
+            // AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY);
+            self.UpdateReanim();
+        }
+    }
+
+    /// C++ Zombie::Draw() — 绘制 (lines 6264-6315)
+    pub unsafe fn Draw(&self, g: &mut Graphics) {
+        if self.m_zombie_height == ZombieHeight::HEIGHT_GETTING_BUNGEE_DROPPED {
+            return;
+        }
+
+        // ZombieDrawPosition aDrawPos;
+        // GetDrawPos(aDrawPos);
+        let board = self.board();
+
+        if (*self.app()).mGameScene as i32 == GameScenes::SCENE_ZOMBIES_WON as i32 {
+            // if !SetupDrawZombieWon(g) { return; }
+        }
+
+        if self.m_ice_trap_counter > 0 {
+            // DrawIceTrap(g, aDrawPos, false);
+        }
+        if (*self.app()).mGameMode as i32 != GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL as i32
+            || self.m_from_wave == crate::lawn::zombie::ZOMBIE_WAVE_UI
+        {
+            if self.m_body_reanim_id != ReanimationID::REANIMATIONID_NULL {
+                // DrawReanim(g, aDrawPos, RENDER_GROUP_NORMAL);
+            }
+        }
+        if self.m_ice_trap_counter > 0 {
+            // DrawIceTrap(g, aDrawPos, true);
+        }
+        if self.m_buttered_counter > 0 {
+            // DrawButter(g, aDrawPos);
+        }
+
+        // AttachmentDraw
+        // g->ClearClipRect();
+    }
+
+    // === Sub-update methods (stubs, to be filled in) ===
+
+    pub unsafe fn UpdatePlaying(&mut self) {
+        // TODO: Full zombie playing update - movement, eating, etc.
+        self.UpdateActions();
+        self.UpdateZombiePosition();
+        self.UpdateYuckyFace();
+        self.UpdateBurn();
+        self.UpdateDeath();
+        self.UpdateMowered();
+        self.UpdateZombiePool();
+        self.UpdateZombieHighGround();
+        self.UpdateZombieFalling();
+        self.UpdateAnimSpeed();
+    }
+
+    pub unsafe fn UpdateActions(&mut self) {
+        // TODO: Zombie action dispatch based on type and state
+        // Handles: walking, eating, pole-vaulting, dolphin-riding, etc.
+    }
+
+    pub unsafe fn UpdateZombieWalking(&mut self) {
+        // TODO: Movement logic
+    }
+
+    pub unsafe fn UpdateZombiePosition(&mut self) {
+        // TODO: Position update from velocity
+    }
+
+    pub unsafe fn Animate(&mut self) {
+        // TODO: Frame animation counter update
+        self.m_anim_counter += 1;
+        if self.m_anim_counter >= self.m_anim_ticks_per_frame {
+            self.m_anim_counter = 0;
+            self.m_prev_frame = self.m_frame;
+            self.m_frame += 1;
+        }
+    }
+
+    pub unsafe fn UpdateBurn(&mut self) {}
+    pub unsafe fn UpdateDeath(&mut self) {}
+    pub unsafe fn UpdateMowered(&mut self) {}
+    pub unsafe fn UpdateZombieBungee(&mut self) {}
+    pub unsafe fn UpdateZombiePogo(&mut self) {}
+    pub unsafe fn UpdateZombieChimney(&mut self) {}
+    pub unsafe fn UpdateReanim(&mut self) {}
+    pub unsafe fn UpdateYuckyFace(&mut self) {}
+    pub unsafe fn UpdateZombiePool(&mut self) {}
+    pub unsafe fn UpdateZombieHighGround(&mut self) {}
+    pub unsafe fn UpdateZombieFalling(&mut self) {}
+    pub unsafe fn UpdateAnimSpeed(&mut self) {}
+    pub unsafe fn DieNoLoot(&mut self) {
+        self.m_dead = true;
+    }
+    pub unsafe fn IsImmobilizied(&self) -> bool {
+        self.m_chilled_counter > 0 || self.m_buttered_counter > 0
+    }
+    pub unsafe fn HasShadow(&self) -> bool {
+        self.m_zombie_type == ZombieType::ZOMBIE_BOSS
+            || self.m_zombie_type == ZombieType::ZOMBIE_GARGANTUAR
+            || self.m_zombie_type == ZombieType::ZOMBIE_CATAPULT
+    }
+    pub unsafe fn EnableMustache(&mut self, _enable: bool) {}
+    pub unsafe fn EnableFuture(&mut self, _enable: bool) {}
+    pub unsafe fn EnableDance(&mut self) {}
 }

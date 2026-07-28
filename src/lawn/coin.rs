@@ -113,6 +113,92 @@ impl Coin {
             m_times_dropped: 0,
         }
     }
+
+    pub unsafe fn CoinInitialize(&mut self, theX: i32, theY: i32, theCoinType: CoinType, theCoinMotion: CoinMotion) {
+        self.m_pos_x = theX as f32;
+        self.m_pos_y = theY as f32;
+        self.m_type = theCoinType;
+        self.m_coin_motion = theCoinMotion;
+        self.m_dead = false;
+        self.m_coin_age = 0;
+        self.base.m_visible = true;
+        self.m_hit_ground = false;
+        self.m_times_dropped = 0;
+    }
+
+    pub unsafe fn Update(&mut self) {
+        if self.m_dead {
+            return;
+        }
+        self.m_coin_age += 1;
+
+        // Coin motion based on type
+        match self.m_coin_motion {
+            CoinMotion::COIN_MOTION_FROM_SKY => {
+                if !self.m_hit_ground {
+                    self.m_vel_y += 0.3;
+                    self.m_pos_y += self.m_vel_y;
+                    if self.m_pos_y >= self.m_ground_y as f32 {
+                        self.m_pos_y = self.m_ground_y as f32;
+                        self.m_hit_ground = true;
+                    }
+                }
+            }
+            CoinMotion::COIN_MOTION_FROM_PLANT => {
+                self.m_vel_x += 2.0;
+                self.m_pos_x += self.m_vel_x;
+            }
+            CoinMotion::COIN_MOTION_COIN => {
+                // Coin spawning from plant death
+            }
+            CoinMotion::COIN_MOTION_LAWNMOWER_COIN => {
+                // Lawn mower coin drop
+            }
+            _ => {}
+        }
+
+        // Collection animation
+        if self.m_is_being_collected {
+            // Move towards collection point
+            self.m_fade_count += 1;
+            if self.m_fade_count > 100 {
+                self.m_dead = true;
+            }
+        }
+
+        // Disappear counter
+        if self.m_disappear_counter > 0 {
+            self.m_disappear_counter -= 1;
+            if self.m_disappear_counter == 0 {
+                self.m_dead = true;
+            }
+        }
+    }
+
+    pub unsafe fn Draw(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        if self.m_dead {
+            return;
+        }
+        // TODO: Draw coin image based on m_type
+    }
+
+    pub unsafe fn MouseDown(&mut self, _x: i32, _y: i32, _click_count: i32) {
+        if self.m_dead {
+            return;
+        }
+        self.m_is_being_collected = true;
+    }
+
+    pub unsafe fn GetCoinValue(theCoinType: CoinType) -> i32 {
+        match theCoinType {
+            CoinType::COIN_SUN => 25,
+            CoinType::COIN_SILVER => 10,
+            CoinType::COIN_GOLD => 100,
+            CoinType::COIN_DIAMOND => 1000,
+            CoinType::COIN_FINAL_SEED_PACKET => 100,
+            _ => 0,
+        }
+    }
 }
 
 impl Default for Coin {

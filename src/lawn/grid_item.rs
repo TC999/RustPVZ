@@ -66,3 +66,65 @@ impl Default for GridItem {
         Self::new()
     }
 }
+
+impl GridItem {
+    pub unsafe fn Update(&mut self) {
+        if self.mDead { return; }
+        self.mGridItemCounter += 1;
+
+        match self.mGridItemType {
+            GridItemType::GRIDITEM_GRAVESTONE => {
+                // Grave stones don't update
+            }
+            GridItemType::GRIDITEM_CRATER => {
+                if self.mCraterCounter > 0 {
+                    self.mCraterCounter -= 1;
+                    if self.mCraterCounter == 0 {
+                        // Crater becomes grass again
+                        self.mDead = true;
+                    }
+                }
+            }
+            GridItemType::GRIDITEM_PORTAL_CIRCLE => {
+                // Portal visual animation
+                self.mAnimCounter += 1;
+                if self.mAnimCounter >= 8 {
+                    self.mAnimCounter = 0;
+                    self.mFrame += 1;
+                    if self.mFrame >= 4 { self.mFrame = 0; }
+                }
+            }
+            GridItemType::GRIDITEM_LADDER => {
+                // Update ladder position
+            }
+            _ => {}
+        }
+    }
+
+    pub unsafe fn Draw(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        if self.mDead { return; }
+        // TODO: Draw based on mGridItemType
+    }
+
+    pub unsafe fn GridItemInitialize(&mut self, theGridX: i32, theGridY: i32, theGridItemType: GridItemType) {
+        self.mGridX = theGridX;
+        self.mGridY = theGridY;
+        self.mGridItemType = theGridItemType;
+        self.mDead = false;
+        self.mPosX = theGridX as f32 * 80.0 + 40.0;
+        self.mPosY = 80.0 + theGridY as f32 * 100.0;
+        self.mRenderOrder = 0;
+        self.mGridItemCounter = 0;
+        self.mGridItemState = 0;
+
+        match theGridItemType {
+            GridItemType::GRIDITEM_GRAVESTONE => {
+                self.mCraterCounter = 0;
+            }
+            GridItemType::GRIDITEM_CRATER => {
+                self.mCraterCounter = 3000; // Time until crater disappears
+            }
+            _ => {}
+        }
+    }
+}
