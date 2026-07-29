@@ -76,6 +76,7 @@ impl Projectile {
         }
     }
 
+    /// C++ Projectile::ProjectileInitialize (Projectile.cpp:62)
     pub unsafe fn ProjectileInitialize(&mut self, theX: i32, theY: i32, theRenderOrder: i32, theRow: i32, theProjectileType: ProjectileType) {
         self.m_pos_x = theX as f32;
         self.m_pos_y = theY as f32;
@@ -84,48 +85,146 @@ impl Projectile {
         self.m_projectile_type = theProjectileType;
         self.m_dead = false;
         self.m_projectile_age = 0;
-        // Set velocity based on projectile type
+
+        // Set motion type and velocity based on projectile type (C++ ProjectileInitialize)
         match theProjectileType {
-            ProjectileType::PROJECTILE_PEA => { self.m_vel_x = 4.0; }
-            ProjectileType::PROJECTILE_SNOWPEA => { self.m_vel_x = 4.0; }
-            ProjectileType::PROJECTILE_CABBAGE => { self.m_vel_x = 3.0; self.m_vel_z = -5.0; self.m_acc_z = 0.2; }
-            ProjectileType::PROJECTILE_MELON => { self.m_vel_x = 2.8; self.m_vel_z = -4.5; self.m_acc_z = 0.18; }
-            _ => { self.m_vel_x = 3.0; }
-        }
-    }
-
-    pub unsafe fn Update(&mut self) {
-        if self.m_dead { return; }
-        self.m_projectile_age += 1;
-        self.m_pos_x += self.m_vel_x;
-        self.m_pos_y += self.m_vel_y;
-        self.m_pos_z += self.m_vel_z;
-        self.m_vel_z += self.m_acc_z;
-
-        // Rotation for some projectile types
-        if self.m_rotation_speed != 0.0 {
-            self.m_rotation += self.m_rotation_speed;
-        }
-
-        // Check if projectile is offscreen
-        if self.m_pos_x > 900.0 || self.m_pos_x < -100.0 || self.m_pos_y > 700.0 {
-            self.m_dead = true;
-        }
-
-        // Animation
-        self.m_anim_counter += 1;
-        if self.m_anim_counter >= 6 {
-            self.m_anim_counter = 0;
-            self.m_frame += 1;
-            if self.m_frame >= self.m_num_frames {
-                self.m_frame = 0;
+            ProjectileType::PROJECTILE_PEA | ProjectileType::PROJECTILE_SNOWPEA
+            | ProjectileType::PROJECTILE_FIREBALL
+            | ProjectileType::PROJECTILE_SPIKE | ProjectileType::PROJECTILE_SPIKEROCK => {
+                self.m_motion_type = 0; // MOTION_NORMAL
+                self.m_vel_x = 4.0;
+                self.m_anim_ticks_per_frame = 3;
+            }
+            ProjectileType::PROJECTILE_CABBAGE | ProjectileType::PROJECTILE_MELON
+            | ProjectileType::PROJECTILE_WINTERMELON | ProjectileType::PROJECTILE_KERNEL
+            | ProjectileType::PROJECTILE_BUTTER | ProjectileType::PROJECTILE_COB => {
+                self.m_motion_type = 1; // MOTION_LOBBED
+                self.m_vel_x = 3.0;
+                self.m_vel_z = -5.0;
+                self.m_acc_z = 0.18;
+                self.m_anim_ticks_per_frame = 3;
+            }
+            ProjectileType::PROJECTILE_PUFF => {
+                self.m_motion_type = 0; // MOTION_NORMAL
+                self.m_vel_x = 3.5;
+            }
+            ProjectileType::PROJECTILE_STAR => {
+                self.m_motion_type = 0;
+                self.m_vel_x = 4.0;
+                self.m_rotation_speed = 0.3;
+                self.m_anim_ticks_per_frame = 2;
+            }
+            _ => {
+                self.m_vel_x = 3.0;
             }
         }
     }
 
+    /// C++ Projectile::Update (Projectile.cpp:936)
+    pub unsafe fn Update(&mut self) {
+        if self.m_dead { return; }
+
+        let app = self.app();
+        let board = self.board();
+        if (*app).mGameScene as i32 != GameScenes::SCENE_PLAYING as i32
+            && (!board.mCutScene.is_null() && !(*board.mCutScene).ShouldRunUpsellBoard())
+        {
+            return;
+        }
+
+        let mut aTime = 20;
+        match self.m_projectile_type {
+            ProjectileType::PROJECTILE_PEA | ProjectileType::PROJECTILE_SNOWPEA
+            | ProjectileType::PROJECTILE_CABBAGE | ProjectileType::PROJECTILE_MELON
+            | ProjectileType::PROJECTILE_WINTERMELON | ProjectileType::PROJECTILE_KERNEL
+            | ProjectileType::PROJECTILE_BUTTER | ProjectileType::PROJECTILE_COB
+            | ProjectileType::PROJECTILE_SPIKE => {
+                aTime = 0;
+            }
+            _ => {}
+        }
+        if self.m_projectile_age > aTime {
+            self.base.m_render_order = super::board::Board::MakeRenderOrder(
+                RenderLayer::RENDER_LAYER_PROJECTILE, self.base.m_row, 0
+            );
+        }
+
+        if self.m_click_backoff_counter > 0 {
+            self.m_click_backoff_counter -= 1;
+        }
+        self.m_rotation += self.m_rotation_speed;
+
+        self.UpdateMotion();
+        // [TODO]: AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY + mPosZ)
+    }
+
+    /// C++ Projectile::UpdateMotion + UpdateNormalMotion + UpdateLobMotion
+    unsafe fn UpdateMotion(&mut self) {
+        // 动画帧更新
+        if self.m_anim_ticks_per_frame > 0 {
+            self.m_anim_counter = (self.m_anim_counter + 1) % (self.m_num_frames.max(1) * self.m_anim_ticks_per_frame);
+            self.m_frame = self.m_anim_counter / self.m_anim_ticks_per_frame;
+        }
+
+        // 运动更新
+        if self.m_motion_type == 1 {
+            // MOTION_LOBBED — 抛射运动
+            self.m_pos_x += self.m_vel_x;
+            self.m_pos_z += self.m_vel_z;
+            self.m_vel_z += self.m_acc_z;
+        } else {
+            // MOTION_NORMAL — 直线运动
+            self.m_pos_x += self.m_vel_x;
+            self.m_pos_y += self.m_vel_y;
+            self.m_pos_z += self.m_vel_z;
+            self.m_vel_z += self.m_acc_z;
+        }
+
+        self.base.m_x = self.m_pos_x as i32;
+        self.base.m_y = (self.m_pos_y + self.m_pos_z) as i32;
+
+        // [TODO]: 碰撞检测 — 遍历僵尸检查矩形重叠
+        // [TODO]: if hit → DoImpact(theZombie)
+
+        // 超出屏幕判定
+        if self.m_pos_x > 950.0 || self.m_pos_x < -150.0 || self.m_pos_y > 750.0 || self.m_pos_z > 500.0 {
+            self.m_dead = true;
+        }
+    }
+
+    /// C++ Projectile::DoImpact + PlayImpactSound (Projectile.cpp:819)
+    unsafe fn DoImpact(&mut self, _theZombie: *mut super::zombie::Zombie) {
+        // [TODO]: PlayImpactSound — 根据弹丸类型和僵尸头盔播放音效
+        // [TODO]: 溅射伤害/单目标伤害
+        // [TODO]: 粒子效果（豌豆/冰/西瓜/玉米/黄油溅射）
+        // [TODO]: 特殊效果（黄油减速、冰西瓜冰冻）
+        self.Die();
+    }
+
+    /// C++ Projectile::Die (Projectile.cpp:1148)
+    pub unsafe fn Die(&mut self) {
+        self.m_dead = true;
+        // [TODO]: Remove attachment if any
+    }
+
+    /// C++ Projectile::Draw (Projectile.cpp:971)
     pub unsafe fn Draw(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
         if self.m_dead { return; }
-        // TODO: Draw projectile sprite based on projectile_type and frame
+        // [TODO]: Draw projectile sprite by type (IMAGE_PROJECTILEPEA, etc.)
+        // Apply rotation, scale, and shadow
+    }
+
+    /// C++ Projectile::DrawShadow (Projectile.cpp:1069)
+    pub unsafe fn DrawShadow(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // [TODO]: Draw shadow ellipse on ground
+    }
+
+    unsafe fn board(&self) -> &'static mut super::board::Board {
+        &mut *(self.base.m_board as *mut super::board::Board)
+    }
+
+    unsafe fn app(&self) -> &'static mut crate::lawn_app::LawnApp {
+        &mut *(self.base.m_app as *mut crate::lawn_app::LawnApp)
     }
 }
 
