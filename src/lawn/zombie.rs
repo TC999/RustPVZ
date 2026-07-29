@@ -262,6 +262,7 @@ impl Default for Zombie {
 
 // =========================================================================
 // ★ ZombieDefinition — 僵尸类型定义数据 (from Zombie.h:423)
+// C++ class ZombieDefinition 的 1:1 翻译
 // =========================================================================
 #[derive(Clone, Copy)]
 pub struct ZombieDefinition {
@@ -271,19 +272,78 @@ pub struct ZombieDefinition {
     pub mStartingLevel: i32,
     pub mFirstAllowedWave: i32,
     pub mPickWeight: i32,
+    pub mZombieName: &'static str,
 }
 
-pub const NUM_ZOMBIE_TYPES: i32 = 34;
-
-// gZombieDefs array (stub - will be populated properly in future)
-pub static mut G_ZOMBIE_DEFS: [ZombieDefinition; 34] = [ZombieDefinition {
-    mZombieType: ZombieType::ZOMBIE_NORMAL,
-    mReanimationType: ReanimationType::REANIM_NONE,
-    mZombieValue: 0,
-    mStartingLevel: 0,
-    mFirstAllowedWave: 0,
-    mPickWeight: 1,
-}; 34];
+// gZombieDefs array — 34 entries matching C++ gZombieDefs
+pub static mut G_ZOMBIE_DEFS: [ZombieDefinition; 33] = [
+    // ZOMBIE_NORMAL (0)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_NORMAL, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 1, mStartingLevel: 1, mFirstAllowedWave: 1, mPickWeight: 4000, mZombieName: "ZOMBIE" },
+    // ZOMBIE_FLAG (1)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_FLAG, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 1, mStartingLevel: 1, mFirstAllowedWave: 1, mPickWeight: 0, mZombieName: "FLAG_ZOMBIE" },
+    // ZOMBIE_TRAFFIC_CONE (2)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_TRAFFIC_CONE, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 2, mStartingLevel: 3, mFirstAllowedWave: 1, mPickWeight: 4000, mZombieName: "CONEHEAD_ZOMBIE" },
+    // ZOMBIE_POLEVAULTER (3)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_POLEVAULTER, mReanimationType: ReanimationType::REANIM_POLEVAULTER, mZombieValue: 2, mStartingLevel: 6, mFirstAllowedWave: 5, mPickWeight: 2000, mZombieName: "POLE_VAULTING_ZOMBIE" },
+    // ZOMBIE_PAIL (4)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_PAIL, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 4, mStartingLevel: 8, mFirstAllowedWave: 1, mPickWeight: 3000, mZombieName: "BUCKETHEAD_ZOMBIE" },
+    // ZOMBIE_NEWSPAPER (5)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_NEWSPAPER, mReanimationType: ReanimationType::REANIM_ZOMBIE_NEWSPAPER, mZombieValue: 2, mStartingLevel: 11, mFirstAllowedWave: 1, mPickWeight: 1000, mZombieName: "NEWSPAPER_ZOMBIE" },
+    // ZOMBIE_DOOR (6)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_DOOR, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 4, mStartingLevel: 13, mFirstAllowedWave: 5, mPickWeight: 3500, mZombieName: "SCREEN_DOOR_ZOMBIE" },
+    // ZOMBIE_FOOTBALL (7)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_FOOTBALL, mReanimationType: ReanimationType::REANIM_ZOMBIE_FOOTBALL, mZombieValue: 7, mStartingLevel: 16, mFirstAllowedWave: 5, mPickWeight: 2000, mZombieName: "FOOTBALL_ZOMBIE" },
+    // ZOMBIE_DANCER (8)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_DANCER, mReanimationType: ReanimationType::REANIM_DANCER, mZombieValue: 5, mStartingLevel: 18, mFirstAllowedWave: 5, mPickWeight: 1000, mZombieName: "DANCING_ZOMBIE" },
+    // ZOMBIE_BACKUP_DANCER (9)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_BACKUP_DANCER, mReanimationType: ReanimationType::REANIM_BACKUP_DANCER, mZombieValue: 1, mStartingLevel: 18, mFirstAllowedWave: 1, mPickWeight: 0, mZombieName: "BACKUP_DANCER" },
+    // ZOMBIE_DUCKY_TUBE (10)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_DUCKY_TUBE, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 1, mStartingLevel: 21, mFirstAllowedWave: 5, mPickWeight: 0, mZombieName: "DUCKY_TUBE_ZOMBIE" },
+    // ZOMBIE_SNORKEL (11)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_SNORKEL, mReanimationType: ReanimationType::REANIM_SNORKEL, mZombieValue: 3, mStartingLevel: 23, mFirstAllowedWave: 10, mPickWeight: 2000, mZombieName: "SNORKEL_ZOMBIE" },
+    // ZOMBIE_ZAMBONI (12)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_ZAMBONI, mReanimationType: ReanimationType::REANIM_ZOMBIE_ZAMBONI, mZombieValue: 7, mStartingLevel: 26, mFirstAllowedWave: 10, mPickWeight: 2000, mZombieName: "ZOMBONI" },
+    // ZOMBIE_BOBSLED (13)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_BOBSLED, mReanimationType: ReanimationType::REANIM_BOBSLED, mZombieValue: 3, mStartingLevel: 26, mFirstAllowedWave: 10, mPickWeight: 2000, mZombieName: "ZOMBIE_BOBSLED_TEAM" },
+    // ZOMBIE_DOLPHIN_RIDER (14)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_DOLPHIN_RIDER, mReanimationType: ReanimationType::REANIM_ZOMBIE_DOLPHINRIDER, mZombieValue: 3, mStartingLevel: 28, mFirstAllowedWave: 10, mPickWeight: 1500, mZombieName: "DOLPHIN_RIDER_ZOMBIE" },
+    // ZOMBIE_JACK_IN_THE_BOX (15)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_JACK_IN_THE_BOX, mReanimationType: ReanimationType::REANIM_JACKINTHEBOX, mZombieValue: 3, mStartingLevel: 31, mFirstAllowedWave: 10, mPickWeight: 1000, mZombieName: "JACK_IN_THE_BOX_ZOMBIE" },
+    // ZOMBIE_BALLOON (16)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_BALLOON, mReanimationType: ReanimationType::REANIM_BALLOON, mZombieValue: 2, mStartingLevel: 33, mFirstAllowedWave: 10, mPickWeight: 2000, mZombieName: "BALLOON_ZOMBIE" },
+    // ZOMBIE_DIGGER (17)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_DIGGER, mReanimationType: ReanimationType::REANIM_DIGGER, mZombieValue: 4, mStartingLevel: 36, mFirstAllowedWave: 10, mPickWeight: 1000, mZombieName: "DIGGER_ZOMBIE" },
+    // ZOMBIE_POGO (18)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_POGO, mReanimationType: ReanimationType::REANIM_POGO, mZombieValue: 4, mStartingLevel: 38, mFirstAllowedWave: 10, mPickWeight: 1000, mZombieName: "POGO_ZOMBIE" },
+    // ZOMBIE_YETI (19)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_YETI, mReanimationType: ReanimationType::REANIM_YETI, mZombieValue: 4, mStartingLevel: 40, mFirstAllowedWave: 1, mPickWeight: 1, mZombieName: "ZOMBIE_YETI" },
+    // ZOMBIE_BUNGEE (20)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_BUNGEE, mReanimationType: ReanimationType::REANIM_BUNGEE, mZombieValue: 3, mStartingLevel: 41, mFirstAllowedWave: 10, mPickWeight: 1000, mZombieName: "BUNGEE_ZOMBIE" },
+    // ZOMBIE_LADDER (21)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_LADDER, mReanimationType: ReanimationType::REANIM_LADDER, mZombieValue: 4, mStartingLevel: 43, mFirstAllowedWave: 10, mPickWeight: 1000, mZombieName: "LADDER_ZOMBIE" },
+    // ZOMBIE_CATAPULT (22)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_CATAPULT, mReanimationType: ReanimationType::REANIM_CATAPULT, mZombieValue: 5, mStartingLevel: 46, mFirstAllowedWave: 10, mPickWeight: 1500, mZombieName: "CATAPULT_ZOMBIE" },
+    // ZOMBIE_GARGANTUAR (23)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_GARGANTUAR, mReanimationType: ReanimationType::REANIM_GARGANTUAR, mZombieValue: 10, mStartingLevel: 48, mFirstAllowedWave: 15, mPickWeight: 1500, mZombieName: "GARGANTUAR" },
+    // ZOMBIE_IMP (24)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_IMP, mReanimationType: ReanimationType::REANIM_IMP, mZombieValue: 10, mStartingLevel: 48, mFirstAllowedWave: 1, mPickWeight: 0, mZombieName: "IMP" },
+    // ZOMBIE_BOSS (25)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_BOSS, mReanimationType: ReanimationType::REANIM_BOSS, mZombieValue: 10, mStartingLevel: 50, mFirstAllowedWave: 1, mPickWeight: 0, mZombieName: "BOSS" },
+    // ZOMBIE_PEA_HEAD (26)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_PEA_HEAD, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 1, mStartingLevel: 99, mFirstAllowedWave: 1, mPickWeight: 4000, mZombieName: "ZOMBIE" },
+    // ZOMBIE_WALLNUT_HEAD (27)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_WALLNUT_HEAD, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 4, mStartingLevel: 99, mFirstAllowedWave: 1, mPickWeight: 3000, mZombieName: "ZOMBIE" },
+    // ZOMBIE_JALAPENO_HEAD (28)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_JALAPENO_HEAD, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 3, mStartingLevel: 99, mFirstAllowedWave: 10, mPickWeight: 1000, mZombieName: "ZOMBIE" },
+    // ZOMBIE_GATLING_HEAD (29)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_GATLING_HEAD, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 3, mStartingLevel: 99, mFirstAllowedWave: 10, mPickWeight: 2000, mZombieName: "ZOMBIE" },
+    // ZOMBIE_SQUASH_HEAD (30)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_SQUASH_HEAD, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 3, mStartingLevel: 99, mFirstAllowedWave: 10, mPickWeight: 2000, mZombieName: "ZOMBIE" },
+    // ZOMBIE_TALLNUT_HEAD (31)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_TALLNUT_HEAD, mReanimationType: ReanimationType::REANIM_ZOMBIE, mZombieValue: 4, mStartingLevel: 99, mFirstAllowedWave: 10, mPickWeight: 2000, mZombieName: "ZOMBIE" },
+    // ZOMBIE_REDEYE_GARGANTUAR (32)
+    ZombieDefinition { mZombieType: ZombieType::ZOMBIE_REDEYE_GARGANTUAR, mReanimationType: ReanimationType::REANIM_GARGANTUAR, mZombieValue: 10, mStartingLevel: 48, mFirstAllowedWave: 15, mPickWeight: 6000, mZombieName: "REDEYED_GARGANTUAR" },
+];
 
 pub fn GetZombieDefinition(theZombieType: ZombieType) -> &'static ZombieDefinition {
     unsafe { &G_ZOMBIE_DEFS[theZombieType as usize] }

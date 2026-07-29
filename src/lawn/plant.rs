@@ -3,7 +3,7 @@
 
 use crate::const_enums::*;
 use crate::sexy_app_framework::misc::rect::Rect;
-use crate::sexy_app_framework::graphics::graphics::Graphics;
+use crate::sexy_app_framework::graphics::graphics::{Graphics, Image};
 use super::game_object::GameObject;
 
 pub const MAX_MAGNET_ITEMS: i32 = 5;
@@ -269,12 +269,11 @@ impl Plant {
     // Static helpers
     pub fn is_nocturnal(seed_type: SeedType) -> bool {
         matches!(seed_type, 
-            SeedType::SEED_PUFFSHROOM | SeedType::SEED_SUNSHROOM | 
-            SeedType::SEED_FUMESHROOM | SeedType::SEED_GRAVEBUSTER |
-            SeedType::SEED_HYPNOSHROOM | SeedType::SEED_SCAREDYSHROOM |
-            SeedType::SEED_ICESHROOM | SeedType::SEED_DOOMSHROOM |
-            SeedType::SEED_GLOOMSHROOM | SeedType::SEED_SEASHROOM |
-            SeedType::SEED_MAGNETSHROOM
+            SeedType::SEED_PUFFSHROOM | SeedType::SEED_SEASHROOM |
+            SeedType::SEED_SUNSHROOM | SeedType::SEED_FUMESHROOM |
+            SeedType::SEED_HYPNOSHROOM | SeedType::SEED_DOOMSHROOM |
+            SeedType::SEED_ICESHROOM | SeedType::SEED_MAGNETSHROOM |
+            SeedType::SEED_SCAREDYSHROOM | SeedType::SEED_GLOOMSHROOM
         )
     }
 
@@ -289,11 +288,14 @@ impl Plant {
     }
 
     pub fn is_aquatic(seed_type: SeedType) -> bool {
-        matches!(seed_type, SeedType::SEED_LILYPAD | SeedType::SEED_TANGLEKELP | SeedType::SEED_CATTAIL)
+        matches!(seed_type,
+            SeedType::SEED_LILYPAD | SeedType::SEED_TANGLEKELP |
+            SeedType::SEED_SEASHROOM | SeedType::SEED_CATTAIL
+        )
     }
 
     pub fn is_flying(seed_type: SeedType) -> bool {
-        matches!(seed_type, SeedType::SEED_CATTAIL | SeedType::SEED_STARFRUIT | SeedType::SEED_UMBRELLA)
+        seed_type == SeedType::SEED_INSTANT_COFFEE
     }
 
     pub fn is_upgrade(seed_type: SeedType) -> bool {
@@ -301,8 +303,7 @@ impl Plant {
             SeedType::SEED_GATLINGPEA | SeedType::SEED_TWINSUNFLOWER |
             SeedType::SEED_GLOOMSHROOM | SeedType::SEED_CATTAIL |
             SeedType::SEED_WINTERMELON | SeedType::SEED_GOLD_MAGNET |
-            SeedType::SEED_SPIKEROCK | SeedType::SEED_COBCANNON |
-            SeedType::SEED_IMITATER
+            SeedType::SEED_SPIKEROCK | SeedType::SEED_COBCANNON
         )
     }
 
@@ -321,6 +322,92 @@ impl Plant {
     }
 }
 
+// =========================================================================
+// ★ 静态工具函数 (from Plant.cpp)
+// =========================================================================
+impl Plant {
+    /// C++ Plant::GetCost (Plant.cpp:4973)
+    pub unsafe fn GetCost(theSeedType: SeedType, theImitaterType: SeedType) -> i32 {
+        let app = &mut *crate::lawn_app::G_LAWN_APP;
+        let mode = app.mGameMode;
+        if mode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || mode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST {
+            match theSeedType {
+                SeedType::SEED_REPEATER => return 1000,
+                SeedType::SEED_FUMESHROOM => return 500,
+                SeedType::SEED_TALLNUT => return 250,
+                SeedType::SEED_BEGHOULED_BUTTON_SHUFFLE => return 100,
+                SeedType::SEED_BEGHOULED_BUTTON_CRATER => return 200,
+                _ => {}
+            }
+        }
+
+        match theSeedType {
+            SeedType::SEED_SLOT_MACHINE_SUN => 0,
+            SeedType::SEED_SLOT_MACHINE_DIAMOND => 0,
+            SeedType::SEED_ZOMBIQUARIUM_SNORKLE => 100,
+            SeedType::SEED_ZOMBIQUARIUM_TROPHY => 1000,
+            SeedType::SEED_ZOMBIE_NORMAL => 50,
+            SeedType::SEED_ZOMBIE_TRAFFIC_CONE => 75,
+            SeedType::SEED_ZOMBIE_POLEVAULTER => 75,
+            SeedType::SEED_ZOMBIE_PAIL => 125,
+            SeedType::SEED_ZOMBIE_LADDER => 150,
+            SeedType::SEED_ZOMBIE_DIGGER => 125,
+            SeedType::SEED_ZOMBIE_BUNGEE => 125,
+            SeedType::SEED_ZOMBIE_FOOTBALL => 175,
+            SeedType::SEED_ZOMBIE_BALLOON => 150,
+            SeedType::SEED_ZOMBIE_SCREEN_DOOR => 100,
+            SeedType::SEED_ZOMBONI => 175,
+            SeedType::SEED_ZOMBIE_POGO => 200,
+            SeedType::SEED_ZOMBIE_DANCER => 350,
+            SeedType::SEED_ZOMBIE_GARGANTUAR => 300,
+            SeedType::SEED_ZOMBIE_IMP => 50,
+            _ => {
+                if theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE {
+                    GetPlantDefinition(theImitaterType).mSeedCost
+                } else {
+                    GetPlantDefinition(theSeedType).mSeedCost
+                }
+            }
+        }
+    }
+
+    /// C++ Plant::GetNameString (Plant.cpp:5037)
+    pub unsafe fn GetNameString(theSeedType: SeedType, theImitaterType: SeedType) -> String {
+        let aPlantDef = GetPlantDefinition(theSeedType);
+        let aName = format!("[{}]", aPlantDef.mPlantName);
+        // NOTE: TodStringTranslate 暂未翻译为 Rust, 返回原始字符串
+        let aTranslatedName = aName;
+
+        if theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE {
+            let aImitaterDef = GetPlantDefinition(theImitaterType);
+            let aImitaterName = format!("[{}]", aImitaterDef.mPlantName);
+            let aTranslatedImitaterName = aImitaterName;
+            return format!("{} {}", aTranslatedName, aTranslatedImitaterName);
+        }
+
+        aTranslatedName
+    }
+
+    /// C++ Plant::GetToolTip (Plant.cpp:5054)
+    pub unsafe fn GetToolTip(theSeedType: SeedType) -> String {
+        let aPlantDef = GetPlantDefinition(theSeedType);
+        format!("[{}_TOOLTIP]", aPlantDef.mPlantName)
+    }
+
+    /// C++ Plant::GetRefreshTime (Plant.cpp:5061)
+    pub unsafe fn GetRefreshTime(theSeedType: SeedType, theImitaterType: SeedType) -> i32 {
+        if crate::lawn::challenge::Challenge::IsZombieSeedType(theSeedType) {
+            return 0;
+        }
+
+        if theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE {
+            GetPlantDefinition(theImitaterType).mRefreshTime
+        } else {
+            GetPlantDefinition(theSeedType).mRefreshTime
+        }
+    }
+}
+
 impl Default for Plant {
     fn default() -> Self {
         Self::new()
@@ -328,32 +415,131 @@ impl Default for Plant {
 }
 
 // =========================================================================
-// ★ PlantDefinition — 植物类型定义 (from Plant.h)
+// ★ PlantDefinition — 植物类型定义 (from Plant.h:324)
+// C++ struct PlantDefinition 的 1:1 翻译
+// 注意: mPlantImage 是 Image** 类型，但所有条目均为 nullptr
 // =========================================================================
 #[derive(Clone, Copy)]
 pub struct PlantDefinition {
     pub mSeedType: SeedType,
+    pub mPlantImage: *mut *mut Image,
     pub mReanimationType: ReanimationType,
-    pub mPlantCost: i32,
-    pub mPlantHealth: i32,
-    pub mPlantValue: i32,
-    pub mStartingLevel: i32,
-    pub mNumBoost: i32,
-    pub mEatDelay: i32,
-    pub mEatCount: i32,
+    pub mPacketIndex: i32,
+    pub mSeedCost: i32,
+    pub mRefreshTime: i32,
+    pub mSubClass: PlantSubClass,
+    pub mLaunchRate: i32,
+    pub mPlantName: &'static str,
 }
 
-pub static mut G_PLANT_DEFS: [PlantDefinition; 49] = [PlantDefinition {
-    mSeedType: SeedType::SEED_PEASHOOTER,
-    mReanimationType: ReanimationType::REANIM_NONE,
-    mPlantCost: 100,
-    mPlantHealth: 300,
-    mPlantValue: 0,
-    mStartingLevel: 0,
-    mNumBoost: 0,
-    mEatDelay: 0,
-    mEatCount: 0,
-}; 49];
+pub static mut G_PLANT_DEFS: [PlantDefinition; 53] = [
+    // SEED_PEASHOOTER (0)
+    PlantDefinition { mSeedType: SeedType::SEED_PEASHOOTER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_PEASHOOTER, mPacketIndex: 0, mSeedCost: 100, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "PEASHOOTER" },
+    // SEED_SUNFLOWER (1)
+    PlantDefinition { mSeedType: SeedType::SEED_SUNFLOWER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SUNFLOWER, mPacketIndex: 1, mSeedCost: 50, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 2500, mPlantName: "SUNFLOWER" },
+    // SEED_CHERRYBOMB (2)
+    PlantDefinition { mSeedType: SeedType::SEED_CHERRYBOMB, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_CHERRYBOMB, mPacketIndex: 3, mSeedCost: 150, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "CHERRY_BOMB" },
+    // SEED_WALLNUT (3)
+    PlantDefinition { mSeedType: SeedType::SEED_WALLNUT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_WALLNUT, mPacketIndex: 2, mSeedCost: 50, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "WALL_NUT" },
+    // SEED_POTATOMINE (4)
+    PlantDefinition { mSeedType: SeedType::SEED_POTATOMINE, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_POTATOMINE, mPacketIndex: 37, mSeedCost: 25, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "POTATO_MINE" },
+    // SEED_SNOWPEA (5)
+    PlantDefinition { mSeedType: SeedType::SEED_SNOWPEA, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SNOWPEA, mPacketIndex: 4, mSeedCost: 175, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "SNOW_PEA" },
+    // SEED_CHOMPER (6)
+    PlantDefinition { mSeedType: SeedType::SEED_CHOMPER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_CHOMPER, mPacketIndex: 31, mSeedCost: 150, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "CHOMPER" },
+    // SEED_REPEATER (7)
+    PlantDefinition { mSeedType: SeedType::SEED_REPEATER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_REPEATER, mPacketIndex: 5, mSeedCost: 200, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "REPEATER" },
+    // SEED_PUFFSHROOM (8)
+    PlantDefinition { mSeedType: SeedType::SEED_PUFFSHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_PUFFSHROOM, mPacketIndex: 6, mSeedCost: 0, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "PUFF_SHROOM" },
+    // SEED_SUNSHROOM (9)
+    PlantDefinition { mSeedType: SeedType::SEED_SUNSHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SUNSHROOM, mPacketIndex: 7, mSeedCost: 25, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 2500, mPlantName: "SUN_SHROOM" },
+    // SEED_FUMESHROOM (10)
+    PlantDefinition { mSeedType: SeedType::SEED_FUMESHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_FUMESHROOM, mPacketIndex: 9, mSeedCost: 75, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "FUME_SHROOM" },
+    // SEED_GRAVEBUSTER (11)
+    PlantDefinition { mSeedType: SeedType::SEED_GRAVEBUSTER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_GRAVE_BUSTER, mPacketIndex: 40, mSeedCost: 75, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "GRAVE_BUSTER" },
+    // SEED_HYPNOSHROOM (12)
+    PlantDefinition { mSeedType: SeedType::SEED_HYPNOSHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_HYPNOSHROOM, mPacketIndex: 10, mSeedCost: 75, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "HYPNO_SHROOM" },
+    // SEED_SCAREDYSHROOM (13)
+    PlantDefinition { mSeedType: SeedType::SEED_SCAREDYSHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SCRAREYSHROOM, mPacketIndex: 33, mSeedCost: 25, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "SCAREDY_SHROOM" },
+    // SEED_ICESHROOM (14)
+    PlantDefinition { mSeedType: SeedType::SEED_ICESHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_ICESHROOM, mPacketIndex: 36, mSeedCost: 75, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "ICE_SHROOM" },
+    // SEED_DOOMSHROOM (15)
+    PlantDefinition { mSeedType: SeedType::SEED_DOOMSHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_DOOMSHROOM, mPacketIndex: 20, mSeedCost: 125, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "DOOM_SHROOM" },
+    // SEED_LILYPAD (16)
+    PlantDefinition { mSeedType: SeedType::SEED_LILYPAD, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_LILYPAD, mPacketIndex: 19, mSeedCost: 25, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "LILY_PAD" },
+    // SEED_SQUASH (17)
+    PlantDefinition { mSeedType: SeedType::SEED_SQUASH, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SQUASH, mPacketIndex: 21, mSeedCost: 50, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "SQUASH" },
+    // SEED_THREEPEATER (18)
+    PlantDefinition { mSeedType: SeedType::SEED_THREEPEATER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_THREEPEATER, mPacketIndex: 12, mSeedCost: 325, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "THREEPEATER" },
+    // SEED_TANGLEKELP (19)
+    PlantDefinition { mSeedType: SeedType::SEED_TANGLEKELP, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_TANGLEKELP, mPacketIndex: 17, mSeedCost: 25, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "TANGLE_KELP" },
+    // SEED_JALAPENO (20)
+    PlantDefinition { mSeedType: SeedType::SEED_JALAPENO, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_JALAPENO, mPacketIndex: 11, mSeedCost: 125, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "JALAPENO" },
+    // SEED_SPIKEWEED (21)
+    PlantDefinition { mSeedType: SeedType::SEED_SPIKEWEED, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SPIKEWEED, mPacketIndex: 22, mSeedCost: 100, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "SPIKEWEED" },
+    // SEED_TORCHWOOD (22)
+    PlantDefinition { mSeedType: SeedType::SEED_TORCHWOOD, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_TORCHWOOD, mPacketIndex: 29, mSeedCost: 175, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "TORCHWOOD" },
+    // SEED_TALLNUT (23)
+    PlantDefinition { mSeedType: SeedType::SEED_TALLNUT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_TALLNUT, mPacketIndex: 28, mSeedCost: 125, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "TALL_NUT" },
+    // SEED_SEASHROOM (24)
+    PlantDefinition { mSeedType: SeedType::SEED_SEASHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SEASHROOM, mPacketIndex: 39, mSeedCost: 0, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "SEA_SHROOM" },
+    // SEED_PLANTERN (25)
+    PlantDefinition { mSeedType: SeedType::SEED_PLANTERN, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_PLANTERN, mPacketIndex: 38, mSeedCost: 25, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 2500, mPlantName: "PLANTERN" },
+    // SEED_CACTUS (26)
+    PlantDefinition { mSeedType: SeedType::SEED_CACTUS, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_CACTUS, mPacketIndex: 15, mSeedCost: 125, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "CACTUS" },
+    // SEED_BLOVER (27)
+    PlantDefinition { mSeedType: SeedType::SEED_BLOVER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_BLOVER, mPacketIndex: 18, mSeedCost: 100, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "BLOVER" },
+    // SEED_SPLITPEA (28)
+    PlantDefinition { mSeedType: SeedType::SEED_SPLITPEA, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SPLITPEA, mPacketIndex: 32, mSeedCost: 125, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "SPLIT_PEA" },
+    // SEED_STARFRUIT (29)
+    PlantDefinition { mSeedType: SeedType::SEED_STARFRUIT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_STARFRUIT, mPacketIndex: 30, mSeedCost: 125, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "STARFRUIT" },
+    // SEED_PUMPKINSHELL (30)
+    PlantDefinition { mSeedType: SeedType::SEED_PUMPKINSHELL, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_PUMPKIN, mPacketIndex: 25, mSeedCost: 125, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "PUMPKIN" },
+    // SEED_MAGNETSHROOM (31)
+    PlantDefinition { mSeedType: SeedType::SEED_MAGNETSHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_MAGNETSHROOM, mPacketIndex: 35, mSeedCost: 100, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "MAGNET_SHROOM" },
+    // SEED_CABBAGEPULT (32)
+    PlantDefinition { mSeedType: SeedType::SEED_CABBAGEPULT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_CABBAGEPULT, mPacketIndex: 13, mSeedCost: 100, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 300, mPlantName: "CABBAGE_PULT" },
+    // SEED_FLOWERPOT (33)
+    PlantDefinition { mSeedType: SeedType::SEED_FLOWERPOT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_FLOWER_POT, mPacketIndex: 33, mSeedCost: 25, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "FLOWER_POT" },
+    // SEED_KERNELPULT (34)
+    PlantDefinition { mSeedType: SeedType::SEED_KERNELPULT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_KERNELPULT, mPacketIndex: 13, mSeedCost: 100, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 300, mPlantName: "KERNEL_PULT" },
+    // SEED_INSTANT_COFFEE (35)
+    PlantDefinition { mSeedType: SeedType::SEED_INSTANT_COFFEE, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_COFFEEBEAN, mPacketIndex: 33, mSeedCost: 75, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "COFFEE_BEAN" },
+    // SEED_GARLIC (36)
+    PlantDefinition { mSeedType: SeedType::SEED_GARLIC, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_GARLIC, mPacketIndex: 8, mSeedCost: 50, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "GARLIC" },
+    // SEED_UMBRELLA (37)
+    PlantDefinition { mSeedType: SeedType::SEED_UMBRELLA, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_UMBRELLALEAF, mPacketIndex: 23, mSeedCost: 100, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "UMBRELLA_LEAF" },
+    // SEED_MARIGOLD (38)
+    PlantDefinition { mSeedType: SeedType::SEED_MARIGOLD, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_MARIGOLD, mPacketIndex: 24, mSeedCost: 50, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 2500, mPlantName: "MARIGOLD" },
+    // SEED_MELONPULT (39)
+    PlantDefinition { mSeedType: SeedType::SEED_MELONPULT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_MELONPULT, mPacketIndex: 14, mSeedCost: 300, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 300, mPlantName: "MELON_PULT" },
+    // SEED_GATLINGPEA (40)
+    PlantDefinition { mSeedType: SeedType::SEED_GATLINGPEA, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_GATLINGPEA, mPacketIndex: 5, mSeedCost: 250, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "GATLING_PEA" },
+    // SEED_TWINSUNFLOWER (41)
+    PlantDefinition { mSeedType: SeedType::SEED_TWINSUNFLOWER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_TWIN_SUNFLOWER, mPacketIndex: 1, mSeedCost: 150, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 2500, mPlantName: "TWIN_SUNFLOWER" },
+    // SEED_GLOOMSHROOM (42)
+    PlantDefinition { mSeedType: SeedType::SEED_GLOOMSHROOM, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_GLOOMSHROOM, mPacketIndex: 27, mSeedCost: 150, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 200, mPlantName: "GLOOM_SHROOM" },
+    // SEED_CATTAIL (43)
+    PlantDefinition { mSeedType: SeedType::SEED_CATTAIL, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_CATTAIL, mPacketIndex: 27, mSeedCost: 225, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "CATTAIL" },
+    // SEED_WINTERMELON (44)
+    PlantDefinition { mSeedType: SeedType::SEED_WINTERMELON, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_WINTER_MELON, mPacketIndex: 27, mSeedCost: 200, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 300, mPlantName: "WINTER_MELON" },
+    // SEED_GOLD_MAGNET (45)
+    PlantDefinition { mSeedType: SeedType::SEED_GOLD_MAGNET, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_GOLD_MAGNET, mPacketIndex: 27, mSeedCost: 50, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "GOLD_MAGNET" },
+    // SEED_SPIKEROCK (46)
+    PlantDefinition { mSeedType: SeedType::SEED_SPIKEROCK, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_SPIKEROCK, mPacketIndex: 27, mSeedCost: 125, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "SPIKEROCK" },
+    // SEED_COBCANNON (47)
+    PlantDefinition { mSeedType: SeedType::SEED_COBCANNON, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_COBCANNON, mPacketIndex: 16, mSeedCost: 500, mRefreshTime: 5000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 600, mPlantName: "COB_CANNON" },
+    // SEED_IMITATER (48)
+    PlantDefinition { mSeedType: SeedType::SEED_IMITATER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_IMITATER, mPacketIndex: 33, mSeedCost: 0, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "IMITATER" },
+    // SEED_EXPLODE_O_NUT (49)
+    PlantDefinition { mSeedType: SeedType::SEED_EXPLODE_O_NUT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_WALLNUT, mPacketIndex: 2, mSeedCost: 0, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "EXPLODE_O_NUT" },
+    // SEED_GIANT_WALLNUT (50)
+    PlantDefinition { mSeedType: SeedType::SEED_GIANT_WALLNUT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_WALLNUT, mPacketIndex: 2, mSeedCost: 0, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "GIANT_WALLNUT" },
+    // SEED_SPROUT (51)
+    PlantDefinition { mSeedType: SeedType::SEED_SPROUT, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_ZENGARDEN_SPROUT, mPacketIndex: 33, mSeedCost: 0, mRefreshTime: 3000, mSubClass: PlantSubClass::SUBCLASS_NORMAL, mLaunchRate: 0, mPlantName: "SPROUT" },
+    // SEED_LEFTPEATER (52)
+    PlantDefinition { mSeedType: SeedType::SEED_LEFTPEATER, mPlantImage: std::ptr::null_mut(), mReanimationType: ReanimationType::REANIM_REPEATER, mPacketIndex: 5, mSeedCost: 200, mRefreshTime: 750, mSubClass: PlantSubClass::SUBCLASS_SHOOTER, mLaunchRate: 150, mPlantName: "REPEATER" },
+];
 
 pub fn GetPlantDefinition(theSeedType: SeedType) -> &'static PlantDefinition {
     unsafe { &G_PLANT_DEFS[theSeedType as usize] }
