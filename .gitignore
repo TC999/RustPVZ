@@ -32,5 +32,8 @@ cpp
 properties
 *.pak
 
+# SDL2
+SDL2*
+
 # AI terminals
 .reasonix

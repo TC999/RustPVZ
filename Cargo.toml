@@ -4,11 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sdl2 = { version = "0.37", features = ["mixer", "image", "gfx", "ttf", "bundled"] }
+sdl2 = { version = "0.37", features = ["mixer", "gfx", "ttf", "bundled"] }
 gl = "0.14"
-image = { version = "0.25", features = ["png", "jpeg", "gif", "bmp"] }
+#image = { version = "0.25", features = ["png", "jpeg", "gif", "bmp"] }
 ogg = "0.8"
 vorbis = "0.1"
 png = "0.17"
 jpeg-decoder = "0.3"
 flate2 = "1.0"
+
+[dependencies.image]
+version = "0.25"
+default-features = false
+features = ["png", "jpeg", "gif", "bmp", "tga", "webp", "tiff"]
