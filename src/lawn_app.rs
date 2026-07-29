@@ -498,4 +498,37 @@ impl LawnApp {
 // C++ gLawnApp 全局指针的 Rust 映射
 pub static mut G_LAWN_APP: *mut LawnApp = std::ptr::null_mut();
 
+// =========================================================================
+// ★ 全局辅助函数 (from LawnApp.cpp)
+// =========================================================================
 
+/// C++ LawnGetCloseRequest — 检查关闭请求
+pub unsafe fn LawnGetCloseRequest() -> bool {
+    if G_LAWN_APP.is_null() {
+        return false;
+    }
+    (*G_LAWN_APP).m_close_request
+}
+
+/// C++ LawnHasUsedCheatKeys — 检查是否使用过作弊键
+pub unsafe fn LawnHasUsedCheatKeys() -> bool {
+    if G_LAWN_APP.is_null() {
+        return false;
+    }
+    // [TODO]: check (*G_LAWN_APP).mPlayerInfo->mHasUsedCheatKeys
+    false
+}
+
+/// C++ LawnGetCurrentLevelName — 获取当前关卡名称
+pub unsafe fn LawnGetCurrentLevelName() -> String {
+    if G_LAWN_APP.is_null() {
+        return "Before App".to_string();
+    }
+    match (*G_LAWN_APP).mGameScene {
+        GameScenes::SCENE_LOADING => "Game Loading".to_string(),
+        GameScenes::SCENE_MENU => "Game Selector".to_string(),
+        GameScenes::SCENE_AWARD => "Award Screen".to_string(),
+        GameScenes::SCENE_CHALLENGE => "Challenge Screen".to_string(),
+        _ => format!("{:?}", (*G_LAWN_APP).mGameMode)
+    }
+}
