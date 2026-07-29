@@ -4,6 +4,7 @@
 use crate::const_enums::*;
 use crate::sexy_app_framework::misc::rect::Rect;
 use crate::sexy_app_framework::graphics::graphics::{Graphics, Image};
+use crate::sexy_tod_lib::tod_foley::FoleyType;
 use super::game_object::GameObject;
 
 pub const MAX_MAGNET_ITEMS: i32 = 5;
@@ -615,6 +616,112 @@ impl Plant {
 
     pub unsafe fn DrawMagnetItems(&self, _g: &mut Graphics) {
         // TODO: Draw magnet items above plant
+    }
+
+    /// C++ Plant::Fire (Plant.cpp:4475)
+    pub unsafe fn Fire(&mut self, theTargetZombie: *mut super::zombie::Zombie, theRow: i32, thePlantWeapon: PlantWeapon) {
+        // 烟雾蘑菇 / 忧郁蘑菇 — 范围伤害，不发射弹丸
+        if self.m_seed_type == SeedType::SEED_FUMESHROOM {
+            // [TODO]: DoRowAreaDamage(20, 2U);
+            self.app().PlayFoley(FoleyType::FOLEY_FUME);
+            return;
+        }
+        if self.m_seed_type == SeedType::SEED_GLOOMSHROOM {
+            // [TODO]: DoRowAreaDamage(20, 2U);
+            return;
+        }
+        // 星星果 — 特殊弹射
+        if self.m_seed_type == SeedType::SEED_STARFRUIT {
+            // [TODO]: StarFruitFire();
+            return;
+        }
+
+        // 确定弹丸类型
+        let aProjectileType = match self.m_seed_type {
+            SeedType::SEED_PEASHOOTER | SeedType::SEED_REPEATER | SeedType::SEED_THREEPEATER
+            | SeedType::SEED_SPLITPEA | SeedType::SEED_GATLINGPEA | SeedType::SEED_LEFTPEATER
+                => ProjectileType::PROJECTILE_PEA,
+            SeedType::SEED_SNOWPEA => ProjectileType::PROJECTILE_SNOWPEA,
+            SeedType::SEED_PUFFSHROOM | SeedType::SEED_SCAREDYSHROOM | SeedType::SEED_SEASHROOM
+                => ProjectileType::PROJECTILE_PUFF,
+            SeedType::SEED_CACTUS | SeedType::SEED_CATTAIL
+                => ProjectileType::PROJECTILE_SPIKE,
+            SeedType::SEED_CABBAGEPULT => ProjectileType::PROJECTILE_CABBAGE,
+            SeedType::SEED_KERNELPULT => ProjectileType::PROJECTILE_KERNEL,
+            SeedType::SEED_MELONPULT => ProjectileType::PROJECTILE_MELON,
+            SeedType::SEED_WINTERMELON => ProjectileType::PROJECTILE_WINTERMELON,
+            SeedType::SEED_COBCANNON => ProjectileType::PROJECTILE_COB,
+            _ => { return; } // 不是射击植物
+        };
+
+        // 玉米投手黄油弹
+        let mut aProjectileType = aProjectileType;
+        if self.m_seed_type == SeedType::SEED_KERNELPULT && thePlantWeapon == PlantWeapon::WEAPON_SECONDARY {
+            aProjectileType = ProjectileType::PROJECTILE_BUTTER;
+        }
+
+        // 播放音效
+        self.app().PlayFoley(FoleyType::FOLEY_THROW);
+        if self.m_seed_type == SeedType::SEED_SNOWPEA || self.m_seed_type == SeedType::SEED_WINTERMELON {
+            self.app().PlayFoley(FoleyType::FOLEY_SNOW_PEA_SPARKLES);
+        } else if self.m_seed_type == SeedType::SEED_PUFFSHROOM
+            || self.m_seed_type == SeedType::SEED_SCAREDYSHROOM
+            || self.m_seed_type == SeedType::SEED_SEASHROOM
+        {
+            self.app().PlayFoley(FoleyType::FOLEY_PUFF);
+        }
+
+        // 计算弹丸发射原点
+        let (aOriginX, aOriginY) = self.calc_projectile_origin(thePlantWeapon);
+
+        // 花盆偏移
+        let board = self.board();
+        // [TODO]: board.GetFlowerPotAt(m_plant_col, m_row)
+        // if flowerPot { aOriginY -= 5 }
+
+        // 粒子效果
+        let aRenderPos = super::board::Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_LAWN_MOWER, theRow, 1);
+        if self.m_seed_type == SeedType::SEED_SNOWPEA {
+            self.app().AddTodParticle((aOriginX + 8) as f32, (aOriginY + 13) as f32, aRenderPos, 0);
+        } else if self.m_seed_type == SeedType::SEED_PUFFSHROOM {
+            self.app().AddTodParticle((aOriginX + 18) as f32, (aOriginY + 13) as f32, aRenderPos, 0);
+        } else if self.m_seed_type == SeedType::SEED_SCAREDYSHROOM {
+            self.app().AddTodParticle((aOriginX + 27) as f32, (aOriginY + 13) as f32, aRenderPos, 0);
+        }
+
+        // 创建弹丸
+        let aProjectile = board.AddProjectile(aOriginX, aOriginY, aRenderPos, theRow, aProjectileType);
+        if !aProjectile.is_null() {
+            if self.m_seed_type == SeedType::SEED_CATTAIL {
+                // [TODO]: (*aProjectile).m_target_zombie_id = board.DataArrayGetID(theTargetZombie)
+            }
+        }
+
+        // [TODO]: 树桩/火炬效果
+    }
+
+    /// 辅助方法：计算弹丸发射原点 (对应 C++ Fire 中的 origin 计算)
+    unsafe fn calc_projectile_origin(&self, thePlantWeapon: PlantWeapon) -> (i32, i32) {
+        match self.m_seed_type {
+            SeedType::SEED_PUFFSHROOM => (self.base.m_x + 40, self.base.m_y + 40),
+            SeedType::SEED_SEASHROOM => (self.base.m_x + 45, self.base.m_y + 63),
+            SeedType::SEED_CABBAGEPULT => (self.base.m_x + 5, self.base.m_y - 12),
+            SeedType::SEED_MELONPULT | SeedType::SEED_WINTERMELON => (self.base.m_x + 25, self.base.m_y - 46),
+            SeedType::SEED_CATTAIL => (self.base.m_x + 20, self.base.m_y - 3),
+            SeedType::SEED_KERNELPULT if thePlantWeapon == PlantWeapon::WEAPON_PRIMARY => (self.base.m_x + 19, self.base.m_y - 37),
+            SeedType::SEED_KERNELPULT => (self.base.m_x + 12, self.base.m_y - 56),
+            SeedType::SEED_LEFTPEATER => (self.base.m_x - 57, self.base.m_y - 33), // 向左射
+            SeedType::SEED_GATLINGPEA => (self.base.m_x + 34, self.base.m_y - 33),
+            SeedType::SEED_SPLITPEA if thePlantWeapon == PlantWeapon::WEAPON_SECONDARY => (self.base.m_x - 64, self.base.m_y - 33),
+            SeedType::SEED_SPLITPEA => (self.base.m_x + 24, self.base.m_y - 33),
+            SeedType::SEED_THREEPEATER => (self.base.m_x + 45, self.base.m_y + 10),
+            SeedType::SEED_SCAREDYSHROOM => (self.base.m_x + 29, self.base.m_y + 21),
+            SeedType::SEED_CACTUS if thePlantWeapon == PlantWeapon::WEAPON_PRIMARY => (self.base.m_x + 93, self.base.m_y - 50),
+            SeedType::SEED_CACTUS => (self.base.m_x + 70, self.base.m_y + 23),
+            SeedType::SEED_COBCANNON => (self.base.m_x - 44, self.base.m_y - 184),
+            // PEASHOOTER / SNOWPEA / REPEATER / SPLITPEA primary
+            _ => (self.base.m_x + 24, self.base.m_y - 33), // default pea head offset
+        }
     }
 
     /// C++ Plant::Die (Plant.cpp:4930)
