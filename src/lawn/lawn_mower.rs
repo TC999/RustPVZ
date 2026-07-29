@@ -58,42 +58,77 @@ impl Default for LawnMower {
 }
 
 impl LawnMower {
+    /// C++ LawnMower::LawnMowerInitialize (LawnMower.cpp:30)
+    pub unsafe fn LawnMowerInitialize(&mut self, theRow: i32) {
+        self.mRow = theRow;
+        self.mPosX = 40.0;
+        self.mPosY = 0.0; // [TODO]: Set from Board row position
+        self.base.m_row = theRow;
+        self.mMowerState = MowerState::MOWER_OFF_LAWN;
+        self.mRollingInCounter = 0;
+        self.mDead = false;
+        self.mVisible = true;
+        self.mLawnMowerAge = 0;
+        self.mAnimCounter = 0;
+        self.mFrame = 0;
+        self.mVelX = 0.0;
+        self.mSquishCounter = 0;
+        self.mDrivingCount = false;
+        self.mParticleID = ParticleID::PARTICLEID_NULL;
+        self.mAttachmentID = AttachmentID::ATTACHMENTID_NULL;
+        self.mRenderOrder = 0;
+        // [TODO]: Set ground Y from board
+    }
+
+    /// C++ LawnMower::Update (LawnMower.cpp:178)
     pub unsafe fn Update(&mut self) {
         if self.mDead { return; }
         self.mLawnMowerAge += 1;
 
-        match self.mMowerState {
-            MowerState::MOWER_READY => {
-                // Stationary, waiting for a zombie
+        // 被压扁状态
+        if self.mMowerState == MowerState::MOWER_TRIGGERED_SQUASHED {
+            self.mSquishCounter += 1;
+            if self.mSquishCounter > 50 {
+                self.mDead = true;
             }
-            MowerState::MOWER_TRIGGERED => {
-                self.mVelX = 3.5;
-                self.mPosX += self.mVelX;
-                self.mAnimCounter += 1;
-                if self.mAnimCounter >= 4 {
-                    self.mAnimCounter = 0;
-                    self.mFrame += 1;
-                }
-                // Check if offscreen
-                if self.mPosX > 900.0 {
-                    self.mDead = true;
-                }
+            return;
+        }
+
+        // 滚入场
+        if self.mMowerState == MowerState::MOWER_OFF_LAWN {
+            self.mRollingInCounter += 1;
+            self.mPosX = -21.0; // approximate end position
+            if self.mRollingInCounter >= 100 {
+                self.mMowerState = MowerState::MOWER_READY;
             }
-            MowerState::MOWER_TRIGGERED_SQUASHED => {
-                // Squished animation
-                self.mSquishCounter += 1;
-                if self.mSquishCounter > 50 {
-                    self.mDead = true;
-                }
+            self.base.m_x = self.mPosX as i32;
+            self.base.m_y = self.mPosY as i32;
+            return;
+        }
+
+        let app = unsafe { &mut *(self.base.m_app as *mut crate::lawn_app::LawnApp) };
+        if (*app).mGameScene as i32 != GameScenes::SCENE_PLAYING as i32 {
+            return;
+        }
+
+        // 触发后的移动
+        if self.mMowerState == MowerState::MOWER_TRIGGERED {
+            self.mVelX = 3.5;
+            self.mPosX += self.mVelX;
+            // 动画
+            self.mAnimCounter += 1;
+            if self.mAnimCounter >= 4 {
+                self.mAnimCounter = 0;
+                self.mFrame += 1;
             }
-            MowerState::MOWER_OFF_LAWN => {
-                // Rolling in at level start (using OFF_LAWN as closest equivalent)
-                self.mRollingInCounter -= 1;
-                if self.mRollingInCounter <= 0 {
-                    self.mMowerState = MowerState::MOWER_READY;
-                }
+            // 超出屏幕
+            if self.mPosX > 900.0 {
+                self.mDead = true;
             }
-            _ => {}
+        } else {
+            // MOWER_READY: 碰撞检测
+            // [TODO]: Iterate zombies on same row, check overlap with attack rect
+            // if overlap > threshold → mMowerState = MOWER_TRIGGERED
         }
 
         self.base.m_x = self.mPosX as i32;
@@ -102,7 +137,7 @@ impl LawnMower {
 
     pub unsafe fn Draw(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
         if !self.mVisible || self.mDead { return; }
-        // TODO: Draw lawn mower sprite
+        // TODO: Draw lawn mower sprite based on mMowerType and mFrame
     }
 
     pub unsafe fn Die(&mut self) {
