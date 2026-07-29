@@ -799,9 +799,101 @@ impl Plant {
         }
     }
 
+    /// C++ Plant::UpdateAbilities (Plant.cpp:2509) — 主要能力分发
     pub unsafe fn UpdateAbilities(&mut self) {
-        // TODO: Dispatch to plant-type-specific updates
-        // This is the main ability/action dispatch method
+        if self.m_do_special_countdown > 0 {
+            self.m_do_special_countdown -= 1;
+            if self.m_do_special_countdown == 0 {
+                // [TODO]: DoSpecial()
+            }
+        }
+
+        // 射击植物
+        if self.m_launch_rate > 0 {
+            self.UpdateShooter();
+        }
+
+        // 产阳光植物
+        if self.m_seed_type == SeedType::SEED_SUNFLOWER
+            || self.m_seed_type == SeedType::SEED_TWINSUNFLOWER
+            || self.m_seed_type == SeedType::SEED_SUNSHROOM
+            || self.m_seed_type == SeedType::SEED_MARIGOLD
+        {
+            self.UpdateProductionPlant();
+        }
+
+        // 各植物类型特定更新
+        match self.m_seed_type {
+            SeedType::SEED_CHOMPER => { /* [TODO]: UpdateChomper() */ }
+            SeedType::SEED_SCAREDYSHROOM => { /* [TODO]: UpdateScaredyShroom() */ }
+            SeedType::SEED_SUNSHROOM => { /* [TODO]: UpdateSunShroom() */ }
+            SeedType::SEED_TORCHWOOD => { /* [TODO]: UpdateTorchwood() */ }
+            SeedType::SEED_SPIKEWEED | SeedType::SEED_SPIKEROCK => { /* [TODO]: UpdateSpikeweed() */ }
+            SeedType::SEED_POTATOMINE => { /* [TODO]: UpdatePotato() */ }
+            SeedType::SEED_SQUASH => { /* [TODO]: UpdateSquash() */ }
+            SeedType::SEED_GRAVEBUSTER => { /* [TODO]: UpdateGraveBuster() */ }
+            SeedType::SEED_MAGNETSHROOM => { /* [TODO]: UpdateMagnetShroom() */ }
+            SeedType::SEED_DOOMSHROOM => { /* [TODO]: UpdateDoomShroom() */ }
+            SeedType::SEED_ICESHROOM => { /* [TODO]: UpdateIceShroom() */ }
+            SeedType::SEED_BLOVER => { /* [TODO]: UpdateBlover() */ }
+            SeedType::SEED_CACTUS => { /* [TODO]: UpdateCactus() */ }
+            SeedType::SEED_TANGLEKELP => { /* [TODO]: UpdateTanglekelp() */ }
+            SeedType::SEED_COBCANNON => { /* [TODO]: UpdateCobCannon() */ }
+            SeedType::SEED_GOLD_MAGNET => { /* [TODO]: UpdateGoldMagnetShroom() */ }
+            SeedType::SEED_IMITATER => { /* [TODO]: UpdateImitater() */ }
+            _ => {}
+        }
+    }
+
+    /// C++ Plant::UpdateShooter (Plant.cpp:942)
+    pub unsafe fn UpdateShooter(&mut self) {
+        self.m_launch_counter -= 1;
+        if self.m_launch_counter <= 0 {
+            self.m_launch_counter = self.m_launch_rate - crate::sexy_app_framework::common::rand_int() % 15;
+
+            match self.m_seed_type {
+                SeedType::SEED_THREEPEATER => {
+                    // [TODO]: LaunchThreepeater()
+                }
+                SeedType::SEED_STARFRUIT => {
+                    // [TODO]: LaunchStarFruit()
+                }
+                SeedType::SEED_SPLITPEA => {
+                    // [TODO]: FindTargetAndFire(mRow, WEAPON_PRIMARY)
+                    // [TODO]: FindTargetAndFire(mRow, WEAPON_SECONDARY)
+                }
+                SeedType::SEED_CACTUS => {
+                    // [TODO]: Fire based on STATE_CACTUS_HIGH/LOW
+                }
+                _ => {
+                    // [TODO]: FindTargetAndFire(mRow, WEAPON_PRIMARY)
+                }
+            }
+        }
+
+        // 香蒲/双发射手/裂荚射手二次射击
+        if self.m_launch_counter == 50 && self.m_seed_type == SeedType::SEED_CATTAIL {
+            // [TODO]: FindTargetAndFire(mRow, WEAPON_PRIMARY)
+        }
+        if self.m_launch_counter == 25 {
+            if self.m_seed_type == SeedType::SEED_REPEATER || self.m_seed_type == SeedType::SEED_LEFTPEATER {
+                // [TODO]: FindTargetAndFire(mRow, WEAPON_PRIMARY)
+            } else if self.m_seed_type == SeedType::SEED_SPLITPEA {
+                // [TODO]: FindTargetAndFire(mRow, WEAPON_SECONDARY)
+            }
+        }
+    }
+
+    /// C++ Plant::UpdateProductionPlant (Plant.cpp:1001)
+    pub unsafe fn UpdateProductionPlant(&mut self) {
+        // [TODO]: Decrement mLaunchCounter, produce sun when ready
+    }
+
+    /// C++ Plant::FindTargetAndFire (Plant.cpp:730)
+    pub unsafe fn FindTargetAndFire(&mut self, _theRow: i32, _thePlantWeapon: PlantWeapon) -> bool {
+        // [TODO]: FindTargetZombie(theRow, thePlantWeapon)
+        // if zombie found → Fire(zombie, row, weapon)
+        false
     }
 
     pub unsafe fn Animate(&mut self) {
