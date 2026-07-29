@@ -390,3 +390,54 @@ pub fn tod_replace_string(text: &str, find: &str, substitute: &str) -> String {
 pub fn tod_replace_number_string(text: &str, find: &str, number: i32) -> String {
     text.replace(find, &number.to_string())
 }
+
+// =========================================================================
+// ★ TodDraw 绘制辅助函数 (from TodCommon.h)
+// =========================================================================
+
+/// TodDrawImageCelF — 在浮点位置绘制图像的指定帧
+pub fn tod_draw_image_cel_f(
+    g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
+    the_image: &crate::sexy_app_framework::graphics::graphics::Image,
+    the_x: f32,
+    the_y: f32,
+    the_cel_col: i32,
+    the_cel_row: i32,
+) {
+    // [TODO]: Calculate cel rect, apply transform (scale, translate), draw
+    // C++: g->DrawImageCel(theImage, x, y, theCelCol, theCelRow);
+    let _ = g;
+    let _ = the_image;
+    let _ = the_x;
+    let _ = the_y;
+    let _ = the_cel_col;
+    let _ = the_cel_row;
+}
+
+/// TodDrawImageScaledF — 带缩放的图像绘制
+pub fn tod_draw_image_scaled_f(
+    g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
+    _the_image: &crate::sexy_app_framework::graphics::graphics::Image,
+    _the_x: f32,
+    _the_y: f32,
+    _the_scale_x: f32,
+    _the_scale_y: f32,
+) {
+    // [TODO]: Apply scale transform, draw
+}
+
+/// TodDrawImageF — 简单的浮点位置图像绘制
+pub fn tod_draw_image_f(
+    g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
+    _the_image: &crate::sexy_app_framework::graphics::graphics::Image,
+    _the_x: f32,
+    _the_y: f32,
+) {
+    // [TODO]: Draw image with current Graphics state
+}
+
+/// TodStringTranslate — 翻译带 [...] 标记的字符串（映射到资源字符串）
+pub fn tod_string_translate(the_string: &str) -> String {
+    // [TODO]: Look up string from resource bundle
+    the_string.to_string()
+}

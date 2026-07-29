@@ -306,6 +306,53 @@ impl Graphics {
         self.state.m_scale_orig_y = orig_y;
     }
 
+    /// C++ Graphics::SetLinearBlend
+    pub fn SetLinearBlend(&mut self, _linear: bool) {
+        self.state.m_linear_blend = _linear;
+        // [TODO]: Apply blend mode to SDL2 renderer
+    }
+
+    /// C++ Graphics::SetColorizeImages
+    pub fn SetColorizeImages(&mut self, _colorize: bool) {
+        self.state.m_colorize_images = _colorize;
+    }
+
+    /// C++ Graphics::SetScale (with origin)
+    pub fn SetScale(&mut self, sx: f32, sy: f32, ox: f32, oy: f32) {
+        self.set_scale(sx, sy, ox, oy);
+    }
+
+    /// C++ Graphics::DrawImage (Image*, int x, int y)
+    pub fn DrawImage(&self, _theImage: &Image, _theX: i32, _theY: i32) {
+        // [TODO]: Draw image at (x + mTransX, y + mTransY) with current clip/scale
+    }
+
+    /// C++ Graphics::DrawImageF (Image*, float x, float y)
+    pub fn DrawImageF(&self, _theImage: &Image, _theX: f32, _theY: f32) {
+        // [TODO]: Float position draw
+    }
+
+    /// C++ Graphics::DrawImageCel (ImageStrip, x, y, cel)
+    pub fn DrawImageCel(&self, _theImageStrip: &Image, _theX: i32, _theY: i32, _theCel: i32) {
+        // [TODO]: Calculate cel rect and draw
+    }
+
+    /// C++ Graphics::DrawImageCel (ImageStrip, x, y, celCol, celRow)
+    pub fn DrawImageCelRow(&self, _theImageStrip: &Image, _theX: i32, _theY: i32, _theCelCol: i32, _theCelRow: i32) {
+        // [TODO]: Draw specific cel by column and row
+    }
+
+    /// C++ Graphics::DrawImageMirror
+    pub fn DrawImageMirror(&self, _theImage: &Image, _theX: i32, _theY: i32, _mirror: bool) {
+        // [TODO]: Horizontally mirrored draw
+    }
+
+    /// C++ Graphics::mTransX/Y — 平移变换直接访问
+    pub fn get_trans_x(&self) -> f32 { self.state.m_trans_x }
+    pub fn get_trans_y(&self) -> f32 { self.state.m_trans_y }
+    pub fn get_scale_x(&self) -> f32 { self.state.m_scale_x }
+    pub fn get_scale_y(&self) -> f32 { self.state.m_scale_y }
+
     pub fn string_width(&self, _text: &str) -> i32 {
         // Placeholder
         0
