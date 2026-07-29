@@ -17,3 +17,9 @@ flate2 = "1.0"
 version = "0.25"
 default-features = false
 features = ["png", "jpeg", "gif", "bmp", "tga", "webp", "tiff"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true
