@@ -3,6 +3,7 @@
 
 use std::collections::LinkedList;
 use crate::const_enums::*;
+use crate::sexy_tod_lib::tod_foley::FoleyType;
 use crate::lawn::board::Board;
 
 pub type ButtonList = LinkedList<*mut std::ffi::c_void>;
@@ -253,6 +254,244 @@ impl LawnApp {
         let mode = self.mGameMode as i32;
         mode >= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_1 as i32
             && mode <= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32
+    }
+
+    // =========================================================================
+    // ★ 核心接口 (被 Plant / Zombie / Board 大量调用)
+    // =========================================================================
+
+    /// C++ LawnApp::PlayFoley (LawnApp.cpp:〜line 1200)
+    pub unsafe fn PlayFoley(&mut self, _theFoleyType: FoleyType) {
+        // [TODO]: mSoundSystem->PlayFoley(theFoleyType)
+    }
+
+    /// C++ LawnApp::PlayFoleyPitch
+    pub unsafe fn PlayFoleyPitch(&mut self, _theFoleyType: FoleyType, _thePitch: f32) {
+        // [TODO]
+    }
+
+    /// C++ LawnApp::PlaySample
+    pub unsafe fn PlaySample(&mut self, _theSoundNum: isize) {
+        // [TODO]: SexyApp::PlaySample
+    }
+
+    /// C++ LawnApp::AddReanimation (LawnApp.cpp:〜line 1400)
+    pub unsafe fn AddReanimation(
+        &mut self,
+        _theX: f32,
+        _theY: f32,
+        _theRenderOrder: i32,
+        _theReanimationType: ReanimationType,
+    ) -> *mut std::ffi::c_void {
+        // [TODO]: mEffectSystem->mReanimationHolder->AllocReanimation(...)
+        std::ptr::null_mut()
+    }
+
+    /// C++ LawnApp::ReanimationGetID (inline)
+    pub unsafe fn ReanimationGetID(&self, _theReanimation: *mut std::ffi::c_void) -> ReanimationID {
+        // [TODO]
+        ReanimationID::REANIMATIONID_NULL
+    }
+
+    /// C++ LawnApp::ReanimationGet (inline)
+    pub unsafe fn ReanimationGet(&self, _theReanimationID: ReanimationID) -> *mut std::ffi::c_void {
+        // [TODO]: mEffectSystem->mReanimationHolder->GetReanimation(theReanimationID)
+        std::ptr::null_mut()
+    }
+
+    /// C++ LawnApp::ReanimationTryToGet (inline)
+    pub unsafe fn ReanimationTryToGet(&self, _theReanimationID: ReanimationID) -> *mut std::ffi::c_void {
+        std::ptr::null_mut()
+    }
+
+    /// C++ LawnApp::RemoveReanimation
+    pub unsafe fn RemoveReanimation(&mut self, _theReanimationID: ReanimationID) {
+        // [TODO]: mEffectSystem->mReanimationHolder->RemoveReanimation(theReanimationID)
+    }
+
+    /// C++ LawnApp::AddTodParticle
+    pub unsafe fn AddTodParticle(
+        &mut self,
+        _theX: f32,
+        _theY: f32,
+        _theRenderOrder: i32,
+        _theEffect: i32,  // [TODO]: ParticleEffect 枚举尚未翻译
+    ) -> *mut std::ffi::c_void {
+        // [TODO]: mEffectSystem->mParticleHolder->AllocParticle(...)
+        std::ptr::null_mut()
+    }
+
+    /// C++ LawnApp::ParticleTryToGet (inline)
+    pub unsafe fn ParticleTryToGet(&self, _theParticleID: ParticleSystemID) -> *mut std::ffi::c_void {
+        std::ptr::null_mut()
+    }
+
+    /// C++ LawnApp::ParticleGet (inline)
+    pub unsafe fn ParticleGet(&self, _theParticleID: ParticleSystemID) -> *mut std::ffi::c_void {
+        std::ptr::null_mut()
+    }
+
+    /// C++ LawnApp::ParticleGetID (inline)
+    pub unsafe fn ParticleGetID(&self, _theParticle: *mut std::ffi::c_void) -> ParticleSystemID {
+        ParticleSystemID::PARTICLESYSTEMID_NULL
+    }
+
+    /// C++ LawnApp::RemoveParticle
+    pub unsafe fn RemoveParticle(&mut self, _theParticleID: ParticleSystemID) {
+        // [TODO]: mEffectSystem->mParticleHolder->RemoveParticle(theParticleID)
+    }
+
+    /// C++ LawnApp::KillBoard
+    pub unsafe fn KillBoard(&mut self) {
+        // [TODO]: delete mBoard; mBoard = nullptr
+        // ChallengeScreen/StoreScreen cleanup
+    }
+
+    /// C++ LawnApp::MakeNewBoard
+    pub unsafe fn MakeNewBoard(&mut self) {
+        // [TODO]: mBoard = new Board(); mBoard->Init()
+    }
+
+    /// C++ LawnApp::StartPlaying
+    pub unsafe fn StartPlaying(&mut self) {
+        // [TODO]: mBoard->StartLevel()
+    }
+
+    /// C++ LawnApp::PreNewGame
+    pub unsafe fn PreNewGame(&mut self, _theGameMode: GameMode, _theLookForSavedGame: bool) {
+        // [TODO]: cleanup old board, init new
+    }
+
+    /// C++ LawnApp::NewGame
+    pub unsafe fn NewGame(&mut self) {
+        // [TODO]
+    }
+
+    /// C++ LawnApp::ShowGameSelector
+    pub unsafe fn ShowGameSelector(&mut self) {
+        // [TODO]
+    }
+
+    /// C++ LawnApp::KillGameSelector
+    pub unsafe fn KillGameSelector(&mut self) {
+        // [TODO]
+    }
+
+    /// C++ LawnApp::ShowAwardScreen
+    pub unsafe fn ShowAwardScreen(&mut self, _theAwardType: AwardType, _theShowAchievements: bool) {
+        // [TODO]
+    }
+
+    /// C++ LawnApp::KillAwardScreen
+    pub unsafe fn KillAwardScreen(&mut self) {
+        // [TODO]
+    }
+
+    /// C++ LawnApp::IsContinuousChallenge
+    pub unsafe fn IsContinuousChallenge(&self) -> bool {
+        // [TODO]: check if continuous mode
+        false
+    }
+
+    /// C++ LawnApp::HasFinishedAdventure (inline)
+    pub unsafe fn HasFinishedAdventure(&self) -> bool {
+        // [TODO]: check registry flags
+        false
+    }
+
+    /// C++ LawnApp::GetSeedsAvailable
+    pub unsafe fn GetSeedsAvailable(&self) -> i32 {
+        // [TODO]: count available seeds from player info
+        0
+    }
+
+    /// C++ LawnApp::HasSeedType
+    pub unsafe fn HasSeedType(&self, _theSeedType: SeedType) -> bool {
+        // [TODO]: check player info
+        false
+    }
+
+    /// C++ LawnApp::WriteCurrentUserConfig (inline)
+    pub unsafe fn WriteCurrentUserConfig(&self) -> bool {
+        // [TODO]: write registry / save file
+        true
+    }
+
+    /// C++ LawnApp::CheckForGameEnd
+    pub unsafe fn CheckForGameEnd(&mut self) {
+        // [TODO]: mBoard->CheckForGameEnd()
+    }
+
+    /// C++ LawnApp::WriteToRegistry
+    pub unsafe fn WriteToRegistry(&mut self) {
+        // [TODO]: save game state
+    }
+
+    /// C++ LawnApp::ReadFromRegistry
+    pub unsafe fn ReadFromRegistry(&mut self) {
+        // [TODO]: load game state
+    }
+
+    /// C++ LawnApp::PreloadForUser
+    pub unsafe fn PreloadForUser(&mut self) {
+        // [TODO]: preload zombie/plant resources for current level
+    }
+
+    /// C++ LawnApp::CanSpawnYetis (inline)
+    pub unsafe fn CanSpawnYetis(&self) -> bool {
+        // [TODO]: check adventure progress
+        false
+    }
+
+    /// C++ LawnApp::IsMiniBossLevel (inline)
+    pub unsafe fn IsMiniBossLevel(&self) -> bool {
+        // [TODO]: C++ uses GAMEMODE_CHALLENGE_MINIBOSS which may map differently
+        false
+    }
+
+    /// C++ LawnApp::IsLittleTroubleLevel (inline)
+    pub unsafe fn IsLittleTroubleLevel(&self) -> bool {
+        self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_LITTLE_TROUBLE as i32
+    }
+
+    /// C++ LawnApp::IsBungeeBlitzLevel (inline)
+    pub unsafe fn IsBungeeBlitzLevel(&self) -> bool {
+        self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_BUNGEE_BLITZ as i32
+    }
+
+    /// C++ LawnApp::CanShowStore (inline)
+    pub unsafe fn CanShowStore(&self) -> bool {
+        self.mGameScene == GameScenes::SCENE_PLAYING
+    }
+
+    /// C++ LawnApp::GetNumTrophies
+    pub unsafe fn GetNumTrophies(&self, _thePage: ChallengePage) -> i32 {
+        // [TODO]: count from player info
+        0
+    }
+
+    /// C++ LawnApp::Pluralize (static)
+    pub fn Pluralize(theCount: i32, theSingular: &str, thePlural: &str) -> String {
+        if theCount == 1 {
+            format!("{} {}", theCount, theSingular)
+        } else {
+            format!("{} {}", theCount, thePlural)
+        }
+    }
+
+    // =========================================================================
+    // ★ CrazyDave 系统
+    // =========================================================================
+    pub unsafe fn CrazyDaveEnter(&mut self) { /* TODO */ }
+    pub unsafe fn UpdateCrazyDave(&mut self) { /* TODO */ }
+    pub unsafe fn CrazyDaveTalkIndex(&mut self, _theMessageIndex: i32) { /* TODO */ }
+    pub unsafe fn CrazyDaveTalkMessage(&mut self, _theMessage: &str) { /* TODO */ }
+    pub unsafe fn CrazyDaveLeave(&mut self) { /* TODO */ }
+    pub unsafe fn CrazyDaveDie(&mut self) { /* TODO */ }
+    pub unsafe fn CrazyDaveStopTalking(&mut self) { /* TODO */ }
+    pub unsafe fn DrawCrazyDave(&self, _g: *mut std::ffi::c_void) { /* TODO */ }
+    pub unsafe fn GetCrazyDaveText(&self, _theMessageIndex: i32) -> String {
+        String::new()
     }
 }
 
