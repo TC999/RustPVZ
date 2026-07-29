@@ -824,10 +824,10 @@ impl Plant {
 
         // 各植物类型特定更新
         match self.m_seed_type {
-            SeedType::SEED_CHOMPER => { /* [TODO]: UpdateChomper() */ }
+            SeedType::SEED_CHOMPER => { self.UpdateChomper(); }
             SeedType::SEED_SCAREDYSHROOM => { /* [TODO]: UpdateScaredyShroom() */ }
             SeedType::SEED_SUNSHROOM => { /* [TODO]: UpdateSunShroom() */ }
-            SeedType::SEED_TORCHWOOD => { /* [TODO]: UpdateTorchwood() */ }
+            SeedType::SEED_TORCHWOOD => { self.UpdateTorchwood(); }
             SeedType::SEED_SPIKEWEED | SeedType::SEED_SPIKEROCK => { /* [TODO]: UpdateSpikeweed() */ }
             SeedType::SEED_POTATOMINE => { /* [TODO]: UpdatePotato() */ }
             SeedType::SEED_SQUASH => { /* [TODO]: UpdateSquash() */ }
@@ -843,6 +843,104 @@ impl Plant {
             SeedType::SEED_IMITATER => { /* [TODO]: UpdateImitater() */ }
             _ => {}
         }
+    }
+
+    // =========================================================================
+    // ★ 植物特定更新方法 (C++ 保真翻译)
+    // =========================================================================
+
+    /// C++ Plant::UpdateTorchwood (Plant.cpp:1374)
+    /// 火炬树桩 — 检测经过的豌豆并升级为火球
+    pub unsafe fn UpdateTorchwood(&mut self) {
+        let board = self.board();
+        let a_attack_rect = self.GetPlantAttackRect(PlantWeapon::WEAPON_PRIMARY);
+
+        let mut a_projectile: *mut super::projectile::Projectile = std::ptr::null_mut();
+        while board.IterateProjectiles(&mut a_projectile) {
+            if (*a_projectile).base.m_row == self.base.m_row
+                && ((*a_projectile).m_projectile_type == ProjectileType::PROJECTILE_PEA
+                    || (*a_projectile).m_projectile_type == ProjectileType::PROJECTILE_SNOWPEA)
+            {
+                let a_projectile_rect = self.GetProjectileRect(a_projectile);
+                if self.GetRectOverlapRect(a_attack_rect, a_projectile_rect) >= 10 {
+                    if (*a_projectile).m_projectile_type == ProjectileType::PROJECTILE_PEA {
+                        // aProjectile->ConvertToFireball(mPlantCol);
+                        // [TODO]: 转换为火球
+                        (*a_projectile).m_hit_torchwood_grid_x = self.m_plant_col;
+                    } else if (*a_projectile).m_projectile_type == ProjectileType::PROJECTILE_SNOWPEA {
+                        // aProjectile->ConvertToPea(mPlantCol);
+                        // [TODO]: 冰豆经过树桩变普通豌豆
+                        (*a_projectile).m_projectile_type = ProjectileType::PROJECTILE_PEA;
+                    }
+                }
+            }
+        }
+    }
+
+    /// C++ Plant::UpdateChomper (Plant.cpp:1747)
+    /// 大嘴花 — 咬住并消化僵尸
+    pub unsafe fn UpdateChomper(&mut self) {
+        let app = self.app();
+
+        if self.m_state == PlantState::STATE_READY {
+            // C++: 检测前方是否有僵尸
+            // [TODO]: FindTargetZombie(mRow, WEAPON_PRIMARY)
+            // 如果找到僵尸 → 切换到 biting 状态
+            self.m_state = PlantState::STATE_CHOMPER_BITING;
+            self.m_state_countdown = 70;
+        } else if self.m_state == PlantState::STATE_CHOMPER_BITING {
+            if self.m_state_countdown == 0 {
+                app.PlayFoley(crate::sexy_tod_lib::tod_foley::FoleyType::FOLEY_BIGCHOMP);
+                // C++: 检测僵尸 + 判定吞没或咬伤
+                // [TODO]: FindTargetZombie 判断逻辑
+                // if gargantuar/boss → doBite (只造成伤害)
+                // if pogo/pole-vaulting → doMiss
+                // else → aZombie->DieWithLoot(); state = STATE_CHOMPER_BITING_GOT_ONE
+                self.m_state = PlantState::STATE_CHOMPER_BITING_MISSED;
+            }
+        } else if self.m_state == PlantState::STATE_CHOMPER_BITING_GOT_ONE {
+            // C++: 动画循环结束 → 进入消化状态
+            self.m_state = PlantState::STATE_CHOMPER_DIGESTING;
+            self.m_state_countdown = 4000;
+        } else if self.m_state == PlantState::STATE_CHOMPER_DIGESTING {
+            if self.m_state_countdown == 0 {
+                // C++: 吞咽动画 → 回到 ready
+                self.m_state = PlantState::STATE_CHOMPER_SWALLOWING;
+            }
+        } else if self.m_state == PlantState::STATE_CHOMPER_BITING_MISSED
+            || self.m_state == PlantState::STATE_CHOMPER_SWALLOWING
+        {
+            // C++: 回到 ready 状态
+            self.m_state = PlantState::STATE_READY;
+        }
+    }
+
+    /// 获取植物攻击矩形 (C++ Plant::GetPlantAttackRect)
+    pub unsafe fn GetPlantAttackRect(&self, _weapon: PlantWeapon) -> crate::sexy_app_framework::misc::rect::Rect {
+        // [TODO]: 根据不同植物类型返回攻击范围矩形
+        crate::sexy_app_framework::misc::rect::Rect {
+            m_x: self.base.m_x - 20,
+            m_y: self.base.m_y - 20,
+            m_width: self.base.m_width + 40,
+            m_height: self.base.m_height + 40,
+        }
+    }
+
+    /// 获取投射物矩形 (C++ Projectile::GetProjectileRect)
+    pub unsafe fn GetProjectileRect(&self, projectile: *mut super::projectile::Projectile) -> crate::sexy_app_framework::misc::rect::Rect {
+        crate::sexy_app_framework::misc::rect::Rect {
+            m_x: (*projectile).m_pos_x as i32 - 10,
+            m_y: ((*projectile).m_pos_y + (*projectile).m_pos_z) as i32 - 10,
+            m_width: 20,
+            m_height: 20,
+        }
+    }
+
+    /// 矩形重叠检测 (C++ GetRectOverlap)
+    pub unsafe fn GetRectOverlapRect(&self, r1: crate::sexy_app_framework::misc::rect::Rect, r2: crate::sexy_app_framework::misc::rect::Rect) -> i32 {
+        let overlap_x = (r1.m_x + r1.m_width).min(r2.m_x + r2.m_width) - r1.m_x.max(r2.m_x);
+        let overlap_y = (r1.m_y + r1.m_height).min(r2.m_y + r2.m_height) - r1.m_y.max(r2.m_y);
+        if overlap_x <= 0 || overlap_y <= 0 { -1 } else { overlap_x * overlap_y }
     }
 
     /// C++ Plant::UpdateShooter (Plant.cpp:942)

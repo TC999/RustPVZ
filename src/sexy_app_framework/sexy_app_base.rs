@@ -311,3 +311,42 @@ impl SexyAppBase {
 
 // Global application pointer
 pub static mut G_SEXY_APP: Option<Box<SexyAppBase>> = None;
+
+// =========================================================================
+// 命令行参数全局存储 (SexyAppBase 基类字段的替代)
+// =========================================================================
+static mut G_ARGC: i32 = 0;
+static mut G_ARGV: *mut *mut u8 = std::ptr::null_mut();
+
+pub unsafe fn set_app_args(argc: i32, argv: *mut *mut u8) {
+    G_ARGC = argc;
+    G_ARGV = argv;
+}
+
+pub unsafe fn get_app_args() -> (i32, *mut *mut u8) {
+    (G_ARGC, G_ARGV)
+}
+
+// =========================================================================
+// SexyAppBase::Init() — C++ 保真翻译 (被 LawnApp::Init 调用)
+// =========================================================================
+pub unsafe fn sexy_app_base_init(_app: &mut crate::lawn_app::LawnApp) {
+    // [TODO]: 所有底层初始化 (SDL 窗口、OpenGL、资源管理器、音效管理器)
+    // 当前仅为结构占位
+}
+
+// =========================================================================
+// SexyAppBase::Start() — C++ 保真翻译
+// =========================================================================
+pub unsafe fn sexy_app_base_start(_app: &mut crate::lawn_app::LawnApp) {
+    // [TODO]: SDL 事件循环，当前仅为占位
+}
+
+// =========================================================================
+// SexyAppBase::Shutdown() — C++ 保真翻译
+// =========================================================================
+pub unsafe fn sexy_app_base_shutdown(app: &mut crate::lawn_app::LawnApp) {
+    app.m_close_request = true;
+    app.ShutdownHook();
+    // [TODO]: 其他清理工作
+}

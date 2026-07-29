@@ -51,31 +51,51 @@ impl SeedPacket {
     }
 
     pub unsafe fn Update(&mut self) {
-        // From C++ SeedPacket::Update()
-        // if mApp->mGameScene != SCENE_PLAYING || mPacketType == SEED_NONE { return; }
+        let app = &mut *crate::lawn_app::G_LAWN_APP;
 
-        if self.mRefreshing && !self.mActive {
+        // C++: if (mGameScene != SCENE_PLAYING || mPacketType == SEED_NONE) return;
+        if (*app).mGameScene != GameScenes::SCENE_PLAYING || self.mPacketType == SeedType::SEED_NONE {
+            return;
+        }
+
+        // C++: 获取 Board 引用用于检查 MainCounter
+        let board = (*app).m_board.as_mut().unwrap();
+
+        // C++: 在游戏帧 0 时触发 FlashIfReady
+        if board.mMainCounter == 0 {
+            self.FlashIfReady();
+        }
+
+        // C++: 冷却刷新
+        if !self.mActive && self.mRefreshing {
             self.mRefreshCounter += 1;
             if self.mRefreshCounter > self.mRefreshTime {
                 self.mRefreshCounter = 0;
                 self.mRefreshing = false;
-                self.mActive = true;
-                // FlashIfReady();
+                self.Activate();
+                self.FlashIfReady();
             }
         }
 
+        // C++: 老虎机模式
         if self.mSlotMachineCountDown > 0 {
             self.mSlotMachineCountDown -= 1;
-            self.mSlotMachiningPosition += 0.06; // Simplified
+            let a_flips_per_second = crate::sexy_tod_lib::tod_common::tod_animate_curve_float(
+                SLOT_MACHINE_TIME, 0, self.mSlotMachineCountDown, 6.0, 2.0, TodCurves::CURVE_LINEAR
+            );
+            self.mSlotMachiningPosition += a_flips_per_second * 0.01;
+
             if self.mSlotMachiningPosition >= 1.0 {
                 self.mPacketType = self.mSlotMachiningNextSeed;
                 if self.mSlotMachineCountDown == 0 {
-                    self.mActive = true;
+                    self.Activate();
                     self.mSlotMachiningPosition = 0.0;
                 } else {
                     self.mSlotMachiningPosition -= 1.0;
-                    // PickNextSlotMachineSeed();
+                    self.PickNextSlotMachineSeed();
                 }
+            } else if self.mSlotMachineCountDown == 0 {
+                self.mSlotMachineCountDown = 1;
             }
         }
     }
@@ -107,8 +127,32 @@ impl SeedPacket {
 
     pub unsafe fn WasPlanted(&mut self) {
         self.Deactivate();
+        // C++: mRefreshTime = GetSeedRefreshTime(mPacketType, mImitaterType);
         self.mRefreshTime = 600; // Default cooldown
         self.mRefreshCounter = 0;
+    }
+
+    /// C++ SeedPacket::FlashIfReady (SeedPacket.cpp:105)
+    pub unsafe fn FlashIfReady(&mut self) {
+        if self.mActive && self.mPacketType != SeedType::SEED_NONE {
+            // C++: mBoard->mSeedBank->mY = 0;
+            // [TODO]: 闪烁效果 — 种子包可用时的视觉提示
+        }
+    }
+
+    /// C++ SeedPacket::PickNextSlotMachineSeed (SeedPacket.cpp:53)
+    pub unsafe fn PickNextSlotMachineSeed(&mut self) {
+        // C++: 随机选择老虎机下一个种子
+        // [TODO]: 从可用种子中随机选取
+        self.mSlotMachiningNextSeed = SeedType::SEED_PEASHOOTER; // Placeholder
+    }
+
+    /// C++ SeedPacket::SlotMachineStart (SeedPacket.cpp:98)
+    pub unsafe fn SlotMachineStart(&mut self) {
+        self.mSlotMachineCountDown = SLOT_MACHINE_TIME;
+        self.mSlotMachiningPosition = 0.0;
+        self.mActive = false;
+        self.PickNextSlotMachineSeed();
     }
 
     pub unsafe fn CanPickUp(&self) -> bool {
@@ -121,6 +165,9 @@ impl Default for SeedPacket {
         Self::new()
     }
 }
+
+// C++: SLOT_MACHINE_TIME 常量 (SeedPacket.cpp:46)
+pub const SLOT_MACHINE_TIME: i32 = 200;
 
 pub struct SeedBank {
     pub mNumPackets: i32,

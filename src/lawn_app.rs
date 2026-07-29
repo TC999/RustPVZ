@@ -168,6 +168,190 @@ impl LawnApp {
         }
     }
 
+    // =========================================================================
+    // ★ C++ LawnApp::SetArgs / DoParseCmdLine / Init / Start / Shutdown
+    // =========================================================================
+
+    /// C++: gLawnApp->SetArgs(argc, argv)
+    /// 存储命令行参数 — C++ 代码保真翻译
+    pub unsafe fn SetArgs(&mut self, argc: i32, argv: *mut *mut u8) {
+        // C++: mArgc = argc; mArgv = argv;
+        // LawnApp 没有独立的 mArgc/mArgv 字段；在此存储为全局状态
+        // 后续 DoParseCmdLine 会解析这些参数
+        // [TRANSLATION_NOTE]: 在 C++ 中 argc/argv 存储在 SexyAppBase 基类中。
+        // 由于 Rust 版本使用组合而非继承，这里通过 static 存储
+        crate::sexy_app_framework::sexy_app_base::set_app_args(argc, argv);
+    }
+
+    /// C++: SexyAppBase::DoParseCmdLine()
+    /// 解析命令行参数 — C++ 代码保真翻译
+    pub unsafe fn DoParseCmdLine(&mut self) {
+        // C++: if (mArgv != nullptr) { for i=1 to mArgc { parse "=" ; HandleCmdLineParam(...) } }
+        // C++: mCmdLineParsed = true;
+        let (argc, argv) = crate::sexy_app_framework::sexy_app_base::get_app_args();
+        if !argv.is_null() {
+            for i in 1..argc {
+                let arg_ptr = *argv.add(i as usize);
+                if arg_ptr.is_null() {
+                    continue;
+                }
+                let arg_str = std::ffi::CStr::from_ptr(arg_ptr as *const i8).to_string_lossy().into_owned();
+                let mut param_name = arg_str.clone();
+                let mut param_value = String::new();
+                if let Some(eq_pos) = param_name.find('=') {
+                    param_value = param_name[eq_pos + 1..].to_string();
+                    param_name = param_name[..eq_pos].to_string();
+                }
+                self.HandleCmdLineParam(&param_name, &param_value);
+            }
+        }
+        // C++: mCmdLineParsed = true; — 没有独立字段，忽略
+    }
+
+    /// C++: SexyAppBase::HandleCmdLineParam
+    /// 处理单个命令行参数
+    pub unsafe fn HandleCmdLineParam(&mut self, the_param_name: &str, the_param_value: &str) {
+        // C++ 中的完整参数处理包括 -play, -record, -demofile 等
+        // 这里仅实现 PvZ 特有的 -tod 参数
+        if the_param_name == "-tod" {
+            #[cfg(debug_assertions)]
+            {
+                self.m_tod_cheat_keys = true;
+            }
+        }
+        // C++ 中其他参数会弹出错误对话框，这里忽略
+    }
+
+    /// C++: LawnApp::Init() — 保真翻译
+    /// C++ 源码位置: LawnApp.cpp 第 1251-1376 行
+    pub unsafe fn Init(&mut self) {
+        // C++: DoParseCmdLine();
+        self.DoParseCmdLine();
+
+        // C++: if (!mTodCheatKeys) { mOnlyAllowOneCopyToRun = true; }
+        if !self.m_tod_cheat_keys {
+            // mOnlyAllowOneCopyToRun 是 SexyAppBase 的字段
+            // 这里忽略，不影响核心逻辑
+        }
+
+        // C++: mSessionID = time(0);
+        self.m_session_id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default().as_secs() as isize;
+
+        // C++: mPlayTimeActiveSession = 0;
+        self.m_play_time_active_session = 0;
+
+        // C++: mPlayTimeInactiveSession = 0;
+        self.m_play_time_inactive_session = 0;
+
+        // C++: mBoardResult = BoardResult::BOARDRESULT_NONE;
+        self.mBoardResult = BoardResult::BOARDRESULT_NONE;
+
+        // C++: mSawYeti = false;
+        self.mSawYeti = false;
+
+        // C++: SexyApp::Init();  — 调用基类初始化
+        // [TRANSLATION_NOTE]: 由于 Rust 版本使用组合而非继承，此处调用 SexyAppBase 的 Init
+        crate::sexy_app_framework::sexy_app_base::sexy_app_base_init(self);
+
+        // C++: if (mShutdown) return; (mShutdown 在 MakeWindow() 失败时设置)
+        if self.m_close_request {
+            return;
+        }
+
+        // C++: Demo 缓冲区相关 (mRecordingDemoBuffer / mPlayingDemoBuffer)
+        // 当前版本未实现 demo 录制/回放，因此跳过
+
+        // C++: TodAssertInitForApp();
+        crate::sexy_tod_lib::tod_debug::tod_assert_init_for_app();
+        crate::sexy_tod_lib::tod_debug::tod_log_ln(&format!("session id: {}", self.m_session_id));
+
+        // C++: if (!mResourceManager->ParseResourcesFile("properties/resources.xml"))
+        // C++:     { ShowResourceError(true); return; }
+        // [TODO]: 资源管理器尚未实现，跳过
+        // if !self.mResourceManager->ParseResourcesFile("properties/resources.xml") ...
+        // 暂时不检查资源文件加载
+
+        // C++: if (!TodLoadResources("Init")) { return; }
+        // [TODO]: TodLoadResources 尚未实现，跳过
+
+        // C++: PerfTimer mTimer; mTimer.Start();
+        // [TODO]: 性能计时器，跳过
+
+        // C++: mProfileMgr->Load();
+        // [TODO]: 配置文件加载，跳过
+
+        // C++: std::string aCurUser;
+        // C++: if (mPlayerInfo == nullptr && RegistryReadString("CurUser", &aCurUser))
+        // C++:     mPlayerInfo = mProfileMgr->GetProfile(aCurUser);
+        // C++: if (mPlayerInfo == nullptr) mPlayerInfo = mProfileMgr->GetAnyProfile();
+        // [TODO]: 用户配置加载，跳过
+
+        // C++: mMaxExecutions = GetInteger("MaxExecutions", 0);
+        self.m_max_executions = 0;
+
+        // C++: mMaxPlays = GetInteger("MaxPlays", 0);
+        self.m_max_plays = 0;
+
+        // C++: mMaxTime = GetInteger("MaxTime", 60);
+        self.m_max_time = 60;
+
+        // C++: mTitleScreen = new TitleScreen(this);
+        // C++: mTitleScreen->Resize(0, 0, mWidth, mHeight);
+        // C++: mWidgetManager->AddWidget(mTitleScreen);
+        // C++: mWidgetManager->SetFocus(mTitleScreen);
+        // [TODO]: TitleScreen 实例化和 widget 管理，跳过
+
+        // C++: mMusic = new Music();
+        // C++: mSoundSystem = new TodFoley();
+        // C++: mEffectSystem = new EffectSystem();
+        // C++: mEffectSystem->EffectSystemInitialize();
+        // [TODO]: 子系统初始化，跳过
+
+        // C++: TypingCheck 作弊码检测
+        // C++: mKonamiCheck = new TypingCheck(); 等 9 个 TypingCheck
+        // [TODO]: 作弊码检测初始化，跳过
+
+        // C++: ReanimatorLoadDefinitions(gLawnReanimationArray, ReanimationType::NUM_REANIMS);
+        // C++: ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOADBAR_SPROUT, true);
+        // C++: ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOADBAR_ZOMBIEHEAD, true);
+        // [TODO]: 动画定义加载，跳过
+    }
+
+    /// C++: LawnApp::Start() — 保真翻译
+    /// C++ 源码位置: LawnApp.cpp 第 1383-1389 行
+    pub unsafe fn Start(&mut self) {
+        // C++: if (mLoadingFailed) return;
+        // [TRANSLATION_NOTE]: mLoadingFailed 是 SexyAppBase 的字段，当前版本未实现
+
+        // C++: SexyAppBase::Start();
+        crate::sexy_app_framework::sexy_app_base::sexy_app_base_start(self);
+    }
+
+    /// C++: LawnApp::Shutdown() — 保真翻译
+    /// C++ 源码位置: LawnApp.cpp 第 315-328 行
+    pub unsafe fn Shutdown(&mut self) {
+        // C++: if (!mLoadingThreadCompleted)
+        // C++:     { mLoadingFailed = true; SexyAppBase::Shutdown(); return; }
+        // [TRANSLATION_NOTE]: mLoadingThreadCompleted 是 SexyAppBase 的字段
+
+        // C++: if (!mShutdown) { SexyAppBase::Shutdown(); }
+        if !self.m_close_request {
+            crate::sexy_app_framework::sexy_app_base::sexy_app_base_shutdown(self);
+        }
+    }
+
+    /// C++: LawnApp::ShutdownHook() — 保真翻译
+    /// C++ 源码位置: LawnApp.cpp 第 330-338 行
+    pub unsafe fn ShutdownHook(&mut self) {
+        // C++: if (mBoard) { mBoardResult = BOARDRESULT_QUIT_APP; mBoard->TryToSaveGame(); }
+        if let Some(ref mut board) = self.m_board {
+            self.mBoardResult = BoardResult::BOARDRESULT_QUIT_APP;
+            // [TODO]: board.TryToSaveGame()
+        }
+    }
+
     pub fn is_adventure_mode(&self) -> bool {
         self.mGameMode == GameMode::GAMEMODE_ADVENTURE
     }

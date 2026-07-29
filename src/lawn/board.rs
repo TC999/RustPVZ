@@ -14,7 +14,8 @@ use crate::lawn::projectile::Projectile;
 use crate::lawn::coin::Coin;
 use crate::lawn::lawn_mower::LawnMower;
 use crate::lawn::grid_item::GridItem;
-use crate::lawn::cursor_object::{CursorObject, CursorPreview, GameButton, ToolTipWidget};
+use crate::lawn::cursor_object::{CursorObject, CursorPreview, GameButton};
+use crate::lawn::tool_tip_widget::ToolTipWidget;
 use crate::lawn::message_widget::MessageWidget;
 use crate::lawn::seed_packet::SeedBank;
 use crate::lawn::cut_scene::CutScene;
@@ -349,6 +350,160 @@ pub static G_ZOMBIE_WAVES: [i32; 50] = [
 // ===== Board impl (methods from Board.cpp) =====
 
 impl Board {
+    // =========================================================================
+    // ★ 网格物品查询方法 (C++ Board.cpp:401)
+    // =========================================================================
+
+    /// C++ Board::GetGridItemAt — 查找指定坐标和类型的网格物品
+    pub unsafe fn GetGridItemAt(&self, the_grid_item_type: GridItemType, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        let mut a_grid_item: *mut GridItem = std::ptr::null_mut();
+        while self.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridX == the_grid_x
+                && (*a_grid_item).mGridY == the_grid_y
+                && (*a_grid_item).mGridItemType == the_grid_item_type
+            {
+                return a_grid_item;
+            }
+        }
+        std::ptr::null_mut()
+    }
+
+    /// C++ Board::GetRake — 查找耙子
+    pub unsafe fn GetRake(&self) -> *mut GridItem {
+        let mut a_grid_item: *mut GridItem = std::ptr::null_mut();
+        while self.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_RAKE {
+                return a_grid_item;
+            }
+        }
+        std::ptr::null_mut()
+    }
+
+    /// C++ Board::GetCraterAt
+    pub unsafe fn GetCraterAt(&self, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        self.GetGridItemAt(GridItemType::GRIDITEM_CRATER, the_grid_x, the_grid_y)
+    }
+
+    /// C++ Board::GetGraveStoneAt
+    pub unsafe fn GetGraveStoneAt(&self, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        self.GetGridItemAt(GridItemType::GRIDITEM_GRAVESTONE, the_grid_x, the_grid_y)
+    }
+
+    /// C++ Board::GetLadderAt
+    pub unsafe fn GetLadderAt(&self, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        self.GetGridItemAt(GridItemType::GRIDITEM_LADDER, the_grid_x, the_grid_y)
+    }
+
+    /// C++ Board::GetScaryPotAt
+    pub unsafe fn GetScaryPotAt(&self, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        self.GetGridItemAt(GridItemType::GRIDITEM_SCARY_POT, the_grid_x, the_grid_y)
+    }
+
+    // =========================================================================
+    // ★ 像素坐标 ↔ 网格坐标转换 (C++ Board.cpp:8966)
+    // =========================================================================
+
+    /// C++ Board::PixelToGridX
+    pub unsafe fn PixelToGridX(&self, the_x: i32, the_y: i32) -> i32 {
+        // [TRANSLATION_NOTE]: 禅境花园模式需要委托给 ZenGarden
+        // if (mApp->mGameMode == GAMEMODE_CHALLENGE_ZEN_GARDEN) ...
+        // [TODO]: ZenGarden 像素坐标转换
+        if the_x < LAWN_XMIN {
+            return -1;
+        }
+        crate::sexy_tod_lib::tod_common::clamp_int((the_x - LAWN_XMIN) / 80, 0, MAX_GRID_SIZE_X - 1)
+    }
+
+    /// C++ Board::PixelToGridXKeepOnBoard
+    pub unsafe fn PixelToGridXKeepOnBoard(&self, the_x: i32, the_y: i32) -> i32 {
+        let a_grid_x = self.PixelToGridX(the_x, the_y);
+        if a_grid_x < 0 { 0 } else { a_grid_x }
+    }
+
+    /// C++ Board::PixelToGridY
+    pub unsafe fn PixelToGridY(&self, the_x: i32, the_y: i32) -> i32 {
+        // [TODO]: ZenGarden 模式
+        let a_grid_x = self.PixelToGridX(the_x, the_y);
+        if a_grid_x == -1 || the_y < LAWN_YMIN {
+            return -1;
+        }
+        if self.StageHasRoof() {
+            let mut adjusted_y = the_y;
+            if a_grid_x < 5 {
+                adjusted_y -= (4 - a_grid_x) * 20;
+            }
+            crate::sexy_tod_lib::tod_common::clamp_int((adjusted_y - LAWN_YMIN) / 85, 0, MAX_GRID_SIZE_Y - 2)
+        } else if self.StageHasPool() {
+            crate::sexy_tod_lib::tod_common::clamp_int((the_y - LAWN_YMIN) / 85, 0, MAX_GRID_SIZE_Y - 1)
+        } else {
+            crate::sexy_tod_lib::tod_common::clamp_int((the_y - LAWN_YMIN) / 100, 0, MAX_GRID_SIZE_Y - 1)
+        }
+    }
+
+    /// C++ Board::PixelToGridYKeepOnBoard
+    pub unsafe fn PixelToGridYKeepOnBoard(&self, the_x: i32, the_y: i32) -> i32 {
+        let a_grid_y = self.PixelToGridY(the_x, the_y);
+        if a_grid_y < 0 { 0 } else { a_grid_y }
+    }
+
+    // =========================================================================
+    // ★ 阳光经济系统 (C++ Board.cpp:8609)
+    // =========================================================================
+
+    /// C++ Board::AddSunMoney
+    pub unsafe fn AddSunMoney(&mut self, the_amount: i32) {
+        self.mSunMoney += the_amount;
+        if self.mSunMoney > 9990 {
+            self.mSunMoney = 9990;
+        }
+    }
+
+    /// C++ Board::CanTakeSunMoney (Board.cpp:8659)
+    pub unsafe fn CanTakeSunMoney(&self, the_amount: i32) -> bool {
+        self.mSunMoney >= the_amount
+    }
+
+    /// C++ Board::TakeSunMoney
+    pub unsafe fn TakeSunMoney(&mut self, the_amount: i32) -> bool {
+        if self.CanTakeSunMoney(the_amount) {
+            self.mSunMoney -= the_amount;
+            return true;
+        }
+        // C++: mApp->PlaySample(SOUND_BUZZER);
+        // [TODO]: 音效播放
+        // C++: mOutOfMoneyCounter = 70;
+        // [TODO]: 设置资金不足计数器
+        false
+    }
+
+    /// C++ Board::CountSunBeingCollected (Board.cpp:8618)
+    pub unsafe fn CountSunBeingCollected(&self) -> i32 {
+        let mut a_count = 0;
+        let mut a_coin: *mut crate::lawn::coin::Coin = std::ptr::null_mut();
+        while self.IterateCoins(&mut a_coin) {
+            if (*a_coin).m_is_being_collected && (*a_coin).IsSun() {
+                a_count += crate::lawn::coin::Coin::GetCoinValue((*a_coin).m_type);
+            }
+        }
+        a_count
+    }
+
+    /// C++ Board::CountCoinsBeingCollected (Board.cpp:8632)
+    pub unsafe fn CountCoinsBeingCollected(&self) -> i32 {
+        let mut a_count = 0;
+        let mut a_coin: *mut crate::lawn::coin::Coin = std::ptr::null_mut();
+        while self.IterateCoins(&mut a_coin) {
+            if (*a_coin).m_is_being_collected && (*a_coin).IsMoney() {
+                a_count += crate::lawn::coin::Coin::GetCoinValue((*a_coin).m_type);
+            }
+        }
+        a_count
+    }
+
+    // =========================================================================
+    // ★ 原 Board 方法
+    // =========================================================================
+
     pub unsafe fn IsAdventureMode(&self) -> bool {
         (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_ADVENTURE as i32
     }
@@ -1212,6 +1367,11 @@ impl Board {
             || aScene as i32 == GameScenes::SCENE_ZOMBIES_WON as i32
     }
 
+    pub unsafe fn StageHasRoof(&self) -> bool {
+        self.mBackground as i32 == BackgroundType::BACKGROUND_5_ROOF as i32
+            || self.mBackground as i32 == BackgroundType::BACKGROUND_6_BOSS as i32
+    }
+
     pub unsafe fn StageHasPool(&self) -> bool {
         self.mBackground as i32 == BackgroundType::BACKGROUND_3_POOL as i32
             || self.mBackground as i32 == BackgroundType::BACKGROUND_4_FOG as i32
@@ -1863,7 +2023,7 @@ impl Board {
 
     pub unsafe fn IsPlantInCursor(&self) -> bool {
         if self.mCursorObject.is_null() { return false; }
-        let ct = (*self.mCursorObject).mType;
+        let ct = (*self.mCursorObject).mCursorType;
         ct == CursorType::CURSOR_TYPE_PLANT_FROM_BANK
             || ct == CursorType::CURSOR_TYPE_PLANT_FROM_USABLE_COIN
             || ct == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE

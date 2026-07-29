@@ -90,6 +90,7 @@ pub const ZOMBIE_WAVE_DEBUG: i32 = -1;
 pub const ZOMBIE_WAVE_CUTSCENE: i32 = -2;
 pub const ZOMBIE_WAVE_UI: i32 = -3;
 pub const ZOMBIE_WAVE_WINNER: i32 = -4;
+pub const HIGH_GROUND_HEIGHT: i32 = 60;
 
 #[derive(Clone)]
 pub struct Zombie {
@@ -682,16 +683,191 @@ impl Zombie {
     }
 
     pub unsafe fn UpdateActions(&mut self) {
-        // TODO: Zombie action dispatch based on type and state
-        // Handles: walking, eating, pole-vaulting, dolphin-riding, etc.
+        // C++ Zombie::UpdateActions (Zombie.cpp:4395)
+        // 高度/位置相关更新
+        if self.m_zombie_height == ZombieHeight::HEIGHT_UP_LADDER {
+            // [TODO]: UpdateClimbingLadder()
+        }
+        if self.m_zombie_height == ZombieHeight::HEIGHT_OUT_OF_POOL
+            || self.m_zombie_height == ZombieHeight::HEIGHT_IN_TO_POOL
+            || self.m_in_pool
+        {
+            self.UpdateZombiePool();
+        }
+        if self.m_zombie_height == ZombieHeight::HEIGHT_UP_TO_HIGH_GROUND
+            || self.m_zombie_height == ZombieHeight::HEIGHT_DOWN_OFF_HIGH_GROUND
+        {
+            self.UpdateZombieHighGround();
+        }
+        if self.m_zombie_height == ZombieHeight::HEIGHT_FALLING {
+            self.UpdateZombieFalling();
+        }
+        if self.m_zombie_height == ZombieHeight::HEIGHT_IN_TO_CHIMNEY {
+            self.UpdateZombieChimney();
+        }
+
+        // 僵尸类型特定更新
+        match self.m_zombie_type {
+            ZombieType::ZOMBIE_POLEVAULTER => { /* [TODO]: UpdateZombiePolevaulter() */ }
+            ZombieType::ZOMBIE_CATAPULT => { /* [TODO]: UpdateZombieCatapult() */ }
+            ZombieType::ZOMBIE_DOLPHIN_RIDER => { /* [TODO]: UpdateZombieDolphinRider() */ }
+            ZombieType::ZOMBIE_SNORKEL => { /* [TODO]: UpdateZombieSnorkel() */ }
+            ZombieType::ZOMBIE_BALLOON => { /* [TODO]: UpdateZombieFlyer() */ }
+            ZombieType::ZOMBIE_NEWSPAPER => { /* [TODO]: UpdateZombieNewspaper() */ }
+            ZombieType::ZOMBIE_DIGGER => { /* [TODO]: UpdateZombieDigger() */ }
+            ZombieType::ZOMBIE_JACK_IN_THE_BOX => { /* [TODO]: UpdateZombieJackInTheBox() */ }
+            ZombieType::ZOMBIE_GARGANTUAR | ZombieType::ZOMBIE_REDEYE_GARGANTUAR => { /* [TODO]: UpdateZombieGargantuar() */ }
+            ZombieType::ZOMBIE_BOBSLED => { /* [TODO]: UpdateZombieBobsled() */ }
+            ZombieType::ZOMBIE_ZAMBONI => { /* [TODO]: UpdateZamboni() */ }
+            ZombieType::ZOMBIE_LADDER => { /* [TODO]: UpdateLadder() */ }
+            ZombieType::ZOMBIE_YETI => { /* [TODO]: UpdateYeti() */ }
+            ZombieType::ZOMBIE_DANCER => { /* [TODO]: UpdateZombieDancer() */ }
+            ZombieType::ZOMBIE_BUNGEE => { self.UpdateZombieBungee(); }
+            ZombieType::ZOMBIE_POGO => { self.UpdateZombiePogo(); }
+            _ => {}
+        }
+
+        // 地面僵尸行走（非特殊类型）
+        if self.m_zombie_height == ZombieHeight::HEIGHT_ZOMBIE_NORMAL
+            && self.m_zombie_type != ZombieType::ZOMBIE_BUNGEE
+            && self.m_zombie_type != ZombieType::ZOMBIE_POGO
+            && self.m_zombie_type != ZombieType::ZOMBIE_CATAPULT
+        {
+            self.UpdateZombieWalking();
+        }
     }
 
     pub unsafe fn UpdateZombieWalking(&mut self) {
-        // TODO: Movement logic
+        // C++ Zombie::UpdateZombieWalking (Zombie.cpp:4071)
+        // C++: if (ZombieNotWalking()) return; → mIsEating || IsImmobilizied()
+        if self.m_is_eating || self.IsImmobilizied() {
+            return;
+        }
+
+        let app = self.app();
+        let a_body_reanim = app.ReanimationTryToGet(self.m_body_reanim_id);
+        if !a_body_reanim.is_null() {
+            let mut a_speed: f32;
+            // C++: 特殊速度计算
+            let is_pogo_bouncing = self.m_zombie_phase as i32 >= ZombiePhase::PHASE_POGO_BOUNCING as i32
+                && self.m_zombie_phase as i32 <= ZombiePhase::PHASE_POGO_FORWARD_BOUNCE_7 as i32;
+            let is_moving_chilled = self.m_chilled_counter > 0;
+            let chilled_speed_factor: f32 = 0.5;
+
+            if is_pogo_bouncing
+                || self.m_zombie_phase == ZombiePhase::PHASE_BALLOON_FLYING
+                || self.m_zombie_phase == ZombiePhase::PHASE_DOLPHIN_RIDING
+                || self.m_zombie_phase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL
+                || self.m_zombie_type == ZombieType::ZOMBIE_CATAPULT
+            {
+                a_speed = self.m_vel_x;
+                if is_moving_chilled {
+                    a_speed *= chilled_speed_factor;
+                }
+            } else if self.m_zombie_type == ZombieType::ZOMBIE_ZAMBONI
+                || self.m_zombie_phase == ZombiePhase::PHASE_DIGGER_TUNNELING
+                || self.m_zombie_phase == ZombiePhase::PHASE_DOLPHIN_IN_JUMP
+                || self.m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT
+                || self.m_zombie_phase == ZombiePhase::PHASE_SNORKEL_INTO_POOL
+            {
+                a_speed = self.m_vel_x;
+            } else {
+                // C++: 默认速度 = 动画地面轨道速度 * 缩放
+                // [TODO]: aBodyReanim->GetTrackVelocity("_ground") * mScaleZombie
+                a_speed = self.m_vel_x;
+                if is_moving_chilled {
+                    a_speed *= CHILLED_SPEED_FACTOR;
+                }
+            }
+
+            // C++: 行走方向
+            let is_walking_backwards = self.m_mind_controlled;
+            if is_walking_backwards || self.m_zombie_phase == ZombiePhase::PHASE_DANCER_DANCING_IN {
+                self.m_pos_x += a_speed;
+            } else {
+                self.m_pos_x -= a_speed;
+            }
+
+            // C++: 橄榄球僵尸粒子效果
+            if self.m_zombie_type == ZombieType::ZOMBIE_FOOTBALL {
+                // [TODO]: ShouldTriggerTimedEvent 粒子效果
+            }
+            // C++: 撑杆跳僵尸粒子效果
+            if self.m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_PRE_VAULT {
+                // [TODO]: ShouldTriggerTimedEvent 粒子效果
+            }
+        } else {
+            // C++: 无重动画时的行走逻辑（基于帧）
+            let mut do_walk = false;
+            if self.m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT
+                || self.m_zombie_phase == ZombiePhase::PHASE_DIGGER_TUNNELING
+                || self.m_zombie_type == ZombieType::ZOMBIE_DANCER
+                || self.m_zombie_type == ZombieType::ZOMBIE_BACKUP_DANCER
+                || self.m_zombie_type == ZombieType::ZOMBIE_BOBSLED
+                || self.m_zombie_type == ZombieType::ZOMBIE_POGO
+                || self.m_zombie_type == ZombieType::ZOMBIE_DOLPHIN_RIDER
+                || self.m_zombie_type == ZombieType::ZOMBIE_BALLOON
+            {
+                do_walk = true;
+            } else if self.m_zombie_type == ZombieType::ZOMBIE_SNORKEL && self.m_in_pool {
+                do_walk = true;
+            } else if self.m_frame >= 0 && self.m_frame <= 2 {
+                do_walk = true;
+            } else if self.m_frame >= 6 && self.m_frame <= 8 {
+                do_walk = true;
+            }
+
+            if do_walk {
+                let mut a_speed = self.m_vel_x;
+                if self.m_chilled_counter > 0 {
+                    a_speed *= 0.5; // CHILLED_SPEED_FACTOR
+                }
+                if self.m_mind_controlled {
+                    self.m_pos_x += a_speed;
+                } else {
+                    self.m_pos_x -= a_speed;
+                }
+            }
+        }
     }
 
     pub unsafe fn UpdateZombiePosition(&mut self) {
-        // TODO: Position update from velocity
+        // C++ Zombie::UpdateZombiePosition (Zombie.cpp:4217)
+        // 某些类型不更新位置
+        if self.m_zombie_type == ZombieType::ZOMBIE_BUNGEE
+            || self.m_zombie_type == ZombieType::ZOMBIE_BOSS
+            || self.m_zombie_phase == ZombiePhase::PHASE_RISING_FROM_GRAVE
+            || self.m_zombie_height == ZombieHeight::HEIGHT_ZOMBIQUARIUM
+        {
+            return;
+        }
+
+        // C++: 行走 + 压路（冰车/投石车）
+        self.UpdateZombieWalking();
+        // [TODO]: CheckForZombieStep()
+
+        // C++: 被吹走
+        if self.m_blowing_away {
+            self.m_pos_x += 10.0;
+            if self.m_pos_x > 850.0 {
+                // [TODO]: DieWithLoot()
+                return;
+            }
+        }
+
+        // C++: Y 轴对齐到行位置
+        if self.m_zombie_height == ZombieHeight::HEIGHT_ZOMBIE_NORMAL {
+            let a_desired_y = 80.0 + self.base.m_row as f32 * 100.0; // [TODO]: GetPosYBasedOnRow
+            if self.m_pos_y < a_desired_y {
+                self.m_pos_y += (a_desired_y - self.m_pos_y).min(1.0);
+            } else if self.m_pos_y > a_desired_y {
+                self.m_pos_y -= (self.m_pos_y - a_desired_y).min(1.0);
+            }
+        }
+
+        // 更新基类坐标
+        self.base.m_x = self.m_pos_x as i32;
+        self.base.m_y = self.m_pos_y as i32;
     }
 
     pub unsafe fn Animate(&mut self) {
@@ -704,24 +880,244 @@ impl Zombie {
         }
     }
 
+    // =========================================================================
+    // ★ 僵尸啃食/攻击系统 (C++ 保真翻译)
+    // =========================================================================
+
+    /// C++ Zombie::StartEating (Zombie.cpp:6685) — 开始啃食植物
+    pub unsafe fn StartEating(&mut self) {
+        if self.m_is_eating { return; }
+        self.m_is_eating = true;
+
+        // C++: 挖掘僵尸不停止挖掘
+        if self.m_zombie_phase == ZombiePhase::PHASE_DIGGER_TUNNELING {
+            return;
+        }
+
+        // C++: 播放啃食动画
+        if self.m_zombie_phase == ZombiePhase::PHASE_LADDER_CARRYING {
+            // [TODO]: PlayZombieReanim("anim_laddereat", REANIM_LOOP, 20, 0.0f)
+        } else if self.m_zombie_phase == ZombiePhase::PHASE_NEWSPAPER_MAD {
+            // [TODO]: PlayZombieReanim("anim_eat_nopaper", REANIM_LOOP, 20, 0.0f)
+        } else {
+            // [TODO]: PlayZombieReanim("anim_eat", REANIM_LOOP, 20, 0.0f)
+            // C++: 门板僵尸隐藏门板手臂
+            if self.m_shield_type == ShieldType::SHIELDTYPE_DOOR {
+                // [TODO]: ShowDoorArms(false)
+            }
+        }
+    }
+
+    /// C++ Zombie::StartWalkAnim (Zombie.cpp:6717) — 恢复行走动画
+    pub unsafe fn StartWalkAnim(&mut self, _the_blend_time: i32) {
+        // [TODO]: 根据僵尸类型和状态播放行走动画
+        // C++: PickRandomSpeed(); 然后播放 "anim_walk" / 其他行走动画
+    }
+
     pub unsafe fn UpdateBurn(&mut self) {}
     pub unsafe fn UpdateDeath(&mut self) {}
     pub unsafe fn UpdateMowered(&mut self) {}
-    pub unsafe fn UpdateZombieBungee(&mut self) {}
-    pub unsafe fn UpdateZombiePogo(&mut self) {}
-    pub unsafe fn UpdateZombieChimney(&mut self) {}
+    pub unsafe fn UpdateZombiePool(&mut self) {
+        // C++ Zombie::UpdateZombiePool (Zombie.cpp:3230)
+        if self.m_zombie_height == ZombieHeight::HEIGHT_OUT_OF_POOL {
+            self.m_altitude += 1.0;
+            if self.m_zombie_type == ZombieType::ZOMBIE_SNORKEL {
+                self.m_altitude += 1.0;
+            }
+            if self.m_altitude >= 0.0 {
+                self.m_altitude = 0.0;
+                self.m_zombie_height = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
+                self.m_in_pool = false;
+            }
+        } else if self.m_zombie_height == ZombieHeight::HEIGHT_IN_TO_POOL {
+            self.m_altitude -= 1.0;
+            let a_depth = -40.0 * self.m_scale_zombie;
+            if self.m_altitude <= a_depth {
+                self.m_altitude = a_depth;
+                self.m_zombie_height = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
+                self.StartWalkAnim(0);
+            }
+        } else if self.m_zombie_height == ZombieHeight::HEIGHT_DRAGGED_UNDER {
+            self.m_altitude -= 1.0;
+        }
+    }
+
+    pub unsafe fn UpdateZombieHighGround(&mut self) {
+        // C++ Zombie::UpdateZombieHighGround (Zombie.cpp:3264)
+        if self.m_zombie_type == ZombieType::ZOMBIE_POGO { return; }
+
+        if self.m_zombie_height == ZombieHeight::HEIGHT_UP_TO_HIGH_GROUND {
+            self.m_altitude += 1.0;
+            if self.m_altitude >= HIGH_GROUND_HEIGHT as f32 {
+                self.m_altitude = HIGH_GROUND_HEIGHT as f32;
+                self.m_zombie_height = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
+            }
+        } else if self.m_zombie_height == ZombieHeight::HEIGHT_DOWN_OFF_HIGH_GROUND {
+            self.m_altitude -= 1.0;
+            if self.m_altitude <= 0.0 {
+                self.m_altitude = 0.0;
+                self.m_zombie_height = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
+                self.m_on_high_ground = false;
+            }
+        }
+    }
+
+    pub unsafe fn UpdateZombieFalling(&mut self) {
+        // C++ Zombie::UpdateZombieFalling (Zombie.cpp:3290)
+        self.m_altitude -= 1.0;
+        if self.m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_PRE_VAULT {
+            self.m_altitude -= 1.0;
+        }
+        let mut a_ground_height = 0.0;
+        if self.m_on_high_ground {
+            a_ground_height = HIGH_GROUND_HEIGHT as f32;
+        }
+        if self.m_altitude <= a_ground_height {
+            self.m_altitude = a_ground_height;
+            self.m_zombie_height = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
+        }
+    }
+
+    pub unsafe fn UpdateZombieChimney(&mut self) {
+        // C++ Zombie::UpdateZombieChimney (Zombie.cpp:9596)
+        let board = self.board();
+        if board.mBackground as i32 == BackgroundType::BACKGROUND_5_ROOF as i32
+            || board.mBackground as i32 == BackgroundType::BACKGROUND_6_BOSS as i32
+        {
+            // C++: mAltitude = TodAnimateCurve(4000, 5000, mCutScene->mCutsceneTime, 200, 0, CURVE_EASE_IN)
+            // [TODO]: 使用正确的 cutscene time
+            self.m_altitude = crate::sexy_tod_lib::tod_common::tod_animate_curve_float(
+                4000, 5000,
+                if board.mCutScene.is_null() { 0 } else { (*board.mCutScene).mCutsceneTime },
+                200.0, 0.0, TodCurves::CURVE_EASE_IN
+            );
+        }
+    }
+
+    pub unsafe fn UpdateZombieBungee(&mut self) {
+        // C++ Zombie::UpdateZombieBungee (Zombie.cpp:1307)
+        if self.IsDeadOrDying() || self.IsImmobilizied() { return; }
+
+        if self.m_zombie_phase == ZombiePhase::PHASE_BUNGEE_DIVING
+            || self.m_zombie_phase == ZombiePhase::PHASE_BUNGEE_DIVING_SCREAMING
+        {
+            let a_old_altitude = self.m_altitude;
+            self.m_altitude -= 8.0;
+            // [TODO]: BungeeLanding()
+        } else if self.m_zombie_phase == ZombiePhase::PHASE_BUNGEE_AT_BOTTOM {
+            if self.m_phase_counter <= 0 {
+                // [TODO]: BungeeStealTarget()
+                self.m_zombie_phase = ZombiePhase::PHASE_BUNGEE_GRABBING;
+            }
+        } else if self.m_zombie_phase == ZombiePhase::PHASE_BUNGEE_GRABBING {
+            // [TODO]: 检测动画循环 → BungeeLiftTarget() → PHASE_BUNGEE_RISING
+            self.m_zombie_phase = ZombiePhase::PHASE_BUNGEE_RISING;
+        } else if self.m_zombie_phase == ZombiePhase::PHASE_BUNGEE_HIT_OUCHY {
+            if self.m_phase_counter <= 0 {
+                // [TODO]: DieWithLoot()
+            }
+        } else if self.m_zombie_phase == ZombiePhase::PHASE_BUNGEE_RISING {
+            self.m_altitude += 8.0;
+            if self.m_altitude >= 600.0 {
+                // [TODO]: DieNoLoot()
+            }
+        } else if self.m_zombie_phase == ZombiePhase::PHASE_BUNGEE_CUTSCENE {
+            // [TODO]: 振荡动画
+        }
+
+        self.base.m_x = self.m_pos_x as i32;
+        self.base.m_y = self.m_pos_y as i32;
+    }
+
+    pub unsafe fn UpdateZombiePogo(&mut self) {
+        // C++ Zombie::UpdateZombiePogo (Zombie.cpp:1401)
+        // [TODO]: Pogo 僵尸弹跳逻辑 — 检测植物、弹跳越过
+        self.UpdateZombieWalking();
+    }
+
     pub unsafe fn UpdateReanim(&mut self) {}
     pub unsafe fn UpdateYuckyFace(&mut self) {}
-    pub unsafe fn UpdateZombiePool(&mut self) {}
-    pub unsafe fn UpdateZombieHighGround(&mut self) {}
-    pub unsafe fn UpdateZombieFalling(&mut self) {}
     pub unsafe fn UpdateAnimSpeed(&mut self) {}
+
+    // =========================================================================
+    // ★ 僵尸伤害系统 (C++ 保真翻译)
+    // =========================================================================
+
+    /// C++ Zombie::TakeDamage (Zombie.cpp:7940) — 主伤害入口
+    pub unsafe fn TakeDamage(&mut self, the_damage: i32, the_damage_flags: u32) {
+        if self.m_zombie_phase == ZombiePhase::PHASE_JACK_IN_THE_BOX_POPPING || self.IsDeadOrDying() {
+            return;
+        }
+        let mut a_damage_remaining = the_damage;
+        if self.IsFlying() {
+            a_damage_remaining = self.TakeFlyingDamage(a_damage_remaining, the_damage_flags);
+        }
+        if a_damage_remaining > 0
+            && self.m_shield_type != ShieldType::SHIELDTYPE_NONE
+            && (the_damage_flags & (1 << DamageFlags::DAMAGE_BYPASSES_SHIELD as i32)) == 0
+        {
+            a_damage_remaining = self.TakeShieldDamage(a_damage_remaining, the_damage_flags);
+            if (the_damage_flags & (1 << DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY as i32)) != 0 {
+                a_damage_remaining = the_damage;
+            }
+        }
+        if a_damage_remaining > 0 && self.m_helm_type != HelmType::HELMTYPE_NONE as i32 {
+            a_damage_remaining = self.TakeHelmDamage(a_damage_remaining, the_damage_flags);
+        }
+        if a_damage_remaining > 0 {
+            self.TakeBodyDamage(a_damage_remaining, the_damage_flags);
+        }
+    }
+
+    pub unsafe fn TakeBodyDamage(&mut self, the_damage: i32, the_damage_flags: u32) {
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0 {
+            self.m_just_got_shot_counter = 25;
+        }
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_FREEZE as i32)) != 0 {
+            // [TODO]: ApplyChill(false)
+        }
+        let a_damage_index_before = self.GetBodyDamageIndex();
+        self.m_body_health -= the_damage;
+        let a_damage_index_after = self.GetBodyDamageIndex();
+        if self.m_body_health <= 0 {
+            // [TODO]: DieWithLoot() or other death
+        } else if a_damage_index_before != a_damage_index_after {
+            // [TODO]: Update damage overlay images
+        }
+    }
+
+    pub unsafe fn TakeFlyingDamage(&mut self, the_damage: i32, _flags: u32) -> i32 {
+        self.m_flying_health -= the_damage;
+        if self.m_flying_health <= 0 { 0 } else { the_damage }
+    }
+
+    pub unsafe fn TakeShieldDamage(&mut self, the_damage: i32, _flags: u32) -> i32 {
+        self.m_shield_health -= the_damage;
+        if self.m_shield_health <= 0 { 0 } else { 0 }
+    }
+
+    pub unsafe fn TakeHelmDamage(&mut self, the_damage: i32, _flags: u32) -> i32 {
+        // [TODO]: helmet health field
+        0
+    }
+
+    pub fn GetBodyDamageIndex(&self) -> i32 {
+        if self.m_body_max_health > 0 {
+            let ratio = self.m_body_health as f32 / self.m_body_max_health as f32;
+            if ratio < 0.333 { 2 } else if ratio < 0.667 { 1 } else { 0 }
+        } else { 0 }
+    }
     pub unsafe fn DieNoLoot(&mut self) {
         self.m_dead = true;
     }
     pub unsafe fn IsImmobilizied(&self) -> bool {
         self.m_chilled_counter > 0 || self.m_buttered_counter > 0
     }
+
+    pub unsafe fn IsFlying(&self) -> bool {
+        self.m_zombie_phase == ZombiePhase::PHASE_BALLOON_FLYING
+    }
+
     pub unsafe fn HasShadow(&self) -> bool {
         self.m_zombie_type == ZombieType::ZOMBIE_BOSS
             || self.m_zombie_type == ZombieType::ZOMBIE_GARGANTUAR
