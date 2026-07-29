@@ -607,15 +607,66 @@ impl Plant {
         self.base.end_draw(g);
     }
 
-    /// C++ Plant::Draw() (stub - rendering depends on Reanimation/Image system)
-    pub unsafe fn Draw(&self, _g: &mut Graphics) {
-        // TODO: Draw plant based on seed type
-        // Uses m_body_reanim_id, m_head_reanim_id etc.
-        // Rendering through Reanimation system
+    /// C++ Plant::Draw (Plant.cpp:3937)
+    pub unsafe fn Draw(&self, g: &mut Graphics) {
+        let mut aOffsetX = 0.0f32;
+        let mut aOffsetY = 0.0f32; // [TODO]: PlantDrawHeightOffset(mBoard, this, mSeedType, mPlantCol, mRow)
+        if Plant::is_flying(self.m_seed_type) && self.m_squished {
+            aOffsetY += 30.0;
+        }
+
+        let aImageIndex = self.m_frame;
+
+        if self.m_squished {
+            if self.m_seed_type == SeedType::SEED_FLOWERPOT {
+                aOffsetY -= 15.0;
+            }
+            if self.m_seed_type == SeedType::SEED_INSTANT_COFFEE {
+                aOffsetY -= 20.0;
+            }
+
+            // [TODO]: g.SetScale(1.0, 0.25, 0, 0)
+            // [TODO]: DrawSeedType(g, mSeedType, mImitaterType, VARIATION_NORMAL, aOffsetX, 60 + aOffsetY)
+            // [TODO]: g.SetScale(1.0, 1.0, 0, 0)
+        } else {
+            // 南瓜壳后层绘制
+            let mut aDrawPumpkinBack = false;
+            // [TODO]: GetPumpkinAt / GetTopPlantAt logic
+
+            // [TODO]: DrawShadow(g, aOffsetX, aOffsetY)
+
+            // 飞行植物浮动
+            if Plant::is_flying(self.m_seed_type) && self.IsOnBoard() {
+                // [TODO]: sin-wave floating animation
+            }
+
+            // 主绘制分支
+            if self.IsOnBoard() && self.app().IsIZombieLevel() {
+                // [TODO]: mBoard->mChallenge->IZombieDrawPlant(g, this)
+            } else if self.m_body_reanim_id != ReanimationID::REANIMATIONID_NULL {
+                // [TODO]: Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID)
+                // [TODO]: aBodyReanim->Draw(g)
+            } else {
+                // 基于精灵表的绘制
+                // [TODO]: g.SetColorizeImages / SetColor for upgradable/highlight
+                // [TODO]: TodDrawImageCelF(g, aPlantImage, aOffsetX, aOffsetY, aImageIndex, 0)
+            }
+
+            // 磁铁物品绘制
+            if self.m_seed_type == SeedType::SEED_MAGNETSHROOM {
+                // [TODO]: DrawMagnetItems(g)
+            }
+        }
+    }
+
+    /// C++ Plant::DrawShadow (Plant.cpp:3808)
+    pub unsafe fn DrawShadow(&self, g: &mut Graphics, _theOffsetX: f32, _theOffsetY: f32) {
+        // [TODO]: Draw shadow based on seed type
+        // TodDrawImageCelF(g, IMAGE_PLANTSHADOW, ...)
     }
 
     pub unsafe fn DrawMagnetItems(&self, _g: &mut Graphics) {
-        // TODO: Draw magnet items above plant
+        // [TODO]: Draw magnet items above plant
     }
 
     /// C++ Plant::Fire (Plant.cpp:4475)

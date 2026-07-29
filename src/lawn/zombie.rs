@@ -4,6 +4,8 @@
 use crate::const_enums::*;
 use super::game_object::GameObject;
 use crate::sexy_app_framework::graphics::graphics::Graphics;
+use crate::sexy_app_framework::common::*;
+use crate::sexy_tod_lib::tod_foley::FoleyType;
 
 pub const MAX_ZOMBIE_FOLLOWERS: i32 = 4;
 pub const NUM_BOBSLED_FOLLOWERS: i32 = 3;
@@ -457,55 +459,147 @@ impl Zombie {
         }
     }
 
-    /// C++ Zombie::Draw() — 绘制 (lines 6264-6315)
+    /// C++ Zombie::Draw() — 绘制 (Zombie.cpp:6264)
     pub unsafe fn Draw(&self, g: &mut Graphics) {
         if self.m_zombie_height == ZombieHeight::HEIGHT_GETTING_BUNGEE_DROPPED {
             return;
         }
 
-        // ZombieDrawPosition aDrawPos;
-        // GetDrawPos(aDrawPos);
-        let board = self.board();
+        // [TODO]: ZombieDrawPosition aDrawPos = GetDrawPos()
+        let mut aDrawPos = ZombieDrawPosition::new();
+        let _board = self.board();
 
         if (*self.app()).mGameScene as i32 == GameScenes::SCENE_ZOMBIES_WON as i32 {
-            // if !SetupDrawZombieWon(g) { return; }
+            // [TODO]: if !SetupDrawZombieWon(g) { return; }
         }
 
+        // 冰陷阱后层
         if self.m_ice_trap_counter > 0 {
-            // DrawIceTrap(g, aDrawPos, false);
+            // [TODO]: DrawIceTrap(g, aDrawPos, false);
         }
+
+        // 主僵尸绘制（除隐形模式外）
         if (*self.app()).mGameMode as i32 != GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL as i32
-            || self.m_from_wave == crate::lawn::zombie::ZOMBIE_WAVE_UI
+            || self.m_from_wave == ZOMBIE_WAVE_UI
         {
             if self.m_body_reanim_id != ReanimationID::REANIMATIONID_NULL {
-                // DrawReanim(g, aDrawPos, RENDER_GROUP_NORMAL);
+                // [TODO]: DrawReanim(g, aDrawPos, RENDER_GROUP_NORMAL);
+            } else {
+                // [TODO]: DrawZombieWithParts(g, aDrawPos) — sprite-based fallback
             }
         }
+
+        // 冰陷阱前层 + 黄油
         if self.m_ice_trap_counter > 0 {
-            // DrawIceTrap(g, aDrawPos, true);
+            // [TODO]: DrawIceTrap(g, aDrawPos, true);
         }
         if self.m_buttered_counter > 0 {
-            // DrawButter(g, aDrawPos);
+            // [TODO]: DrawButter(g, aDrawPos);
         }
 
-        // AttachmentDraw
+        // 附着物（粒子效果等）
+        if self.m_attachment_id != AttachmentID::ATTACHMENTID_NULL {
+            // [TODO]: AttachmentDraw(mAttachmentID, &particleGraphics, false);
+        }
+
         // g->ClearClipRect();
     }
 
     // === Sub-update methods (stubs, to be filled in) ===
 
+    /// C++ Zombie::UpdatePlaying (Zombie.cpp:4543)
     pub unsafe fn UpdatePlaying(&mut self) {
-        // TODO: Full zombie playing update - movement, eating, etc.
-        self.UpdateActions();
-        self.UpdateZombiePosition();
-        self.UpdateYuckyFace();
-        self.UpdateBurn();
-        self.UpdateDeath();
-        self.UpdateMowered();
-        self.UpdateZombiePool();
-        self.UpdateZombieHighGround();
-        self.UpdateZombieFalling();
-        self.UpdateAnimSpeed();
+        self.m_groan_counter -= 1;
+        let board = self.board();
+        let a_zombies_count = board.mZombies.m_size;
+        if self.m_groan_counter == 0
+            && rand_int() % (a_zombies_count.max(1) as i32) == 0
+            && self.m_has_head
+            && self.m_zombie_type != ZombieType::ZOMBIE_BOSS
+        // [TODO]: && !board.HasLevelAwardDropped()
+        {
+            let a_pitch = if (*self.app()).IsLittleTroubleLevel() {
+                rand_float(10.0) + 40.0
+            } else { 0.0 };
+
+            if self.m_zombie_type == ZombieType::ZOMBIE_GARGANTUAR {
+                self.app().PlayFoley(FoleyType::FOLEY_LOW_GROAN);
+            } else if self.m_variant {
+                self.app().PlayFoleyPitch(FoleyType::FOLEY_BRAINS, a_pitch);
+            } else if (*self.app()).m_sukhbir_mode {
+                self.app().PlayFoleyPitch(FoleyType::FOLEY_SUKHBIR, a_pitch);
+            } else {
+                self.app().PlayFoleyPitch(FoleyType::FOLEY_GROAN, a_pitch);
+            }
+            self.m_groan_counter = rand_int() % 1000 + 500;
+        }
+
+        // 冰/冻/黄油递减
+        if self.m_ice_trap_counter > 0 {
+            self.m_ice_trap_counter -= 1;
+            if self.m_ice_trap_counter == 0 {
+                // [TODO]: RemoveIceTrap(); AddAttachedParticle(...)
+            }
+        }
+        if self.m_chilled_counter > 0 {
+            self.m_chilled_counter -= 1;
+            if self.m_chilled_counter == 0 {
+                // [TODO]: UpdateAnimSpeed()
+            }
+        }
+        if self.m_buttered_counter > 0 {
+            self.m_buttered_counter -= 1;
+            if self.m_buttered_counter == 0 {
+                // [TODO]: RemoveButter()
+            }
+        }
+
+        // 从墓碑升起
+        if self.m_zombie_phase == ZombiePhase::PHASE_RISING_FROM_GRAVE {
+            // [TODO]: UpdateZombieRiseFromGrave()
+            return;
+        }
+
+        // 位置/动作更新
+        if !self.IsImmobilizied() {
+            self.UpdateActions();
+            self.UpdateZombiePosition();
+            // [TODO]: CheckIfPreyCaught()
+            // [TODO]: CheckForPool()
+            // [TODO]: CheckForHighGround()
+            // [TODO]: CheckForBoardEdge()
+        }
+
+        // Boss 特殊更新
+        if self.m_zombie_type == ZombieType::ZOMBIE_BOSS {
+            // [TODO]: UpdateBoss()
+        }
+
+        // 缓慢死亡逻辑
+        if !self.IsDeadOrDying() && self.m_from_wave != ZOMBIE_WAVE_WINNER {
+            let mut is_dying = !self.m_has_head;
+            if self.m_zombie_type == ZombieType::ZOMBIE_ZAMBONI
+                || self.m_zombie_type == ZombieType::ZOMBIE_CATAPULT
+            {
+                if self.m_body_health < 200 {
+                    is_dying = true;
+                }
+            }
+
+            if is_dying {
+                let mut a_damage = 1;
+                if self.m_zombie_type == ZombieType::ZOMBIE_YETI {
+                    a_damage = 10;
+                }
+                if self.m_body_max_health >= 500 {
+                    a_damage = 3;
+                }
+
+                if rand_int() % 5 == 0 {
+                    // [TODO]: TakeDamage(a_damage, 9U)
+                }
+            }
+        }
     }
 
     pub unsafe fn UpdateActions(&mut self) {

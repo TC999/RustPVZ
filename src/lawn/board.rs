@@ -14,6 +14,7 @@ use crate::lawn::projectile::Projectile;
 use crate::lawn::coin::Coin;
 use crate::lawn::lawn_mower::LawnMower;
 use crate::lawn::grid_item::GridItem;
+use crate::sexy_app_framework::graphics::graphics::Graphics;
 use crate::lawn::cursor_object::{CursorObject, CursorPreview, GameButton, ToolTipWidget};
 use crate::lawn::message_widget::MessageWidget;
 use crate::lawn::seed_packet::{SeedBank, SeedPacket};
@@ -1453,21 +1454,44 @@ impl Board {
     // =========================================================================
     // ★ Board::Draw() — 主渲染 (from Board.cpp line 7616)
     // =========================================================================
-    pub unsafe fn Draw(&mut self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
-        // if mApp->GetDialog(DIALOG_STORE) || mApp->GetDialog(DIALOG_ALMANAC) { return; }
-        // g->SetLinearBlend(true);
-
-        // FPS stats update (stub: timing infrastructure not yet available)
+    /// C++ Board::Draw (Board.cpp:7616)
+    pub unsafe fn Draw(&mut self, g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // [TODO]: if mApp->GetDialog(STORE/ALMANAC) return
+        // [TODO]: g.SetLinearBlend(true)
         self.mDrawCount += 1;
-        self.DrawGameObjects(_g);
+        self.DrawGameObjects(g);
     }
 
-    pub unsafe fn DrawGameObjects(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
-        // TODO: Full render list building and sorting
-        // In C++: creates RenderItem array, sorts by Z-order, dispatches each item
-        // The rendering pipeline depends on Graphics, Image, Reanimation, Particle
-        // subsystems that are partially implemented.
-        // This is a structural placeholder.
+    /// C++ Board::DrawGameObjects (Board.cpp:6191)
+    /// 构建渲染列表并按 Z 顺序绘制所有游戏对象（简化版，无完整 RenderItem 排序）
+    pub unsafe fn DrawGameObjects(&mut self, g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // 1. 背景
+        self.DrawBackdrop(g);
+
+        // 2. 植物
+        let mut aPlant: *mut Plant = std::ptr::null_mut();
+        while self.IteratePlants(&mut aPlant) {
+            if !(*aPlant).base.m_visible || (*aPlant).m_dead { continue; }
+            (*aPlant).Draw(g);
+        }
+
+        // 3. 僵尸
+        let mut aZombie: *mut crate::lawn::zombie::Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut aZombie) {
+            if (*aZombie).IsDeadOrDying() && !(*aZombie).m_has_head { continue; }
+            (*aZombie).Draw(g);
+        }
+
+        // 4. 弹丸
+        let mut aProj: *mut crate::lawn::projectile::Projectile = std::ptr::null_mut();
+        while self.IterateProjectiles(&mut aProj) {
+            if (*aProj).m_dead { continue; }
+            // [TODO]: (*aProj).Draw(g)
+        }
+
+        // 5. UI上层
+        self.DrawTopRightUI(g);
+        // [TODO]: 硬币, 割草机, 粒子, 网格物品, Fog, UI上层/下层
     }
 
     // =========================================================================
@@ -1688,6 +1712,39 @@ impl Board {
             }
         }
         std::ptr::null_mut()
+    }
+
+    // =========================================================================
+    // ★ 绘制系统常量
+    // =========================================================================
+
+    /// 渲染对象类型 (对应 C++ RenderObjectType 枚举)
+    pub const RENDER_ITEM_NONE: i32 = 0;
+    pub const RENDER_ITEM_PLANT: i32 = 1;
+    pub const RENDER_ITEM_ZOMBIE: i32 = 2;
+    pub const RENDER_ITEM_ZOMBIE_SHADOW: i32 = 3;
+    pub const RENDER_ITEM_COIN: i32 = 4;
+    pub const RENDER_ITEM_PROJECTILE: i32 = 5;
+    pub const RENDER_ITEM_PROJECTILE_SHADOW: i32 = 6;
+    pub const RENDER_ITEM_MOWER: i32 = 7;
+    pub const RENDER_ITEM_PARTICLE: i32 = 8;
+    pub const RENDER_ITEM_REANIMATION: i32 = 9;
+    pub const RENDER_ITEM_GRID_ITEM: i32 = 10;
+    pub const RENDER_ITEM_GRID_ITEM_OVERLAY: i32 = 11;
+    pub const RENDER_ITEM_ZOMBIE_BUNGEE_TARGET: i32 = 12;
+    pub const RENDER_ITEM_PLANT_OVERLAY: i32 = 13;
+    pub const RENDER_ITEM_PLANT_MAGNET_ITEMS: i32 = 14;
+
+    pub const MAX_RENDER_ITEMS: i32 = 2048;
+
+    /// C++ Board::DrawBackdrop (Board.cpp:5967)
+    pub unsafe fn DrawBackdrop(&self, g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // [TODO]: Draw level background based on mBackground type
+    }
+
+    /// C++ Board::DrawTopRightUI (Board.cpp:7286)
+    pub unsafe fn DrawTopRightUI(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // [TODO]: Draw menu button, store button, progress meter
     }
 }
 
