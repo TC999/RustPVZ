@@ -1476,8 +1476,27 @@ impl Board {
         }
     }
 
+    /// C++ Board::UpdateProgressMeter (Board.cpp:5527)
     pub unsafe fn UpdateProgressMeter(&mut self) {
-        // TODO: Update progress meter based on zombie health
+        if self.mNumWaves == 0 { return; }
+        // Calculate progress based on zombie health remaining vs initial
+        let mut aTotalHealth = 0;
+        let mut aRemainingHealth = 0;
+        let mut aZombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut aZombie) {
+            if (*aZombie).m_from_wave == crate::lawn::zombie::ZOMBIE_WAVE_UI
+                || (*aZombie).m_from_wave == crate::lawn::zombie::ZOMBIE_WAVE_DEBUG {
+                continue;
+            }
+            aTotalHealth += (*aZombie).m_body_max_health + (*aZombie).m_helm_max_health + (*aZombie).m_shield_max_health;
+            aRemainingHealth += (*aZombie).m_body_health.max(0) + (*aZombie).m_helm_health.max(0) + (*aZombie).m_shield_health.max(0);
+        }
+        aTotalHealth += self.mZombieHealthWaveStart;
+        aRemainingHealth += self.mZombieHealthToNextWave;
+
+        if aTotalHealth > 0 {
+            self.mProgressMeterWidth = (aRemainingHealth * 1000 / aTotalHealth) as i32;
+        }
     }
 
     pub unsafe fn UpdateTutorial(&mut self) {
