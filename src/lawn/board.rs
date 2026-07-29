@@ -1387,12 +1387,81 @@ impl Board {
         }
     }
 
+    /// C++ Board::UpdateSunSpawning (Board.cpp:5285)
     pub unsafe fn UpdateSunSpawning(&mut self) {
-        // TODO: Natural sun drops, sunflower sun production
+        let app = self.mApp;
+
+        // 检查是否应该掉落自然阳光
+        if (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32
+            || (*app).IsIZombieLevel()
+            || (*app).IsScaryPotterLevel()
+        {
+            return;
+        }
+
+        // 夜晚/特殊模式不掉落阳光
+        if self.StageIsNight() || self.mLevelAwardSpawned {
+            return;
+        }
+
+        // 教程模式未种植物时不掉落阳光
+        if self.mTutorialState as i32 == 0 || self.mTutorialState as i32 == 1 {
+            if self.mPlants.m_size == 0 {
+                return;
+            }
+        }
+
+        self.mSunCountDown -= 1;
+        if self.mSunCountDown != 0 {
+            return;
+        }
+
+        self.mNumSunsFallen += 1;
+        self.mSunCountDown = std::cmp::min(950, 425 + self.mNumSunsFallen * 10)
+            + crate::sexy_app_framework::common::rand_int() % 275;
+        let aSunType = CoinType::COIN_SUN;
+        // [TODO]: AddCoin(RandRangeInt(100, 649), 60, aSunType, COIN_MOTION_FROM_SKY)
     }
 
+    /// C++ Board::UpdateZombieSpawning (Board.cpp:5343)
     pub unsafe fn UpdateZombieSpawning(&mut self) {
-        // TODO: Spawn zombies based on wave definitions
+        let app = self.mApp;
+        if (*app).mGameMode as i32 == GameMode::GAMEMODE_UPSELL as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_INTRO as i32
+        {
+            return;
+        }
+
+        // 终波音效
+        if self.mFinalWaveSoundCounter > 0 {
+            self.mFinalWaveSoundCounter -= 1;
+            if self.mFinalWaveSoundCounter == 0 {
+                // [TODO]: mApp->PlaySample(SOUND_FINALWAVE)
+            }
+        }
+
+        // 波次生成逻辑
+        if self.mZombieCountDown > 0 {
+            self.mZombieCountDown -= 1;
+            if self.mZombieCountDown == 0 {
+                self.SpawnZombieWave();
+                // 设置下一波倒计时
+                if self.mCurrentWave == self.mNumWaves {
+                    self.mZombieCountDown = 0x7FFFFFFF; // no more waves
+                } else {
+                    self.mZombieCountDown = self.mZombieCountDownStart;
+                    // [TODO]: Adjust countdown based on wave number
+                }
+            }
+        }
+
+        // 墓碑危机：墓碑生成僵尸
+        // [TODO]: SpawnZombiesFromGraves logic
+
+        // 水池/天空特殊生成
+        // [TODO]: SpawnZombiesFromPool / SpawnZombiesFromSky
     }
 
     pub unsafe fn UpdateIce(&mut self) {
