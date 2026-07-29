@@ -418,8 +418,34 @@ impl LawnApp {
     }
 
     /// C++ LawnApp::CheckForGameEnd
+    /// C++ LawnApp::CheckForGameEnd (LawnApp.cpp:1515)
     pub unsafe fn CheckForGameEnd(&mut self) {
-        // [TODO]: mBoard->CheckForGameEnd()
+        let level_complete = self.m_board.as_ref().map_or(false, |b| b.mLevelComplete);
+        if !level_complete {
+            return;
+        }
+
+        let aLevel = self.m_board.as_ref().map(|b| b.mLevel).unwrap_or(0);
+        let is_first_time = self.IsFirstTimeAdventureMode();
+
+        // [TODO]: bool aUnlockedNewChallenge = UpdatePlayerProfileForFinishingLevel()
+
+        if self.is_adventure_mode() {
+            self.KillBoard();
+
+            if is_first_time && aLevel < 50 {
+                self.ShowAwardScreen(AwardType::AWARD_FORLEVEL, true);
+            } else if aLevel == 50 /* FINAL_LEVEL */ {
+                self.ShowAwardScreen(AwardType::AWARD_CREDITS_ZOMBIENOTE, true);
+            } else if aLevel == 9 || aLevel == 19 || aLevel == 29 || aLevel == 39 || aLevel == 49 {
+                self.ShowAwardScreen(AwardType::AWARD_FORLEVEL, true);
+            } else {
+                self.PreNewGame(self.mGameMode, false);
+            }
+        } else {
+            self.KillBoard();
+            self.ShowGameSelector();
+        }
     }
 
     /// C++ LawnApp::WriteToRegistry
