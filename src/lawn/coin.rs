@@ -114,9 +114,13 @@ impl Coin {
         }
     }
 
+    /// C++ Coin::CoinInitialize (Coin.cpp:50)
     pub unsafe fn CoinInitialize(&mut self, theX: i32, theY: i32, theCoinType: CoinType, theCoinMotion: CoinMotion) {
         self.m_pos_x = theX as f32;
         self.m_pos_y = theY as f32;
+        self.m_ground_y = theY;
+        self.base.m_x = theX;
+        self.base.m_y = theY;
         self.m_type = theCoinType;
         self.m_coin_motion = theCoinMotion;
         self.m_dead = false;
@@ -124,74 +128,114 @@ impl Coin {
         self.base.m_visible = true;
         self.m_hit_ground = false;
         self.m_times_dropped = 0;
+        self.m_disappear_counter = 0;
+        self.m_is_being_collected = false;
+
+        // 初始化速度
+        match theCoinMotion {
+            CoinMotion::COIN_MOTION_FROM_SKY => {
+                self.m_vel_x = crate::sexy_app_framework::common::rand_float(2.0) - 1.0;
+                self.m_vel_y = -3.0;
+                self.m_scale = 1.0;
+            }
+            CoinMotion::COIN_MOTION_FROM_PLANT => {
+                self.m_vel_x = crate::sexy_app_framework::common::rand_float(2.0) + 1.0;
+                self.m_vel_y = -4.0 - crate::sexy_app_framework::common::rand_float(3.0);
+                self.m_scale = 0.75;
+            }
+            CoinMotion::COIN_MOTION_COIN => {
+                self.m_vel_x = crate::sexy_app_framework::common::rand_float(4.0) - 2.0;
+                self.m_vel_y = -7.0 - crate::sexy_app_framework::common::rand_float(3.0);
+            }
+            _ => {}
+        }
     }
 
+    /// C++ Coin::Update (Coin.cpp:735)
     pub unsafe fn Update(&mut self) {
         if self.m_dead {
             return;
         }
         self.m_coin_age += 1;
 
-        // Coin motion based on type
-        match self.m_coin_motion {
-            CoinMotion::COIN_MOTION_FROM_SKY => {
-                if !self.m_hit_ground {
-                    self.m_vel_y += 0.3;
-                    self.m_pos_y += self.m_vel_y;
-                    if self.m_pos_y >= self.m_ground_y as f32 {
-                        self.m_pos_y = self.m_ground_y as f32;
-                        self.m_hit_ground = true;
-                    }
+        // C++: UpdateFall — 下落/弹跳
+        if !self.m_is_being_collected && self.m_coin_motion != CoinMotion::COIN_MOTION_FROM_PRESENT {
+            self.m_vel_y += 0.3; // gravity
+            self.m_pos_y += self.m_vel_y;
+            self.m_pos_x += self.m_vel_x;
+
+            // 空气阻力（水平减速）
+            self.m_vel_x *= 0.95;
+
+            // 弹跳
+            if self.m_pos_y >= self.m_ground_y as f32 {
+                self.m_pos_y = self.m_ground_y as f32;
+                if self.m_vel_y > 0.5 {
+                    self.m_vel_y = -(self.m_vel_y * 0.5); // bounce
+                    self.m_times_dropped += 1;
+                } else if self.m_vel_y > 0.0 {
+                    self.m_vel_y = 0.0;
+                    self.m_hit_ground = true;
+                }
+                if self.m_times_dropped >= 4 {
+                    self.m_hit_ground = true;
                 }
             }
-            CoinMotion::COIN_MOTION_FROM_PLANT => {
-                self.m_vel_x += 2.0;
-                self.m_pos_x += self.m_vel_x;
-            }
-            CoinMotion::COIN_MOTION_COIN => {
-                // Coin spawning from plant death
-            }
-            CoinMotion::COIN_MOTION_LAWNMOWER_COIN => {
-                // Lawn mower coin drop
-            }
-            _ => {}
         }
 
-        // Collection animation
+        // C++: UpdateCollected — 收集动画
         if self.m_is_being_collected {
-            // Move towards collection point
+            let dx = self.m_collect_x - self.m_pos_x;
+            let dy = self.m_collect_y - self.m_pos_y;
+            self.m_pos_x += dx * 0.1;
+            self.m_pos_y += dy * 0.1;
             self.m_fade_count += 1;
-            if self.m_fade_count > 100 {
+            if self.m_fade_count > 50 {
                 self.m_dead = true;
             }
         }
 
-        // Disappear counter
+        // 自动消失
         if self.m_disappear_counter > 0 {
             self.m_disappear_counter -= 1;
             if self.m_disappear_counter == 0 {
                 self.m_dead = true;
             }
         }
+
+        self.base.m_x = self.m_pos_x as i32;
+        self.base.m_y = self.m_pos_y as i32;
+    }
+
+    /// C++ Coin::Collect (Coin.cpp:1050)
+    pub unsafe fn Collect(&mut self, theCollectX: f32, theCollectY: f32) {
+        self.m_is_being_collected = true;
+        self.m_collect_x = theCollectX;
+        self.m_collect_y = theCollectY;
+        self.m_fade_count = 0;
+    }
+
+    /// C++ Coin::Die (Coin.cpp:1411)
+    pub unsafe fn Die(&mut self) {
+        self.m_dead = true;
+        // [TODO]: Remove attachment if any
     }
 
     pub unsafe fn Draw(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
-        if self.m_dead {
-            return;
-        }
-        // TODO: Draw coin image based on m_type
+        if self.m_dead { return; }
+        // [TODO]: Draw coin sprite (IMAGE_SUN, IMAGE_SILVER_COIN, etc.)
     }
 
     pub unsafe fn MouseDown(&mut self, _x: i32, _y: i32, _click_count: i32) {
-        if self.m_dead {
-            return;
-        }
+        if self.m_dead { return; }
+        // C++: if mouse hits coin, start collection
         self.m_is_being_collected = true;
     }
 
     pub unsafe fn GetCoinValue(theCoinType: CoinType) -> i32 {
         match theCoinType {
             CoinType::COIN_SUN => 25,
+            CoinType::COIN_LARGESUN => 50,
             CoinType::COIN_SILVER => 10,
             CoinType::COIN_GOLD => 100,
             CoinType::COIN_DIAMOND => 1000,
