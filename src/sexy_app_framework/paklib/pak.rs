@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
-use std::ptr;
 
 use crate::sexy_app_framework::common::{
     from_le32, from_le64, get_resource_folder, is_path_rooted, path_from_u8, path_to_u8,

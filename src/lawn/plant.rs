@@ -608,14 +608,14 @@ impl Plant {
     }
 
     /// C++ Plant::Draw (Plant.cpp:3937)
-    pub unsafe fn Draw(&self, g: &mut Graphics) {
-        let mut aOffsetX = 0.0f32;
+    pub unsafe fn Draw(&self, _g: &mut Graphics) {
+        let _aOffsetX = 0.0f32;
         let mut aOffsetY = 0.0f32; // [TODO]: PlantDrawHeightOffset(mBoard, this, mSeedType, mPlantCol, mRow)
         if Plant::is_flying(self.m_seed_type) && self.m_squished {
             aOffsetY += 30.0;
         }
 
-        let aImageIndex = self.m_frame;
+        let _aImageIndex = self.m_frame;
 
         if self.m_squished {
             if self.m_seed_type == SeedType::SEED_FLOWERPOT {
@@ -630,7 +630,7 @@ impl Plant {
             // [TODO]: g.SetScale(1.0, 1.0, 0, 0)
         } else {
             // 南瓜壳后层绘制
-            let mut aDrawPumpkinBack = false;
+            let _aDrawPumpkinBack = false;
             // [TODO]: GetPumpkinAt / GetTopPlantAt logic
 
             // [TODO]: DrawShadow(g, aOffsetX, aOffsetY)
@@ -660,7 +660,7 @@ impl Plant {
     }
 
     /// C++ Plant::DrawShadow (Plant.cpp:3808)
-    pub unsafe fn DrawShadow(&self, g: &mut Graphics, _theOffsetX: f32, _theOffsetY: f32) {
+    pub unsafe fn DrawShadow(&self, _g: &mut Graphics, _theOffsetX: f32, _theOffsetY: f32) {
         // [TODO]: Draw shadow based on seed type
         // TodDrawImageCelF(g, IMAGE_PLANTSHADOW, ...)
     }
@@ -670,7 +670,7 @@ impl Plant {
     }
 
     /// C++ Plant::Fire (Plant.cpp:4475)
-    pub unsafe fn Fire(&mut self, theTargetZombie: *mut super::zombie::Zombie, theRow: i32, thePlantWeapon: PlantWeapon) {
+    pub unsafe fn Fire(&mut self, _theTargetZombie: *mut super::zombie::Zombie, theRow: i32, thePlantWeapon: PlantWeapon) {
         // 烟雾蘑菇 / 忧郁蘑菇 — 范围伤害，不发射弹丸
         if self.m_seed_type == SeedType::SEED_FUMESHROOM {
             // [TODO]: DoRowAreaDamage(20, 2U);
@@ -779,7 +779,7 @@ impl Plant {
     pub unsafe fn Die(&mut self) {
         // C++: if (IsOnBoard() && mSeedType == SEED_TANGLEKELP) { ... aZombie->DieWithLoot(); }
         if self.IsOnBoard() && self.m_seed_type == SeedType::SEED_TANGLEKELP {
-            let board = self.board();
+            let _board = self.board();
             // [TODO]: board->ZombieTryToGet(mTargetZombieID)
             // if aZombie { aZombie->DieWithLoot(); }
         }

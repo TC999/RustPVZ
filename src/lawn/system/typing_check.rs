@@ -34,7 +34,7 @@ impl TypingCheck {
     }
 
     pub fn add_char(&mut self, the_char: char) {
-        let mut lower = the_char.to_lowercase().next().unwrap_or(the_char);
+        let lower = the_char.to_lowercase().next().unwrap_or(the_char);
         let a_char_string: String = lower.to_string();
         let key_code = get_key_code_from_name(&a_char_string);
         if key_code != KEYCODE_UNKNOWN {

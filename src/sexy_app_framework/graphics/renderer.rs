@@ -73,10 +73,10 @@ pub fn draw_line(x1: i32, y1: i32, x2: i32, y2: i32, color: &Color) {
 }
 
 /// 绘制图像 (blit)
-pub fn blt(image: &Image, x: i32, y: i32, src_rect: Option<sdl2::rect::Rect>) {
+pub fn blt(image: &Image, _x: i32, _y: i32, _src_rect: Option<sdl2::rect::Rect>) {
     if image.m_cached_texture_id.is_none() { return; }
-    let tex_id = image.m_cached_texture_id.unwrap();
-    let c = canvas();
+    let _tex_id = image.m_cached_texture_id.unwrap();
+    let _c = canvas();
     // 纹理通过 Canvas 的纹理缓存访问
     // 简化版：需要 texture_creator 来创建纹理
     // 此处为框架预留

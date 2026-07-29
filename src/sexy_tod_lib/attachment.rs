@@ -6,7 +6,7 @@ use crate::const_enums::{EffectType, AttachmentID};
 use crate::sexy_app_framework::misc::sexy_matrix::SexyTransform2D;
 use crate::sexy_app_framework::misc::sexy_vector::SexyVector2;
 use crate::sexy_app_framework::graphics::color::Color;
-use crate::sexy_app_framework::graphics::graphics::{Graphics, Image};
+use crate::sexy_app_framework::graphics::graphics::Graphics;
 
 pub const MAX_EFFECTS_PER_ATTACHMENT: usize = 16;
 
@@ -73,7 +73,7 @@ impl Attachment {
         // PruneDeadEffects
         let mut i = 0;
         while i < self.m_num_effects {
-            let mut removed = false;
+            let removed = false;
             // 检查 effect 是否死亡（根据类型不同检查方式不同）
             // C++ 中会检查 Reanimation/粒子/Trail 的 mDead 标志
             match self.m_effect_array[i as usize].m_effect_type {
@@ -183,17 +183,17 @@ fn prune_dead_effects(the_attachment: &mut Attachment) {
 }
 
 pub fn create_effect_attachment(
-    the_attachment_id: &mut AttachmentID,
-    the_effect_type: EffectType,
-    the_data_id: u32,
-    the_offset_x: f32,
-    the_offset_y: f32,
+    _the_attachment_id: &mut AttachmentID,
+    _the_effect_type: EffectType,
+    _the_data_id: u32,
+    _the_offset_x: f32,
+    _the_offset_y: f32,
 ) -> *mut AttachEffect {
     // 简化实现：不实际分配 attachment，返回 null
     std::ptr::null_mut()
 }
 
-pub fn find_first_attachment(the_attachment_id: &mut AttachmentID) -> *mut AttachEffect {
+pub fn find_first_attachment(_the_attachment_id: &mut AttachmentID) -> *mut AttachEffect {
     std::ptr::null_mut()
 }
 

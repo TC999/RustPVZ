@@ -59,7 +59,7 @@ pub fn get_lawn_string_formats() -> &'static [TodStringListFormat; 12] {
         // { "NORMAL",           nullptr, Color(40,50,90,255),       0,  0U }
         // { "FLAVOR",           nullptr, Color(143,67,27,255),      0,  1U }
         // ...
-        let colors: [(i32, i32, i32, i32); 12] = [
+        let _colors: [(i32, i32, i32, i32); 12] = [
             (40, 50, 90, 255), (143, 67, 27, 255), (143, 67, 27, 255),
             (136, 50, 170, 255), (11, 161, 219, 255), (204, 36, 29, 255),
             (204, 36, 29, 255), (143, 67, 27, 255), (0, 0, 0, 0),
@@ -67,7 +67,7 @@ pub fn get_lawn_string_formats() -> &'static [TodStringListFormat; 12] {
         ];
         let names = ["NORMAL", "FLAVOR", "KEYWORD", "NOCTURNAL", "AQUATIC", "STAT",
                       "METAL", "KEYMETAL", "SHORTLINE", "EXTRASHORTLINE", "CREDITS1", "CREDITS2"];
-        let offsets = [0, 0, 0, 0, 0, 0, 0, 0, -9, -14, 3, 2];
+        let _offsets = [0, 0, 0, 0, 0, 0, 0, 0, -9, -14, 3, 2];
         let flags = [0u32, 1, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0];
         
         let mut arr: [TodStringListFormat; 12] = [
@@ -158,7 +158,7 @@ pub fn tod_string_list_read_items(the_file_text: &str) -> bool {
         if !tod_string_list_read_value(&mut a_ptr, &mut a_value) {
             return false;
         }
-        let a_name_upper = common::string_to_upper(&a_name);
+        let _a_name_upper = common::string_to_upper(&a_name);
         // SetString - store in app's string properties
         // gSexyAppBase->SetString(aNameUpper, aValue);
     }
@@ -179,15 +179,15 @@ pub fn char_is_space_in_format(the_char: char, the_current_format: &TodStringLis
 
 pub fn tod_write_string(
     _g: &mut Graphics,
-    the_string: &str,
-    the_x: i32,
-    the_y: i32,
-    the_current_format: &mut TodStringListFormat,
-    the_width: i32,
-    the_justification: DrawStringJustification,
-    draw_string: bool,
-    the_offset: i32,
-    the_length: i32,
+    _the_string: &str,
+    _the_x: i32,
+    _the_y: i32,
+    _the_current_format: &mut TodStringListFormat,
+    _the_width: i32,
+    _the_justification: DrawStringJustification,
+    _draw_string: bool,
+    _the_offset: i32,
+    _the_length: i32,
 ) -> i32 {
     0 // placeholder
 }

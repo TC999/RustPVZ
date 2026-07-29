@@ -2,7 +2,6 @@
 // 动画图集：将多个动画图像合并到一张纹理中
 
 use crate::sexy_app_framework::graphics::graphics::{Image, MemoryImage, MEMORYCHECK_ID};
-use crate::sexy_app_framework::misc::rect::Rect;
 
 #[derive(Clone)]
 pub struct ReanimAtlasImage {

@@ -2,10 +2,8 @@
 // 定义系统：管理粒子/轨迹/动画等资源的 XML 定义加载与缓存
 // 核心数据结构 + 简化实现
 
-use std::collections::HashMap;
-use crate::sexy_tod_lib::tod_list::{TodList, TodAllocator};
-use crate::sexy_tod_lib::tod_debug::_tod_assert;
-use crate::sexy_tod_lib::trail::{TrailDefinition, FloatParameterTrack};
+use crate::sexy_tod_lib::tod_list::TodList;
+use crate::sexy_tod_lib::trail::FloatParameterTrack;
 use crate::sexy_app_framework::graphics::graphics::{Image, Font};
 use crate::sexy_app_framework::misc::sexy_vector::SexyVector2;
 use crate::sexy_app_framework::misc::xml_parser::XMLParser;
@@ -329,7 +327,3 @@ pub fn definition_get_size(_the_def_map: &DefMap, _the_definition: *mut u8) -> u
 // FloatTrack 函数（委托至 trail 模块）
 // ============================================================
 
-pub use crate::sexy_tod_lib::trail::{
-    float_track_is_set, float_track_set_default, float_track_evaluate,
-    float_track_is_constant_zero,
-};

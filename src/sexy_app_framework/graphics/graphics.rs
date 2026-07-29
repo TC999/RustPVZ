@@ -6,7 +6,6 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use crate::sexy_app_framework::misc::rect::Rect;
 use crate::sexy_app_framework::graphics::color::Color;
 use crate::sexy_app_framework::misc::point::Point;
-use crate::sexy_app_framework::misc::sexy_vector::SexyVector2;
 
 pub const MAX_TEMP_SPANS: i32 = 8192;
 
@@ -261,7 +260,7 @@ impl Graphics {
         self.draw_rect(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
     }
 
-    pub fn draw_string(&self, text: &str, x: i32, y: i32) {
+    pub fn draw_string(&self, _text: &str, _x: i32, _y: i32) {
         // TODO: Use sdl2::ttf to render text
         // Requires Font containing TTF font data
     }

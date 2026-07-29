@@ -11,7 +11,7 @@ use crate::const_enums::GameMode;
 use crate::sexy_app_framework::graphics::graphics::{Graphics, Image, Font};
 use crate::sexy_app_framework::misc::rect::Rect;
 use crate::sexy_app_framework::common::get_app_data_path;
-use crate::sexy_app_framework::resources::{IMAGE_EDITBOX, FONT_BRIANNETOD16};
+use crate::sexy_app_framework::resources::FONT_BRIANNETOD16;
 
 // C++ 中的 gLawnEditWidgetColors 二维数组
 pub static G_LAWN_EDIT_WIDGET_COLORS: [[i32; 4]; 5] = [
@@ -48,7 +48,7 @@ pub fn GridInRange(x1: i32, y1: i32, x2: i32, y2: i32, theRangeX: i32, theRangeY
 // ★ 动画、特效与绘制相关
 // ====================================================================================================
 
-pub fn TileImageHorizontally(g: &mut Graphics, theImage: *mut Image, theX: i32, theY: i32, theWidth: i32) {
+pub fn TileImageHorizontally(g: &mut Graphics, theImage: *mut Image, theX: i32, _theY: i32, theWidth: i32) {
     let mut theWidth = theWidth;
     let mut theX = theX;
     while theWidth > 0 {
@@ -65,7 +65,7 @@ pub fn TileImageHorizontally(g: &mut Graphics, theImage: *mut Image, theX: i32, 
     }
 }
 
-pub fn TileImageVertically(g: &mut Graphics, theImage: *mut Image, theX: i32, theY: i32, theHeight: i32) {
+pub fn TileImageVertically(g: &mut Graphics, theImage: *mut Image, _theX: i32, theY: i32, theHeight: i32) {
     let mut theHeight = theHeight;
     let mut theY = theY;
     while theHeight > 0 {

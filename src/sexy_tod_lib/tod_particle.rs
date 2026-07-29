@@ -2,11 +2,7 @@
 // 粒子系统：粒子定义、发射、更新与渲染
 
 use crate::sexy_app_framework::graphics::graphics::{Graphics, Image};
-use crate::sexy_app_framework::graphics::color::Color;
-use crate::sexy_app_framework::misc::sexy_vector::SexyVector2;
-use crate::sexy_tod_lib::data_array::DataArray;
 use crate::sexy_tod_lib::trail::FloatParameterTrack;
-use crate::sexy_tod_lib::tod_list::{TodList, TodAllocator};
 
 pub const MAX_PARTICLES_SIZE: i32 = 900;
 pub const MAX_PARTICLE_FIELDS: i32 = 4;

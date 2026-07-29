@@ -165,10 +165,10 @@ impl Challenge {
         match app.mGameMode as i32 {
             x if x == GameMode::GAMEMODE_CHALLENGE_BEGHOULED as i32
                 || x == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST as i32 => {}
-            x if (*app).IsScaryPotterLevel() => {}
-            x if (*app).IsWhackAZombieLevel() => {}
-            x if (*app).IsIZombieLevel() => {}
-            x if (*app).IsSlotMachineLevel() => {}
+            _x if (*app).IsScaryPotterLevel() => {}
+            _x if (*app).IsWhackAZombieLevel() => {}
+            _x if (*app).IsIZombieLevel() => {}
+            _x if (*app).IsSlotMachineLevel() => {}
             x if x == GameMode::GAMEMODE_CHALLENGE_SPEED as i32 => {
                 board.UpdateGame();
             }
@@ -186,7 +186,7 @@ impl Challenge {
 
     /// C++ Challenge::UpdateConveyorBelt() (from Challenge.cpp:1616)
     pub unsafe fn UpdateConveyorBelt(&mut self) {
-        let board = self.board();
+        let _board = self.board();
         if self.mConveyorBeltCounter > 0 {
             self.mConveyorBeltCounter -= 1;
             if self.mConveyorBeltCounter == 0 {

@@ -4,11 +4,9 @@
 #![allow(non_snake_case, dead_code)]
 
 use crate::lawn_app::LawnApp;
-use crate::sexy_app_framework::widget::widget_mod::{Widget, WidgetContainer};
+use crate::sexy_app_framework::widget::widget_mod::Widget;
 use crate::sexy_app_framework::widget::widget_manager::WidgetManager;
-use crate::sexy_app_framework::graphics::graphics::{Graphics, Font, Image};
-use crate::sexy_app_framework::graphics::color::Color;
-use crate::sexy_app_framework::misc::key_codes;
+use crate::sexy_app_framework::graphics::graphics::Graphics;
 use crate::sexy_app_framework::widget::insets::Insets;
 
 pub const DIALOG_HEADER_OFFSET: i32 = 45;

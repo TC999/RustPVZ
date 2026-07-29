@@ -370,7 +370,7 @@ impl Zombie {
 
     /// C++ Zombie::ZombieInitialize (Zombie.cpp:115)
     /// 僵尸初始化 — 设置所有字段，加载动画等
-    pub unsafe fn ZombieInitialize(&mut self, theRow: i32, theType: ZombieType, theVariant: bool, theParentZombie: *mut Zombie, theFromWave: i32) {
+    pub unsafe fn ZombieInitialize(&mut self, theRow: i32, theType: ZombieType, theVariant: bool, _theParentZombie: *mut Zombie, theFromWave: i32) {
         self.m_from_wave = theFromWave;
         self.base.m_row = theRow as i32;
         self.m_pos_x = 780.0 + crate::sexy_app_framework::common::rand_int() as f32 % ZOMBIE_START_RANDOM_OFFSET as f32;
@@ -539,13 +539,13 @@ impl Zombie {
     }
 
     /// C++ Zombie::Draw() — 绘制 (Zombie.cpp:6264)
-    pub unsafe fn Draw(&self, g: &mut Graphics) {
+    pub unsafe fn Draw(&self, _g: &mut Graphics) {
         if self.m_zombie_height == ZombieHeight::HEIGHT_GETTING_BUNGEE_DROPPED {
             return;
         }
 
         // [TODO]: ZombieDrawPosition aDrawPos = GetDrawPos()
-        let mut aDrawPos = ZombieDrawPosition::new();
+        let _aDrawPos = ZombieDrawPosition::new();
         let _board = self.board();
 
         if (*self.app()).mGameScene as i32 == GameScenes::SCENE_ZOMBIES_WON as i32 {

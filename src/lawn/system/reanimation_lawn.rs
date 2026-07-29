@@ -5,9 +5,7 @@
 
 use crate::const_enums::*;
 use crate::lawn_app::G_LAWN_APP;
-use crate::sexy_app_framework::graphics::graphics::{Graphics, Image, MemoryImage, MEMORYCHECK_ID};
-use crate::sexy_app_framework::graphics::color::Color;
-use crate::sexy_tod_lib::filter_effect::FilterEffect;
+use crate::sexy_app_framework::graphics::graphics::{Graphics, MemoryImage, MEMORYCHECK_ID};
 use crate::sexy_tod_lib::tod_list::TodList;
 
 /// 缓存图像变体
@@ -102,7 +100,7 @@ impl ReanimatorCache {
         // 暂为 stub — 待 Reanimation 系统完善
     }
 
-    pub fn MakeCachedPlantFrame(&self, theSeedType: SeedType, theDrawVariation: DrawVariation) -> *mut MemoryImage {
+    pub fn MakeCachedPlantFrame(&self, theSeedType: SeedType, _theDrawVariation: DrawVariation) -> *mut MemoryImage {
         let (mut aOffsetX, mut aOffsetY, mut aWidth, mut aHeight) = (0, 0, 0, 0);
         Self::GetPlantImageSize(theSeedType, &mut aOffsetX, &mut aOffsetY, &mut aWidth, &mut aHeight);
         self.MakeBlankMemoryImage(aWidth, aHeight)

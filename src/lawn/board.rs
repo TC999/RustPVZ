@@ -14,23 +14,21 @@ use crate::lawn::projectile::Projectile;
 use crate::lawn::coin::Coin;
 use crate::lawn::lawn_mower::LawnMower;
 use crate::lawn::grid_item::GridItem;
-use crate::sexy_app_framework::graphics::graphics::Graphics;
 use crate::lawn::cursor_object::{CursorObject, CursorPreview, GameButton, ToolTipWidget};
 use crate::lawn::message_widget::MessageWidget;
-use crate::lawn::seed_packet::{SeedBank, SeedPacket};
+use crate::lawn::seed_packet::SeedBank;
 use crate::lawn::cut_scene::CutScene;
 use crate::lawn::challenge::Challenge;
 use crate::sexy_app_framework::misc::mtrand::MTRand;
-use crate::sexy_app_framework::common;
 use crate::sexy_tod_lib::data_array::DataArray;
 use crate::sexy_tod_lib::tod_common::{TodSmoothArray, clamp_int};
 use crate::sexy_app_framework::misc::rect::Rect;
 use crate::lawn::board_consts::*;
 
-pub static mut gShownMoreSunTutorial: bool = false;
+pub static mut G_SHOWN_MORE_SUN_TUTORIAL: bool = false;
 
 pub fn BoardInitForPlayer() {
-    unsafe { gShownMoreSunTutorial = false; }
+    unsafe { G_SHOWN_MORE_SUN_TUTORIAL = false; }
 }
 
 fn get_saved_game_name(the_game_mode: i32, the_player_id: i32) -> String {
@@ -340,7 +338,7 @@ pub fn ZombiePickerInit(theZombiePicker: &mut ZombiePicker) {
 }
 
 // 关卡波数定义（每个冒险关卡对应的总波数）
-pub static gZombieWaves: [i32; 50] = [
+pub static G_ZOMBIE_WAVES: [i32; 50] = [
     3,3,3,3,3,3,3,3,3,4, // 1-10
     4,4,4,4,4,4,4,4,4,5, // 11-20
     5,5,5,5,5,5,5,5,5,5, // 21-30
@@ -834,7 +832,7 @@ impl Board {
             if self.IsWhackAZombieLevel() {
                 self.mNumWaves = 8;
             } else {
-                self.mNumWaves = gZombieWaves[clamp_int(self.mLevel - 1, 0, 49) as usize];
+                self.mNumWaves = G_ZOMBIE_WAVES[clamp_int(self.mLevel - 1, 0, 49) as usize];
                 if !self.IsFirstTimeAdventureMode() && !self.IsMiniBossLevel() {
                     if self.mNumWaves < 10 { self.mNumWaves = 20; } else { self.mNumWaves += 10; }
                 }
@@ -865,7 +863,7 @@ impl Board {
             mZombieCount: 0, mZombiePoints: 0,
             mZombieTypeCount: [0i32; 34], mAllWavesZombieTypeCount: [0i32; 34],
         };
-        let mut aZombiePicker = std::cell::UnsafeCell::new(aZombiePicker);
+        let aZombiePicker = std::cell::UnsafeCell::new(aZombiePicker);
         let zp = aZombiePicker.get();
         ZombiePickerInit(&mut *zp);
         let aIntroZombieType = self.GetIntroducedZombieType();
@@ -1028,13 +1026,13 @@ impl Board {
         }
 
         // Place grave stones
-        let aLevelRNG = MTRand::with_seed(self.GetLevelRandSeed() as u32);
+        let _aLevelRNG = MTRand::with_seed(self.GetLevelRandSeed() as u32);
         // TODO: StageHasGraveStones check and AddGraveStones calls
     }
 
     pub unsafe fn InitZombieWavesForLevel(&mut self, theForLevel: i32) {
         if self.IsWhackAZombieLevel() || (self.IsWallnutBowlingLevel() && !self.IsFirstTimeAdventureMode()) {
-            if let Some(c) = self.mChallenge.as_mut() {
+            if let Some(_c) = self.mChallenge.as_mut() {
                 // c.InitZombieWaves();
             }
             return;
@@ -1421,7 +1419,7 @@ impl Board {
         self.mNumSunsFallen += 1;
         self.mSunCountDown = std::cmp::min(950, 425 + self.mNumSunsFallen * 10)
             + crate::sexy_app_framework::common::rand_int() % 275;
-        let aSunType = CoinType::COIN_SUN;
+        let _aSunType = CoinType::COIN_SUN;
         // [TODO]: AddCoin(RandRangeInt(100, 649), 60, aSunType, COIN_MOTION_FROM_SKY)
     }
 
@@ -1560,7 +1558,7 @@ impl Board {
     // =========================================================================
     // ★ Board::MouseDown() — 鼠标按下 (from Board.cpp line 4481)
     // =========================================================================
-    pub unsafe fn MouseDown(&mut self, x: i32, y: i32, theClickCount: i32) {
+    pub unsafe fn MouseDown(&mut self, _x: i32, _y: i32, theClickCount: i32) {
         self.UpdateMousePosition();
         // Widget::MouseDown(x, y, theClickCount);
         self.mIgnoreMouseUp = !self.CanInteractWithBoardButtons();
@@ -1599,7 +1597,7 @@ impl Board {
         // UpdateCursor();
     }
 
-    pub unsafe fn MouseUp(&mut self, x: i32, y: i32, theClickCount: i32) {
+    pub unsafe fn MouseUp(&mut self, _x: i32, _y: i32, theClickCount: i32) {
         // Widget::MouseUp(x, y, theClickCount);
         if self.mIgnoreMouseUp {
             self.mIgnoreMouseUp = false;
@@ -1921,7 +1919,7 @@ impl Board {
     pub const MAX_RENDER_ITEMS: i32 = 2048;
 
     /// C++ Board::DrawBackdrop (Board.cpp:5967)
-    pub unsafe fn DrawBackdrop(&self, g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+    pub unsafe fn DrawBackdrop(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
         // [TODO]: Draw level background based on mBackground type
     }
 
@@ -1932,4 +1930,3 @@ impl Board {
 }
 
 // Re-export constants
-pub use crate::lawn::board_consts::*;

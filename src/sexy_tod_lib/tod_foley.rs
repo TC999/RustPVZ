@@ -374,7 +374,7 @@ impl TodFoley {
 // ============================================================
 // 全局函数
 // ============================================================
-pub fn tod_foley_initialize(g_foley_param_array: &mut [FoleyParams], _g_foley_param_array_size: i32) {
+pub fn tod_foley_initialize(_g_foley_param_array: &mut [FoleyParams], _g_foley_param_array_size: i32) {
     // gFoleyParamArray = theFoleyParamArray;
     // gFoleyParamArraySize = theFoleyParamArraySize;
 }

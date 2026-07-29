@@ -3,7 +3,7 @@
 // 使用 unsafe 块直接操作像素缓冲区（m_bits）
 
 use std::collections::HashMap;
-use crate::sexy_app_framework::graphics::graphics::{Image, MemoryImage, Graphics};
+use crate::sexy_app_framework::graphics::graphics::{Image, MemoryImage};
 use crate::sexy_tod_lib::tod_common::clamp_int;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -197,7 +197,7 @@ pub fn filter_effect_create_image(the_image: &Image, the_filter_effect: FilterEf
 }
 
 pub fn filter_effect_get_image(the_image: &Image, the_filter_effect: FilterEffect) -> *mut Image {
-    let idx = the_filter_effect as i32;
+    let _idx = the_filter_effect as i32;
     // 简化：不缓存，每次都创建新图像
     // C++ 中使用 gFilterMap 缓存已处理的图像
     let a_image = filter_effect_create_image(the_image, the_filter_effect);

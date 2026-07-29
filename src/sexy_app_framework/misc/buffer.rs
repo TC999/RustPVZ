@@ -63,7 +63,7 @@ impl Buffer {
         if the_bits <= 0 {
             return;
         }
-        let mut a_num = the_num;
+        let a_num = the_num;
         let mut a_bit_pos = self.m_write_bit_pos.get();
         for _ in 0..the_bits {
             let a_byte_index = (a_bit_pos >> 3) as usize;

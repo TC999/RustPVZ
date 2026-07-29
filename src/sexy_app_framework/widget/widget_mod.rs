@@ -7,7 +7,7 @@ use std::collections::LinkedList;
 use crate::sexy_app_framework::graphics::graphics::Graphics;
 use crate::sexy_app_framework::misc::point::Point;
 use crate::sexy_app_framework::misc::rect::Rect;
-use crate::sexy_app_framework::misc::flags::{FlagsMod, ModalFlags};
+use crate::sexy_app_framework::misc::flags::FlagsMod;
 use crate::sexy_app_framework::widget::widget_manager::WidgetManager;
 
 pub type WidgetList = LinkedList<*mut Widget>;

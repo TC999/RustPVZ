@@ -416,7 +416,7 @@ pub fn tod_draw_image_cel_f(
 
 /// TodDrawImageScaledF — 带缩放的图像绘制
 pub fn tod_draw_image_scaled_f(
-    g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
+    _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
     _the_image: &crate::sexy_app_framework::graphics::graphics::Image,
     _the_x: f32,
     _the_y: f32,
@@ -428,7 +428,7 @@ pub fn tod_draw_image_scaled_f(
 
 /// TodDrawImageF — 简单的浮点位置图像绘制
 pub fn tod_draw_image_f(
-    g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
+    _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
     _the_image: &crate::sexy_app_framework::graphics::graphics::Image,
     _the_x: f32,
     _the_y: f32,

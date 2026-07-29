@@ -12,7 +12,7 @@ use crate::sexy_app_framework::misc::resource_manager::{
     ResourceManager, ResourceManagerException,
 };
 
-pub static mut gNeedRecalcVariableToIdMap: bool = true;
+pub static mut G_NEED_RECALC_VARIABLE_TO_ID_MAP: bool = true;
 
 // ==================== 资源枚举 ====================
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1739,7 +1739,7 @@ pub fn ExtractResourcesByName(theResourceManager: &ResourceManager, theName: &st
 
 // ==================== DelayLoad Extract Functions ====================
 pub fn ExtractDelayLoad_AlmanacResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1768,7 +1768,7 @@ pub fn ExtractDelayLoad_AlmanacResources(theManager: &ResourceManager) -> bool {
 }
 
 pub fn ExtractDelayLoad_AwardScreenResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1780,7 +1780,7 @@ pub fn ExtractDelayLoad_AwardScreenResources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_Background1Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1794,7 +1794,7 @@ pub fn ExtractDelayLoad_Background1Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_Background2Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1808,7 +1808,7 @@ pub fn ExtractDelayLoad_Background2Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_Background3Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1822,7 +1822,7 @@ pub fn ExtractDelayLoad_Background3Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_Background4Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1836,7 +1836,7 @@ pub fn ExtractDelayLoad_Background4Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_Background5Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1850,7 +1850,7 @@ pub fn ExtractDelayLoad_Background5Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_Background6Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1864,7 +1864,7 @@ pub fn ExtractDelayLoad_Background6Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_BackgroundUnsoddedResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1882,7 +1882,7 @@ pub fn ExtractDelayLoad_BackgroundUnsoddedResources(theManager: &ResourceManager
 }
 
 pub fn ExtractDelayLoad_ChallengeScreenResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1902,7 +1902,7 @@ pub fn ExtractDelayLoad_ChallengeScreenResources(theManager: &ResourceManager) -
 }
 
 pub fn ExtractDelayLoad_CreditsResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1962,7 +1962,7 @@ pub fn ExtractDelayLoad_CreditsResources(theManager: &ResourceManager) -> bool {
     r.is_ok()
 }
 pub fn ExtractDelayLoad_GreenHouseGardenResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -1989,7 +1989,7 @@ pub fn ExtractDelayLoad_GreenHouseGardenResources(theManager: &ResourceManager) 
 }
 
 pub fn ExtractDelayLoad_GreenHouseOverlayResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2008,7 +2008,7 @@ pub fn ExtractDelayLoad_GreenHouseOverlayResources(theManager: &ResourceManager)
 }
 
 pub fn ExtractDelayLoad_MushroomGardenResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2034,7 +2034,7 @@ pub fn ExtractDelayLoad_MushroomGardenResources(theManager: &ResourceManager) ->
 }
 
 pub fn ExtractDelayLoad_StoreResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2079,7 +2079,7 @@ pub fn ExtractDelayLoad_StoreResources(theManager: &ResourceManager) -> bool {
     r.is_ok()
 }
 pub fn ExtractDelayLoad_ZombatarResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2202,7 +2202,7 @@ pub fn ExtractDelayLoad_ZombatarResources(theManager: &ResourceManager) -> bool 
 }
 
 pub fn ExtractDelayLoad_ZombieFinalNoteResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2214,7 +2214,7 @@ pub fn ExtractDelayLoad_ZombieFinalNoteResources(theManager: &ResourceManager) -
 }
 
 pub fn ExtractDelayLoad_ZombieNoteResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2230,7 +2230,7 @@ pub fn ExtractDelayLoad_ZombieNoteResources(theManager: &ResourceManager) -> boo
 }
 
 pub fn ExtractDelayLoad_ZombieNote1Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2242,7 +2242,7 @@ pub fn ExtractDelayLoad_ZombieNote1Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_ZombieNote2Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2254,7 +2254,7 @@ pub fn ExtractDelayLoad_ZombieNote2Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_ZombieNote3Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2266,7 +2266,7 @@ pub fn ExtractDelayLoad_ZombieNote3Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_ZombieNote4Resources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2278,7 +2278,7 @@ pub fn ExtractDelayLoad_ZombieNote4Resources(theManager: &ResourceManager) -> bo
 }
 
 pub fn ExtractDelayLoad_ZombieNoteHelpResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2296,7 +2296,7 @@ pub fn ExtractDelayLoad_ZombieNoteHelpResources(theManager: &ResourceManager) ->
 }
 
 pub fn ExtractDelayLoad_ZombiquariumResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2327,7 +2327,7 @@ pub fn ExtractDelayLoad_ZombiquariumResources(theManager: &ResourceManager) -> b
     r.is_ok()
 }
 pub fn ExtractInitResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2359,7 +2359,7 @@ pub fn ExtractInitResources(theManager: &ResourceManager) -> bool {
     r.is_ok()
 }
 pub fn ExtractLoaderBarResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2377,7 +2377,7 @@ pub fn ExtractLoaderBarResources(theManager: &ResourceManager) -> bool {
 }
 
 pub fn ExtractLoadingFontsResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2406,7 +2406,7 @@ pub fn ExtractLoadingFontsResources(theManager: &ResourceManager) -> bool {
     r.is_ok()
 }
 pub fn ExtractLoadingImagesResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {
@@ -2460,30 +2460,30 @@ pub fn ExtractLoadingImagesResources(theManager: &ResourceManager) -> bool {
 }
 
 // gResources array and helper functions
-pub static mut gResources: [*mut std::ffi::c_void; ResourceId::RESOURCE_ID_MAX as usize] = [std::ptr::null_mut(); ResourceId::RESOURCE_ID_MAX as usize];
+pub static mut G_RESOURCES: [*mut std::ffi::c_void; ResourceId::RESOURCE_ID_MAX as usize] = [std::ptr::null_mut(); ResourceId::RESOURCE_ID_MAX as usize];
 
 pub unsafe fn GetImageById(theId: ResourceId) -> *mut Image {
-    *(std::mem::transmute::<_, *mut *mut Image>(&gResources[theId as usize]))
+    *(std::mem::transmute::<_, *mut *mut Image>(&G_RESOURCES[theId as usize]))
 }
 
 pub unsafe fn GetFontById(theId: ResourceId) -> *mut Font {
-    *(std::mem::transmute::<_, *mut *mut Font>(&gResources[theId as usize]))
+    *(std::mem::transmute::<_, *mut *mut Font>(&G_RESOURCES[theId as usize]))
 }
 
 pub unsafe fn GetSoundById(theId: ResourceId) -> isize {
-    *(std::mem::transmute::<_, *mut isize>(&gResources[theId as usize]))
+    *(std::mem::transmute::<_, *mut isize>(&G_RESOURCES[theId as usize]))
 }
 
 pub unsafe fn GetImageRefById(theId: ResourceId) -> &'static mut *mut Image {
-    std::mem::transmute::<_, &'static mut *mut Image>(&mut gResources[theId as usize])
+    std::mem::transmute::<_, &'static mut *mut Image>(&mut G_RESOURCES[theId as usize])
 }
 
 pub unsafe fn GetFontRefById(theId: ResourceId) -> &'static mut *mut Font {
-    std::mem::transmute::<_, &'static mut *mut Font>(&mut gResources[theId as usize])
+    std::mem::transmute::<_, &'static mut *mut Font>(&mut G_RESOURCES[theId as usize])
 }
 
 pub unsafe fn GetSoundRefById(theId: ResourceId) -> &'static mut isize {
-    std::mem::transmute::<_, &'static mut isize>(&mut gResources[theId as usize])
+    std::mem::transmute::<_, &'static mut isize>(&mut G_RESOURCES[theId as usize])
 }
 
 pub unsafe fn GetIdByImage(theImage: *mut Image) -> ResourceId {
@@ -2502,19 +2502,19 @@ pub unsafe fn GetIdByVariable(theVariable: *mut std::ffi::c_void) -> ResourceId 
     use std::collections::HashMap;
     use std::mem;
 
-    static mut aMap: Option<HashMap<*mut std::ffi::c_void, i32>> = None;
+    static mut A_MAP: Option<HashMap<*mut std::ffi::c_void, i32>> = None;
 
-    if gNeedRecalcVariableToIdMap {
-        gNeedRecalcVariableToIdMap = false;
+    if G_NEED_RECALC_VARIABLE_TO_ID_MAP {
+        G_NEED_RECALC_VARIABLE_TO_ID_MAP = false;
         let mut map = HashMap::new();
         for i in 0..(ResourceId::RESOURCE_ID_MAX as i32) {
-            let value = gResources[i as usize];
+            let value = G_RESOURCES[i as usize];
             map.insert(value, i);
         }
-        aMap = Some(map);
+        A_MAP = Some(map);
     }
 
-    if let Some(ref map) = aMap {
+    if let Some(ref map) = A_MAP {
         match map.get(&theVariable) {
             Some(&idx) => mem::transmute(idx),
             None => ResourceId::RESOURCE_ID_MAX,
@@ -2524,7 +2524,7 @@ pub unsafe fn GetIdByVariable(theVariable: *mut std::ffi::c_void) -> ResourceId 
     }
 }
 pub fn ExtractLoadingSoundsResources(theManager: &ResourceManager) -> bool {
-    unsafe { gNeedRecalcVariableToIdMap = true; }
+    unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }
     let aMgr = theManager;
     let r = (|| -> Result<(), ResourceManagerException> {
         unsafe {

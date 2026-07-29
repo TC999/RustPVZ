@@ -6,7 +6,7 @@
 use crate::const_enums::*;
 use crate::sexy_app_framework::graphics::graphics::{Graphics, Font};
 use crate::sexy_app_framework::graphics::color::Color;
-use crate::sexy_app_framework::resources::{FONT_HOUSEOFTERROR28, FONT_HOUSEOFTERROR16, FONT_CONTINUUMBOLD14, FONT_CONTINUUMBOLD14OUTLINE};
+use crate::sexy_app_framework::resources::{FONT_HOUSEOFTERROR28, FONT_HOUSEOFTERROR16};
 use crate::sexy_tod_lib::tod_string_file::tod_string_translate;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -231,7 +231,7 @@ impl MessageWidget {
         let label_str = self.cstr_label_to_string();
 
         unsafe {
-            let mut aColor = match self.mMessageStyle {
+            let aColor = match self.mMessageStyle {
                 MessageStyle::MESSAGE_STYLE_HUGE_WAVE => Color { m_red: 255, m_green: 0, m_blue: 0, m_alpha: 255 },
                 MessageStyle::MESSAGE_STYLE_HOUSE_NAME => Color { m_red: 255, m_green: 255, m_blue: 255, m_alpha: 255 },
                 _ => Color { m_red: 253, m_green: 245, m_blue: 173, m_alpha: 255 },

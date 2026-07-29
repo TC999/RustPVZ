@@ -47,9 +47,9 @@ pub const DEMO_VIDEO_DATA: i32 = 23;
 pub const DEMO_KEY_TEXT: i32 = 24;
 pub const DEMO_IDLE: i32 = 31;
 
-pub const FPS_ShowFPS: i32 = 0;
-pub const FPS_ShowCoords: i32 = 1;
-pub const Num_FPS_Types: i32 = 2;
+pub const FPS_SHOW_FPS: i32 = 0;
+pub const FPS_SHOW_COORDS: i32 = 1;
+pub const NUM_FPS_TYPES: i32 = 2;
 
 pub const UPDATESTATE_MESSAGES: i32 = 0;
 pub const UPDATESTATE_PROCESS_1: i32 = 1;

@@ -44,7 +44,7 @@ impl TodAllocator {
         _tod_assert(self.m_grow_count > 0, file!(), line!(), "");
         _tod_assert(self.m_item_size as usize >= std::mem::size_of::<*mut u8>(), file!(), line!(), "");
 
-        let block_size = (self.m_grow_count * self.m_item_size + std::mem::size_of::<*mut u8>() as i32) as usize;
+        let _block_size = (self.m_grow_count * self.m_item_size + std::mem::size_of::<*mut u8>() as i32) as usize;
         let a_block = tod_malloc((self.m_grow_count * self.m_item_size + std::mem::size_of::<*mut u8>() as i32) as i32);
         unsafe {
             *(a_block as *mut *mut u8) = self.m_block_list;

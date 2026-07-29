@@ -3,12 +3,10 @@
 
 #![allow(non_snake_case, dead_code)]
 
-use std::f32::consts::PI;
-use crate::const_enums::*;
 use crate::sexy_app_framework::graphics::graphics::{Graphics, MemoryImage};
 use crate::sexy_app_framework::resources::{
     IMAGE_POOL, IMAGE_POOL_NIGHT, IMAGE_POOL_BASE, IMAGE_POOL_SHADING,
-    IMAGE_POOL_BASE_NIGHT, IMAGE_POOL_SHADING_NIGHT, IMAGE_POOL_CAUSTIC_EFFECT,
+    IMAGE_POOL_BASE_NIGHT, IMAGE_POOL_SHADING_NIGHT,
 };
 
 pub const CAUSTIC_IMAGE_WIDTH: i32 = 128;

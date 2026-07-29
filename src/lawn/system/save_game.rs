@@ -3,7 +3,6 @@
 
 #![allow(non_snake_case, dead_code)]
 
-use std::ptr;
 use crate::lawn::board::Board;
 
 /// 从文件加载游戏存档

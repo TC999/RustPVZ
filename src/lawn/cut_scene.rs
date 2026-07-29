@@ -6,17 +6,17 @@
 use crate::const_enums::*;
 
 // CutScene time constants (from CutScene.cpp static consts)
-const TimeSodTutorial: i32 = 2000;
-const TimeSodRegular: i32 = 2000;
-const TimeGraveStones: i32 = 1000;
-const TimeCrazyDave: i32 = 800;
-const TimeFog: i32 = 50;
-const TimeBoss: i32 = 1830;
-const TimeLawnMower: i32 = 250;
-const TimeReadySetPlant: i32 = 1830;
-const TimeIntroEnd: i32 = 6000;
-const TimeSeedChoserSlideOnEnd: i32 = 4250;
-const LostTimeEnd: i32 = 11000;
+const TIME_SOD_TUTORIAL: i32 = 2000;
+const TIME_SOD_REGULAR: i32 = 2000;
+const TIME_GRAVE_STONES: i32 = 1000;
+const TIME_CRAZY_DAVE: i32 = 800;
+const TIME_FOG: i32 = 50;
+const TIME_BOSS: i32 = 1830;
+const TIME_LAWN_MOWER: i32 = 250;
+const TIME_READY_SET_PLANT: i32 = 1830;
+const TIME_INTRO_END: i32 = 6000;
+const TIME_SEED_CHOSER_SLIDE_ON_END: i32 = 4250;
+const LOST_TIME_END: i32 = 11000;
 
 pub struct CutScene {
     pub mApp: *mut crate::lawn_app::LawnApp,
@@ -63,16 +63,16 @@ impl CutScene {
 
         // Calculate intro timings based on background type and game mode
         if (*app).IsFirstTimeAdventureMode() && board.mLevel == 1 {
-            self.mSodTime = TimeSodTutorial as i32;
+            self.mSodTime = TIME_SOD_TUTORIAL as i32;
         } else {
-            self.mSodTime = TimeSodRegular as i32;
+            self.mSodTime = TIME_SOD_REGULAR as i32;
         }
-        self.mGraveStoneTime = if board.StageHasGraveStones() { TimeGraveStones as i32 } else { 0 };
-        self.mCrazyDaveTime = TimeCrazyDave as i32;
-        self.mFogTime = if board.StageHasFog() { TimeFog as i32 } else { 0 };
-        self.mBossTime = if board.IsMiniBossLevel() { TimeBoss as i32 } else { 0 };
-        self.mLawnMowerTime = if (*app).IsFirstTimeAdventureMode() && board.mLevel <= 2 { TimeLawnMower as i32 } else { 0 };
-        self.mReadySetPlantTime = TimeReadySetPlant as i32;
+        self.mGraveStoneTime = if board.StageHasGraveStones() { TIME_GRAVE_STONES as i32 } else { 0 };
+        self.mCrazyDaveTime = TIME_CRAZY_DAVE as i32;
+        self.mFogTime = if board.StageHasFog() { TIME_FOG as i32 } else { 0 };
+        self.mBossTime = if board.IsMiniBossLevel() { TIME_BOSS as i32 } else { 0 };
+        self.mLawnMowerTime = if (*app).IsFirstTimeAdventureMode() && board.mLevel <= 2 { TIME_LAWN_MOWER as i32 } else { 0 };
+        self.mReadySetPlantTime = TIME_READY_SET_PLANT as i32;
         self.mCutsceneTime = 0;
 
         if !board.mMenuButton.is_null() {
@@ -142,7 +142,7 @@ impl CutScene {
         }
 
         // Check if cutscene is over
-        let aTimeStart = TimeIntroEnd as i32 + self.mLawnMowerTime + self.mSodTime
+        let aTimeStart = TIME_INTRO_END as i32 + self.mLawnMowerTime + self.mSodTime
             + self.mGraveStoneTime + self.mCrazyDaveTime + self.mFogTime
             + self.mBossTime + self.mReadySetPlantTime;
         if self.mCutsceneTime >= aTimeStart {
@@ -160,14 +160,14 @@ impl CutScene {
 
     pub unsafe fn IsCutSceneOver(&self) -> bool {
         // TOD_ASSERT(mApp->mGameScene == SCENE_ZOMBIES_WON);
-        self.mCutsceneTime >= LostTimeEnd as i32
+        self.mCutsceneTime >= LOST_TIME_END as i32
     }
 
     pub unsafe fn IsAfterSeedChooser(&self) -> bool {
         let board = self.board();
         self.mSeedChoosing
             || (!board.ChooseSeedsOnCurrentLevel())
-            || self.mCutsceneTime >= TimeSeedChoserSlideOnEnd as i32 + self.mCrazyDaveTime
+            || self.mCutsceneTime >= TIME_SEED_CHOSER_SLIDE_ON_END as i32 + self.mCrazyDaveTime
     }
 
     pub unsafe fn IsSurvivalRepick(&self) -> bool {

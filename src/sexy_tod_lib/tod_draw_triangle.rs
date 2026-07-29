@@ -2,7 +2,6 @@
 // 三角形绘制函数（在 C++ 中通过宏多态生成数十个变体）
 // 简化为一个统一的绘制桩，完整实现在 EffectSystem 中
 
-use crate::sexy_app_framework::graphics::graphics::{Graphics, MemoryImage};
 
 /// 统一三角形绘制函数（桩）
 /// C++ 中通过 #include 宏生成 8888/0888/0565/0555 等像素格式的变体

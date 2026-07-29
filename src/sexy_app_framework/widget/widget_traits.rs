@@ -25,13 +25,13 @@ pub trait WidgetTrait: WidgetContainerTrait {
     fn draw(&self, g: &mut dyn GraphicsTrait);
     fn update(&mut self);
     
-    fn mouse_down(&mut self, x: i32, y: i32, click_count: i32) {}
-    fn mouse_move(&mut self, x: i32, y: i32) {}
-    fn mouse_up(&mut self, x: i32, y: i32) {}
-    fn mouse_drag(&mut self, x: i32, y: i32) {}
-    fn key_down(&mut self, key: u32) -> bool { false }
-    fn key_up(&mut self, key: u32) -> bool { false }
-    fn key_char(&mut self, c: char) -> bool { false }
+    fn mouse_down(&mut self, _x: i32, _y: i32, _click_count: i32) {}
+    fn mouse_move(&mut self, _x: i32, _y: i32) {}
+    fn mouse_up(&mut self, _x: i32, _y: i32) {}
+    fn mouse_drag(&mut self, _x: i32, _y: i32) {}
+    fn key_down(&mut self, _key: u32) -> bool { false }
+    fn key_up(&mut self, _key: u32) -> bool { false }
+    fn key_char(&mut self, _c: char) -> bool { false }
 }
 
 pub trait GraphicsTrait {

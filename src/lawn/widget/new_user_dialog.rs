@@ -4,11 +4,10 @@
 #![allow(non_snake_case, dead_code)]
 
 use crate::lawn_app::LawnApp;
-use crate::lawn::lawn_common::{LawnEditWidget, CreateEditWidget, DrawEditBox};
+use crate::lawn::lawn_common::{LawnEditWidget, CreateEditWidget};
 use crate::lawn::widget::lawn_dialog::LawnDialog;
 use crate::sexy_app_framework::widget::widget_manager::WidgetManager;
 use crate::sexy_app_framework::graphics::graphics::Graphics;
-use crate::sexy_app_framework::resources::FONT_BRIANNETOD16;
 
 pub struct NewUserDialog {
     pub base: LawnDialog,

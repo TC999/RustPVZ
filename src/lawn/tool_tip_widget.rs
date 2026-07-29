@@ -4,7 +4,7 @@
 #![allow(non_snake_case, dead_code)]
 
 use crate::game_constants::{BOARD_HEIGHT, BOARD_WIDTH};
-use crate::sexy_app_framework::graphics::graphics::{Graphics, Font};
+use crate::sexy_app_framework::graphics::graphics::Graphics;
 use crate::sexy_app_framework::graphics::color::Color;
 use crate::sexy_app_framework::resources::{FONT_PICO129, FONT_TINYBOLD};
 use crate::sexy_app_framework::common::{is_opening_punctuation, is_closing_punctuation};

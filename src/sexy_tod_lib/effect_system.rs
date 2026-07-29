@@ -1,7 +1,7 @@
 // [TRANSLATION_NOTE]: EffectSystem.h + EffectSystem.cpp -> Rust
 // 效果系统：统一管理粒子、轨迹、动画、附件等效果子系统
 
-use crate::sexy_app_framework::graphics::graphics::{Graphics, Image, MemoryImage};
+use crate::sexy_app_framework::graphics::graphics::{Graphics, Image};
 use crate::sexy_app_framework::graphics::color::Color;
 use crate::sexy_app_framework::misc::rect::Rect;
 use crate::sexy_app_framework::misc::sexy_matrix::SexyMatrix3;

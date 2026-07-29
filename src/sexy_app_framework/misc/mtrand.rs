@@ -4,7 +4,7 @@
 
 const MTRAND_N: usize = 624;
 
-static mut gRandAllowed: bool = true;
+static mut G_RAND_ALLOWED: bool = true;
 
 pub struct MTRand {
     mt: [u32; MTRAND_N],
@@ -84,7 +84,7 @@ impl MTRand {
 
     pub fn next(&mut self) -> u32 {
         unsafe {
-            if !gRandAllowed {
+            if !G_RAND_ALLOWED {
                 panic!("Random numbers not allowed in this context");
             }
         }
@@ -118,7 +118,7 @@ impl MTRand {
 
     pub fn set_rand_allowed(allowed: bool) {
         unsafe {
-            gRandAllowed = allowed;
+            G_RAND_ALLOWED = allowed;
         }
     }
 }
