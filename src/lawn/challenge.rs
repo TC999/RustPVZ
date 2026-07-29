@@ -221,4 +221,41 @@ impl Challenge {
             | SeedType::SEED_ZOMBIE_IMP | SeedType::SEED_ZOMBIE_POLEVAULTER
         )
     }
+
+    /// C++ Challenge::SpawnZombieWave (Challenge.cpp:2964)
+    pub unsafe fn SpawnZombieWave(&mut self) {
+        let board = self.board();
+        let app = self.app();
+
+        if (*app).IsContinuousChallenge() && board.mCurrentWave == board.mNumWaves {
+            board.mCurrentWave = board.mNumWaves - 1;
+            // [TODO]: Replace flag zombies with normal
+        }
+
+        let aIsFlagWave = board.IsFlagWave(board.mCurrentWave);
+
+        if (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_GRAVE_DANGER as i32
+            && board.mCurrentWave != board.mNumWaves - 1
+        {
+            if aIsFlagWave {
+                // [TODO]: board.SpawnZombiesFromGraves()
+            } else if board.mCurrentWave > 5 {
+                // [TODO]: GraveDangerSpawnRandomGrave()
+            }
+        }
+
+        // 生存模式夜间：最后一波补充墓碑 (inline is_survival_mode check)
+        let mode = (*app).mGameMode as i32;
+        let is_survival = mode >= GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1 as i32
+            && mode <= GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_5 as i32;
+        if is_survival && board.mBackground == 1
+            && board.mCurrentWave == board.mNumWaves - 1
+        {
+            // [TODO]: Spawn random grave
+        }
+
+        if (*app).IsBungeeBlitzLevel() && aIsFlagWave {
+            board.DisplayAdvice("[ADVICE_BUNGEES_INCOMING]", 0, -1);
+        }
+    }
 }
