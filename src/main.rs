@@ -1,5 +1,7 @@
 // [TRANSLATION_NOTE]: main.cpp -> Rust 入口
 // PvZ Portable 游戏主入口
+// C++ 代码保真翻译 — 允许 C++ 风格的命名约定
+#![allow(non_snake_case, non_camel_case_types, non_upper_case_globals, dead_code)]
 
 mod const_enums;
 mod game_constants;
