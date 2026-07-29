@@ -1284,12 +1284,107 @@ impl Board {
     }
 
     // =========================================================================
-    // ★ 子函数 stubs (需后续实现完整逻辑)
+    // ★ Board 核心游戏逻辑 (from Board.cpp)
     // =========================================================================
 
+    /// C++ Board::DisplayAdvice (Board.cpp:1993)
+    pub unsafe fn DisplayAdvice(&mut self, theAdvice: &str, theMessageStyle: i32, theHelpIndex: i32) {
+        if theHelpIndex != -1 /* ADVICE_NONE */ {
+            if self.mHelpDisplayed[theHelpIndex as usize] {
+                return;
+            }
+            self.mHelpDisplayed[theHelpIndex as usize] = true;
+        }
+        if !self.mAdvice.is_null() {
+            (*self.mAdvice).SetLabel(theAdvice, std::mem::transmute(theMessageStyle));
+        }
+        self.mHelpIndex = theHelpIndex;
+    }
+
+    /// C++ Board::DisplayAdviceAgain (Board.cpp:2007)
+    pub unsafe fn DisplayAdviceAgain(&mut self, theAdvice: &str, theMessageStyle: i32, theHelpIndex: i32) {
+        if theHelpIndex != -1 {
+            self.mHelpDisplayed[theHelpIndex as usize] = false;
+        }
+        self.DisplayAdvice(theAdvice, theMessageStyle, theHelpIndex);
+    }
+
+    /// C++ Board::ClearAdviceImmediately (Board.cpp:2016)
+    pub unsafe fn ClearAdviceImmediately(&mut self) {
+        self.ClearAdvice(-1);
+        if !self.mAdvice.is_null() {
+            (*self.mAdvice).mDuration = 0;
+        }
+    }
+
+    /// C++ Board::ClearAdvice (Board.cpp:2022)
+    pub unsafe fn ClearAdvice(&mut self, theHelpIndex: i32) {
+        if theHelpIndex == -1 || theHelpIndex == self.mHelpIndex {
+            if !self.mAdvice.is_null() {
+                (*self.mAdvice).ClearLabel();
+            }
+            self.mHelpIndex = -1;
+        }
+    }
+
+    /// C++ Board::UpdateGameObjects (Board.cpp:5067)
     pub unsafe fn UpdateGameObjects(&mut self) {
-        // TODO: Iterate all zombies, plants, projectiles and update them
-        // Corresponds to Board.cpp ~line 5780 area
+        let mut aPlant: *mut Plant = std::ptr::null_mut();
+        while self.IteratePlants(&mut aPlant) {
+            (*aPlant).Update();
+        }
+        let mut aZombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut aZombie) {
+            (*aZombie).Update();
+        }
+        let mut aProjectile: *mut Projectile = std::ptr::null_mut();
+        while self.IterateProjectiles(&mut aProjectile) {
+            (*aProjectile).Update();
+        }
+        let mut aCoin: *mut Coin = std::ptr::null_mut();
+        while self.IterateCoins(&mut aCoin) {
+            (*aCoin).Update();
+        }
+        let mut aMower: *mut LawnMower = std::ptr::null_mut();
+        while self.IterateLawnMowers(&mut aMower) {
+            (*aMower).Update();
+        }
+        // [TODO]: mCursorPreview->Update(); mCursorObject->Update();
+        // [TODO]: mSeedBank->mSeedPackets[i].Update() for each packet
+    }
+
+    /// C++ Board::SpawnZombieWave (Board.cpp:5009)
+    pub unsafe fn SpawnZombieWave(&mut self) {
+        // [TODO]: mChallenge->SpawnZombieWave()
+        // [TODO]: Handle bungee blitz level dropping
+        // [TODO]: Iterate mZombiesInWave[mCurrentWave] and AddZombie each
+
+        if self.mCurrentWave == self.mNumWaves - 1 && !(*self.mApp).IsContinuousChallenge() {
+            self.mRiseFromGraveCounter = 210;
+        }
+        if self.IsFlagWave(self.mCurrentWave) {
+            self.mFlagRaiseCounter = 100; // FLAG_RAISE_TIME
+        }
+        self.mCurrentWave += 1;
+        self.mTotalSpawnedWaves += 1;
+    }
+
+    /// C++ Board::ZombiesWon (Board.cpp:5158)
+    pub unsafe fn ZombiesWon(&mut self, _theZombie: *mut Zombie) {
+        // [TODO]: Start zombies-won cutscene
+    }
+
+    /// C++ Board::NextWaveComing (Board.cpp:5322)
+    pub unsafe fn NextWaveComing(&mut self) {
+        if self.mCurrentWave + 1 == self.mNumWaves {
+            // [TODO]: AddReanimation for final wave banner
+            // [TODO]: mFinalWaveSoundCounter = 60
+        }
+        if self.mCurrentWave == 0 {
+            // [TODO]: mApp->PlaySample(SOUND_AWOOGA)
+        } else if self.IsFlagWave(self.mCurrentWave) {
+            // [TODO]: mApp->PlaySample(SOUND_SIREN)
+        }
     }
 
     pub unsafe fn UpdateSunSpawning(&mut self) {
