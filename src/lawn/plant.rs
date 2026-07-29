@@ -617,9 +617,28 @@ impl Plant {
         // TODO: Draw magnet items above plant
     }
 
+    /// C++ Plant::Die (Plant.cpp:4930)
     pub unsafe fn Die(&mut self) {
+        // C++: if (IsOnBoard() && mSeedType == SEED_TANGLEKELP) { ... aZombie->DieWithLoot(); }
+        if self.IsOnBoard() && self.m_seed_type == SeedType::SEED_TANGLEKELP {
+            let board = self.board();
+            // [TODO]: board->ZombieTryToGet(mTargetZombieID)
+            // if aZombie { aZombie->DieWithLoot(); }
+        }
+
         self.m_dead = true;
-        self.base.m_visible = false;
+        // [TODO]: RemoveEffects() — remove particles & reanimations
+
+        if !Plant::is_flying(self.m_seed_type) && self.IsOnBoard() {
+            // [TODO]: GridItem* aLadder = board->GetLadderAt(mPlantCol, mRow);
+            // if aLadder { aLadder->GridItemDie(); }
+        }
+
+        if self.IsOnBoard() {
+            // [TODO]: Plant* aTopPlant = board->GetTopPlantAt(mPlantCol, mRow, TOPPLANT_BUNGEE_ORDER);
+            // [TODO]: Plant* aFlowerPot = board->GetFlowerPotAt(mPlantCol, mRow);
+            // if aFlowerPot && aTopPlant == aFlowerPot { ... }
+        }
     }
 
     pub unsafe fn UpdateAbilities(&mut self) {
@@ -645,5 +664,9 @@ impl Plant {
             }
         }
         self.m_squished || self.m_on_bungee_state == PlantOnBungeeState::RISING_WITH_BUNGEE || self.m_dead
+    }
+
+    pub fn IsOnBoard(&self) -> bool {
+        !self.base.m_board.is_null()
     }
 }
