@@ -68,25 +68,26 @@ impl Default for GridItem {
 }
 
 impl GridItem {
+    /// C++ GridItem::Update (GridItem.cpp:589)
     pub unsafe fn Update(&mut self) {
         if self.mDead { return; }
         self.mGridItemCounter += 1;
 
         match self.mGridItemType {
             GridItemType::GRIDITEM_GRAVESTONE => {
-                // Grave stones don't update
+                // 墓碑：不更新，但可能有动画
             }
             GridItemType::GRIDITEM_CRATER => {
+                // 坑洞：倒计时后消失
                 if self.mCraterCounter > 0 {
                     self.mCraterCounter -= 1;
                     if self.mCraterCounter == 0 {
-                        // Crater becomes grass again
-                        self.mDead = true;
+                        self.GridItemDie();
                     }
                 }
             }
             GridItemType::GRIDITEM_PORTAL_CIRCLE => {
-                // Portal visual animation
+                // 传送门：动画帧更新
                 self.mAnimCounter += 1;
                 if self.mAnimCounter >= 8 {
                     self.mAnimCounter = 0;
@@ -95,17 +96,22 @@ impl GridItem {
                 }
             }
             GridItemType::GRIDITEM_LADDER => {
-                // Update ladder position
+                // [TODO]: Update ladder animation
+            }
+            GridItemType::GRIDITEM_RAKE => {
+                // [TODO]: Rake pickup/trigger logic
             }
             _ => {}
         }
     }
 
+    /// C++ GridItem::Draw (stub)
     pub unsafe fn Draw(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
         if self.mDead { return; }
-        // TODO: Draw based on mGridItemType
+        // [TODO]: Draw by type (grave/crater/ladder/portal/rake/stinky)
     }
 
+    /// C++ GridItem::GridItemInitialize
     pub unsafe fn GridItemInitialize(&mut self, theGridX: i32, theGridY: i32, theGridItemType: GridItemType) {
         self.mGridX = theGridX;
         self.mGridY = theGridY;
@@ -116,15 +122,19 @@ impl GridItem {
         self.mRenderOrder = 0;
         self.mGridItemCounter = 0;
         self.mGridItemState = 0;
+        self.base.m_x = self.mPosX as i32;
+        self.base.m_y = self.mPosY as i32;
 
         match theGridItemType {
-            GridItemType::GRIDITEM_GRAVESTONE => {
-                self.mCraterCounter = 0;
-            }
-            GridItemType::GRIDITEM_CRATER => {
-                self.mCraterCounter = 3000; // Time until crater disappears
-            }
+            GridItemType::GRIDITEM_GRAVESTONE => { self.mCraterCounter = 0; }
+            GridItemType::GRIDITEM_CRATER => { self.mCraterCounter = 3000; }
             _ => {}
         }
+    }
+
+    /// C++ GridItem::GridItemDie (GridItem.cpp:64)
+    pub unsafe fn GridItemDie(&mut self) {
+        // [TODO]: Remove reanimation/particle if any
+        self.mDead = true;
     }
 }
