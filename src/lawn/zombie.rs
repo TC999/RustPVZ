@@ -368,6 +368,85 @@ impl Zombie {
         &mut *(self.base.m_app as *mut crate::lawn_app::LawnApp)
     }
 
+    /// C++ Zombie::ZombieInitialize (Zombie.cpp:115)
+    /// 僵尸初始化 — 设置所有字段，加载动画等
+    pub unsafe fn ZombieInitialize(&mut self, theRow: i32, theType: ZombieType, theVariant: bool, theParentZombie: *mut Zombie, theFromWave: i32) {
+        self.m_from_wave = theFromWave;
+        self.base.m_row = theRow as i32;
+        self.m_pos_x = 780.0 + crate::sexy_app_framework::common::rand_int() as f32 % ZOMBIE_START_RANDOM_OFFSET as f32;
+        // [TODO]: mPosY = GetPosYBasedOnRow(theRow)
+        self.m_vel_x = 0.0;
+        self.m_vel_z = 0.0;
+        self.base.m_width = 120;
+        self.base.m_height = 120;
+        self.m_frame = 0;
+        self.m_prev_frame = 0;
+        self.m_zombie_type = theType;
+        self.m_variant = theVariant;
+        self.m_is_eating = false;
+        self.m_just_got_shot_counter = 0;
+        self.m_shield_just_got_shot_counter = 0;
+        self.m_shield_recoil_counter = 0;
+        self.m_chilled_counter = 0;
+        self.m_ice_trap_counter = 0;
+        self.m_buttered_counter = 0;
+        self.m_mind_controlled = false;
+        self.m_blowing_away = false;
+        self.m_has_head = true;
+        self.m_has_arm = true;
+        self.m_has_object = false;
+        self.m_in_pool = false;
+        self.m_on_high_ground = false;
+        self.m_helm_type = 0; // HELMTYPE_NONE
+        self.m_shield_type = ShieldType::SHIELDTYPE_NONE;
+        self.m_yucky_face = false;
+        self.m_yucky_face_counter = 0;
+        self.m_anim_counter = 0;
+        self.m_groan_counter = crate::sexy_tod_lib::tod_common::rand_range_int(300, 400);
+        self.m_anim_ticks_per_frame = 12;
+        self.m_anim_frames = 12;
+        self.m_zombie_age = 0;
+        self.m_target_col = -1;
+        self.m_zombie_phase = ZombiePhase::PHASE_ZOMBIE_NORMAL;
+        self.m_zombie_height = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
+        self.m_phase_counter = 0;
+        self.m_hit_umbrella = false;
+        self.m_dropped_loot = false;
+        self.m_related_zombie_id = ZombieID::ZOMBIEID_NULL;
+        // [TODO]: zombie rect/attack rect based on type
+        self.m_playing_song = false;
+        self.m_zombie_fade = -1;
+        self.m_flat_tires = false;
+        self.m_scale_zombie = 1.0;
+        self.m_use_ladder_col = -1;
+        self.m_shield_health = 0;
+        self.m_helm_health = 0;
+        self.m_altitude = 0.0;
+        self.m_flying_health = 0;
+        self.m_original_anim_rate = 0.0;
+        self.m_attachment_id = AttachmentID::ATTACHMENTID_NULL;
+        self.m_summon_counter = 0;
+        self.m_boss_stomp_counter = -1;
+        self.m_boss_bungee_counter = -1;
+        self.m_boss_head_counter = -1;
+        self.m_body_reanim_id = ReanimationID::REANIMATIONID_NULL;
+        self.m_target_plant_id = PlantID::PLANTID_NULL;
+        self.m_boss_mode = 0;
+        self.m_boss_fire_ball_reanim_id = ReanimationID::REANIMATIONID_NULL;
+        self.m_special_head_reanim_id = ReanimationID::REANIMATIONID_NULL;
+        self.m_target_row = -1;
+        self.m_fireball_row = -1;
+        self.m_is_fire_ball = false;
+        self.m_mowered_reanim_id = ReanimationID::REANIMATIONID_NULL;
+        self.m_zombatar_head_reanim_id = ReanimationID::REANIMATIONID_NULL;
+        self.m_last_portal_x = -1;
+        for i in 0..MAX_ZOMBIE_FOLLOWERS as usize {
+            self.m_follower_zombie_id[i] = ZombieID::ZOMBIEID_NULL;
+        }
+        self.m_body_health = 270;
+        // [TODO]: LoadReanim based on zombie type definition
+    }
+
     pub unsafe fn IsDeadOrDying(&self) -> bool {
         self.m_dead
             || self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_DYING
