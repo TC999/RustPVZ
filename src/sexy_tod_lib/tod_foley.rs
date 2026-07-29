@@ -375,11 +375,55 @@ impl TodFoley {
 // 全局函数
 // ============================================================
 pub fn tod_foley_initialize(_g_foley_param_array: &mut [FoleyParams], _g_foley_param_array_size: i32) {
-    // gFoleyParamArray = theFoleyParamArray;
-    // gFoleyParamArraySize = theFoleyParamArraySize;
 }
 
 pub fn tod_foley_dispose() {
+}
+
+/// C++ gLawnFoleyParamArray 的 Rust 等价实现
+/// 使用 match 语句代替静态大数组，每个 FoleyType 返回对应的参数
+pub fn get_foley_params(the_foley_type: FoleyType) -> FoleyParams {
+    let empty: [Option<&'static str>; 10] = [None, None, None, None, None, None, None, None, None, None];
+    let sfx = |s: &'static str| -> [Option<&'static str>; 10] {
+        let mut a = empty;
+        a[0] = Some(s);
+        a
+    };
+    let sfx2 = |s0: &'static str, s1: &'static str| -> [Option<&'static str>; 10] {
+        let mut a = empty;
+        a[0] = Some(s0); a[1] = Some(s1); a
+    };
+    let sfx3 = |s0: &'static str, s1: &'static str, s2: &'static str| -> [Option<&'static str>; 10] {
+        let mut a = empty; a[0] = Some(s0); a[1] = Some(s1); a[2] = Some(s2); a
+    };
+    let sfx4 = |s0: &'static str, s1: &'static str, s2: &'static str, s3: &'static str| -> [Option<&'static str>; 10] {
+        let mut a = empty; a[0]=Some(s0); a[1]=Some(s1); a[2]=Some(s2); a[3]=Some(s3); a
+    };
+    let sfx6 = |s0: &'static str, s1: &'static str, s2: &'static str, s3: &'static str, s4: &'static str, s5: &'static str| -> [Option<&'static str>; 10] {
+        let mut a = empty; a[0]=Some(s0); a[1]=Some(s1); a[2]=Some(s2); a[3]=Some(s3); a[4]=Some(s4); a[5]=Some(s5); a
+    };
+    let sfx9 = |s0:&'static str,s1:&'static str,s2:&'static str,s3:&'static str,s4:&'static str,s5:&'static str,s6:&'static str,s7:&'static str,s8:&'static str|->[Option<&'static str>;10]{
+        let mut a=empty; a[0]=Some(s0);a[1]=Some(s1);a[2]=Some(s2);a[3]=Some(s3);a[4]=Some(s4);a[5]=Some(s5);a[6]=Some(s6);a[7]=Some(s7);a[8]=Some(s8);a
+    };
+
+    match the_foley_type {
+        FoleyType::FOLEY_SUN => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 10.0, m_sfx_id: sfx("SOUND_POINTS"), m_foley_flags: 0 },
+        FoleyType::FOLEY_SPLAT => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 10.0, m_sfx_id: sfx3("SOUND_SPLAT","SOUND_SPLAT2","SOUND_SPLAT3"), m_foley_flags: 0 },
+        FoleyType::FOLEY_LAWNMOWER => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 10.0, m_sfx_id: sfx("SOUND_LAWNMOWER"), m_foley_flags: 0 },
+        FoleyType::FOLEY_THROW => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 10.0, m_sfx_id: sfx4("SOUND_THROW","SOUND_THROW","SOUND_THROW","SOUND_THROW2"), m_foley_flags: 0 },
+        FoleyType::FOLEY_SPAWN_SUN => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 10.0, m_sfx_id: sfx("SOUND_THROW"), m_foley_flags: 0 },
+        FoleyType::FOLEY_CHOMP => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx2("SOUND_CHOMP","SOUND_CHOMP2"), m_foley_flags: 0 },
+        FoleyType::FOLEY_CHOMP_SOFT => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 4.0, m_sfx_id: sfx("SOUND_CHOMPSOFT"), m_foley_flags: 0 },
+        FoleyType::FOLEY_PLANT => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx2("SOUND_PLANT","SOUND_PLANT2"), m_foley_flags: 0 },
+        FoleyType::FOLEY_USE_SHOVEL => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx("SOUND_PLANT2"), m_foley_flags: 0 },
+        FoleyType::FOLEY_DROP => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx("SOUND_TAP2"), m_foley_flags: 0 },
+        FoleyType::FOLEY_BLEEP => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx("SOUND_BLEEP"), m_foley_flags: 0 },
+        FoleyType::FOLEY_GROAN => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx6("SOUND_GROAN","SOUND_GROAN2","SOUND_GROAN3","SOUND_GROAN4","SOUND_GROAN5","SOUND_GROAN6"), m_foley_flags: 0 },
+        FoleyType::FOLEY_BRAINS => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx9("SOUND_GROAN","SOUND_GROAN2","SOUND_GROAN3","SOUND_GROAN4","SOUND_GROAN5","SOUND_GROAN6","SOUND_SUKHBIR4","SOUND_SUKHBIR5","SOUND_SUKHBIR6"), m_foley_flags: 0 },
+        FoleyType::FOLEY_SUKHBIR => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx9("SOUND_GROAN","SOUND_GROAN2","SOUND_GROAN3","SOUND_GROAN4","SOUND_GROAN5","SOUND_GROAN6","SOUND_SUKHBIR","SOUND_SUKHBIR2","SOUND_SUKHBIR3"), m_foley_flags: 0 },
+        FoleyType::FOLEY_JACKINTHEBOX => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: sfx("SOUND_JACKINTHEBOX"), m_foley_flags: 7 },
+        _ => FoleyParams { m_foley_type: the_foley_type, m_pitch_range: 0.0, m_sfx_id: empty, m_foley_flags: 0 },
+    }
 }
 
 pub fn lookup_foley(the_foley_type: FoleyType, g_foley_param_array: &[FoleyParams]) -> &FoleyParams {
