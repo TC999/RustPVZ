@@ -193,6 +193,18 @@ impl CutScene {
         false
     }
 
+    /// C++ CutScene::ShowZombieWalking — 僵尸胜利后是否在行走
+    pub unsafe fn ShowZombieWalking(&self) -> bool {
+        // [TODO]: Return true while zombies walk into house after losing
+        true
+    }
+
+    /// C++ CutScene::StartZombiesWon — 开始僵尸胜利过场
+    pub unsafe fn StartZombiesWon(&mut self) {
+        // [TODO]: Start level-lost cutscene animation
+        // Set up zombie walk-to-house, fade out, etc.
+    }
+
     // Helper
     unsafe fn board(&self) -> &'static mut crate::lawn::board::Board {
         &mut *(self.mBoard)
