@@ -181,21 +181,116 @@ impl Reanimation {
         }
     }
 
-    pub fn reanimation_play(&mut self, _synced: &str) {}
-    pub fn reanimation_play_with_sync(&mut self, _synced: &str, _frame_base: f32) {}
+    // ================================================================
+    // ★ 核心动画方法 (C++ Reanimation 1:1 映射)
+    // ================================================================
+
+    /// C++ Reanimation::Play (指定同步轨道)
+    pub fn reanimation_play(&mut self, _synced: &str) {
+        // [TODO]: Reset animation time based on synced track
+    }
+
+    pub fn reanimation_play_with_sync(&mut self, _synced: &str, _frame_base: f32) {
+        // [TODO]: Play with explicit frame base
+    }
+
+    /// C++ Reanimation::Update — 推进动画时间
     pub fn reanimation_update(&mut self) {
         self.m_anim_time += self.m_anim_rate * 0.01;
+        // [TODO]: Loop/stop handling based on m_loop_type
     }
-    pub fn reanimation_draw(&self, _g: &mut Graphics) {}
+
+    /// C++ Reanimation::Draw — 绘制当前帧
+    pub fn reanimation_draw(&self, _g: &mut Graphics) {
+        // [TODO]: Iterate tracks, interpolate transforms, draw images
+    }
+
+    /// C++ Reanimation::DrawRenderGroup — 绘制指定渲染组的轨道
+    pub fn draw_render_group(&self, _g: &mut Graphics, _render_group: i32) {
+        // [TODO]: Only draw tracks assigned to the specified group
+    }
+
     pub fn reanimation_set_position(&mut self, _x: f32, _y: f32) {
         self.m_x = _x; self.m_y = _y;
     }
-    pub fn reanimation_set_scale(&mut self, _scale: f32) { self.m_scale = _scale; }
-    pub fn reanimation_get_frames(&self) -> f32 { 0.0 }
 
-    pub fn reanimation_update_frame(&self) -> f32 {
-        self.m_anim_time * 12.0
+    pub fn reanimation_set_scale(&mut self, _scale: f32) { self.m_scale = _scale; }
+
+    pub fn reanimation_get_frames(&self) -> f32 {
+        // [TODO]: Calculate total frames from definition
+        0.0
     }
+
+    /// C++ Reanimation::SetFramesForLayer — 将动画设置为特定层的帧
+    pub fn set_frames_for_layer(&mut self, _the_layer: &str) {
+        // [TODO]: Find the track index for the layer, set frame range
+    }
+
+    /// C++ Reanimation::TrackExists — 检查指定名称的轨道是否存在
+    pub fn track_exists(&self, _the_track_name: &str) -> bool {
+        // [TODO]: Search m_definition->m_tracks for matching name
+        false
+    }
+
+    /// C++ Reanimation::FindTrackIndex — 查找轨道索引
+    pub fn find_track_index(&self, _the_track_name: &str) -> i32 {
+        // [TODO]: Linear search in definition tracks
+        -1
+    }
+
+    /// C++ Reanimation::GetCurrentTransform — 获取轨道的当前插值变换
+    pub fn get_current_transform(&self, _the_track_index: i32, _the_transform: &mut ReanimatorTransform) {
+        // [TODO]: Interpolate between keyframes at current m_anim_time
+    }
+
+    /// C++ Reanimation::AssignRenderGroupToTrack — 将轨道分配到渲染组
+    pub fn assign_render_group_to_track(&mut self, _the_track_name: &str, _the_render_group: i32) {
+        // [TODO]: Set render group override for this track
+    }
+
+    /// C++ Reanimation::AssignRenderGroupToPrefix — 按前缀分配渲染组
+    pub fn assign_render_group_to_prefix(&mut self, _the_prefix: &str, _the_render_group: i32) {
+        // [TODO]: Find all tracks with matching prefix, assign group
+    }
+
+    /// C++ Reanimation::SetImageOverride — 设置轨道的图像覆盖
+    pub fn set_image_override(&mut self, _the_track_name: &str, _the_image: *mut Image) {
+        // [TODO]: Set image override for this track
+    }
+
+    /// C++ Reanimation::GetImageOverride — 获取轨道的图像覆盖
+    pub fn get_image_override(&self, _the_track_name: &str) -> *mut Image {
+        std::ptr::null_mut()
+    }
+
+    /// C++ Reanimation::AttachToAnotherReanimation — 附加到父动画
+    pub fn attach_to_another_reanimation(&mut self, _the_parent: *mut Reanimation, _the_parent_track: &str) {
+        // [TODO]: Set parent reference and track name
+    }
+
+    /// C++ Reanimation::SetTruncateDisappearingFrames — 设置截断消逝帧
+    pub fn set_truncate_disappearing_frames(&mut self, _the_track_name: Option<&str>, _the_truncate: bool) {
+        // [TODO]: Mark specified track for truncation
+    }
+
+    /// C++ Reanimation::IsAnimPlaying — 检查动画是否正在播放
+    pub fn is_anim_playing(&self, _the_track_name: &str) -> bool {
+        // [TODO]: Check if track animation hasn't ended
+        true
+    }
+
+    /// C++ Reanimation::ReanimShowPrefix (辅助函数) — 显示指定前缀的轨道
+    pub fn reanim_show_prefix(&mut self, _the_prefix: &str, _the_render_group: i32) {
+        self.assign_render_group_to_prefix(_the_prefix, _the_render_group);
+    }
+
+    /// C++ Reanimation::ReanimShowTrack — 显示指定名称的轨道
+    pub fn reanim_show_track(&mut self, _the_track_name: &str, _the_render_group: i32) {
+        self.assign_render_group_to_track(_the_track_name, _the_render_group);
+    }
+
+    /// 获取动画时间（秒）
+    pub fn get_anim_time(&self) -> f32 { self.m_anim_time }
 }
 
 impl Default for Reanimation {
