@@ -391,6 +391,25 @@ pub fn tod_replace_number_string(text: &str, find: &str, number: i32) -> String 
     text.replace(find, &number.to_string())
 }
 
+/// GetRectOverlap — 计算两个矩形重叠区域的面积
+pub fn get_rect_overlap(r1: &crate::sexy_app_framework::misc::rect::Rect, r2: &crate::sexy_app_framework::misc::rect::Rect) -> i32 {
+    let ix = (r1.m_x + r1.m_width).min(r2.m_x + r2.m_width) - r1.m_x.max(r2.m_x);
+    let iy = (r1.m_y + r1.m_height).min(r2.m_y + r2.m_height) - r1.m_y.max(r2.m_y);
+    if ix > 0 && iy > 0 { ix * iy } else { 0 }
+}
+
+/// StrFormat — C++ 兼容的格式化字符串（使用 Rust format! 实现）
+pub fn str_format(format_str: &str, args: &[&str]) -> String {
+    let mut result = format_str.to_string();
+    let mut i = 0;
+    for arg in args {
+        let placeholder = format!("{{{}}}", i);
+        result = result.replace(&placeholder, arg);
+        i += 1;
+    }
+    result
+}
+
 // =========================================================================
 // ★ TodDraw 绘制辅助函数 (from TodCommon.h)
 // =========================================================================
