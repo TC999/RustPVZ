@@ -636,7 +636,7 @@ impl Zombie {
 
         // 从墓碑升起
         if self.m_zombie_phase == ZombiePhase::PHASE_RISING_FROM_GRAVE {
-            // [TODO]: UpdateZombieRiseFromGrave()
+            self.UpdateZombieRiseFromGrave();
             return;
         }
 
@@ -1109,6 +1109,31 @@ impl Zombie {
     }
     pub unsafe fn DieNoLoot(&mut self) {
         self.m_dead = true;
+    }
+
+    /// C++ Zombie::DieWithLoot (Zombie.cpp:7291) — 标准死亡+掉落
+    pub unsafe fn DieWithLoot(&mut self) {
+        self.DieNoLoot();
+        // [TODO]: DropLoot() — 掉落阳光/金币/钻石
+    }
+
+    /// C++ Zombie::ApplyChill (Zombie.cpp:7489) — 施加冰冻/减速
+    pub unsafe fn ApplyChill(&mut self, the_is_ice_trap: bool) {
+        // C++: if (!CanBeChilled()) return;
+        // [TODO]: CanBeChilled 检查
+        if self.m_chilled_counter == 0 {
+            self.app().PlayFoley(crate::sexy_tod_lib::tod_foley::FoleyType::FOLEY_FROZEN);
+        }
+        let a_chill_time = if the_is_ice_trap { 2000 } else { 1000 };
+        self.m_chilled_counter = a_chill_time.max(self.m_chilled_counter);
+        self.UpdateAnimSpeed();
+    }
+
+    /// C++ Zombie::UpdateZombieRiseFromGrave (Zombie.cpp:3011)
+    pub unsafe fn UpdateZombieRiseFromGrave(&mut self) {
+        // [TODO]: 从墓碑升起的动画逻辑
+        // 检测动画是否播放完毕 → 切换到正常行走状态
+        self.m_zombie_phase = ZombiePhase::PHASE_ZOMBIE_NORMAL;
     }
     pub unsafe fn IsImmobilizied(&self) -> bool {
         self.m_chilled_counter > 0 || self.m_buttered_counter > 0
