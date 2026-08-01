@@ -23,11 +23,12 @@ pub enum ReanimFlags {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(i32)]
 pub enum ReanimLoopType {
-    REANIM_PLAY_ONCE,
-    REANIM_LOOP,
-    REANIM_PLAY_ONCE_AND_HOLD,
-    REANIM_PLAY_ONCE_AND_HOLD_LAST_CEL_AND_DISAPPEAR,
-    REANIM_PLAY_ONCE_AND_DISAPPEAR_AND_PROCESS_DELETE_QUEUE,
+    REANIM_LOOP = 0,
+    REANIM_LOOP_FULL_LAST_FRAME = 1,
+    REANIM_PLAY_ONCE = 2,
+    REANIM_PLAY_ONCE_AND_HOLD = 3,
+    REANIM_PLAY_ONCE_FULL_LAST_FRAME = 4,
+    REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD = 5,
 }
 
 // ============================================================

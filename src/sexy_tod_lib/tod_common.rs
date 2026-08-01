@@ -76,18 +76,27 @@ pub fn tod_pick_array_item_from_weighted_array(the_array: &mut [TodWeightedArray
     std::ptr::null_mut()
 }
 
-pub fn tod_pick_from_weighted_grid_array(the_array: &[TodWeightedGridArray]) -> Option<&TodWeightedGridArray> {
+/// C++: TodPickFromWeightedGridArray (TodCommon.cpp:163)
+/// 按权重随机选取网格数组项。C++ 返回 TodWeightedGridArray*（非 const，
+/// 调用方可修改权重），因此 Rust 中返回可变引用。
+pub fn tod_pick_from_weighted_grid_array(the_array: &mut [TodWeightedGridArray]) -> Option<&mut TodWeightedGridArray> {
+    // C++: if (theCount <= 0) return nullptr;
+    // C++: int aTotalWeight = 0; for (i) aTotalWeight += theArray[i].mWeight;
     let total_weight: i32 = the_array.iter().map(|a| a.m_weight).sum();
+    // C++: TOD_ASSERT(aTotalWeight > 0); （对应 Rust: total_weight <= 0 返回 None）
     if total_weight <= 0 {
         return None;
     }
+    // C++: aTotalWeight = Sexy::Rand(aTotalWeight);
     let mut pick = rand_range(total_weight);
-    for item in the_array {
+    // C++: for (i) { aTotalWeight -= theArray[i].mWeight; if (aTotalWeight < 0) return &theArray[i]; }
+    for item in the_array.iter_mut() {
         pick -= item.m_weight;
         if pick < 0 {
             return Some(item);
         }
     }
+    // C++: TOD_ASSERT(false); return nullptr;
     None
 }
 
@@ -459,4 +468,93 @@ pub fn tod_draw_image_f(
 pub fn tod_string_translate(the_string: &str) -> String {
     // [TODO]: Look up string from resource bundle
     the_string.to_string()
+}
+
+// =========================================================================
+// ★ TodLoadResources — 资源组加载 (TodCommon.cpp:1049-1089)
+// =========================================================================
+
+/// C++: TodLoadResources (TodCommon.cpp:1049)
+/// 全局资源加载函数，等价于
+///   bool TodLoadResources(const std::string& theGroup)
+///   {
+///       return ((TodResourceManager*)gSexyAppBase->mResourceManager)->TodLoadResources(theGroup);
+///   }
+/// 与 TodResourceManager::TodLoadResources 的成员函数体合并翻译。
+/// 在资源加载完成后调用 gExtractResourcesByName 提取全局资源（main.cpp:115 赋值）。
+pub unsafe fn TodLoadResources(theGroup: &str) -> bool {
+    // C++: ((TodResourceManager*)gSexyAppBase->mResourceManager)
+    let mgr_ptr = match crate::sexy_app_framework::sexy_app_base::G_SEXY_APP.as_ref() {
+        Some(base) => base.m_resource_manager,
+        None => std::ptr::null_mut(),
+    };
+    if mgr_ptr.is_null() {
+        return false;
+    }
+    let theManager = &mut *mgr_ptr;
+
+    // C++: if (IsGroupLoaded(theGroup)) return true;
+    if theManager.IsGroupLoaded(theGroup) {
+        return true;
+    }
+
+    // C++: PerfTimer aTimer; aTimer.Start();
+    let a_timer = std::time::Instant::now();
+
+    // C++: StartLoadResources(theGroup);
+    theManager.StartLoadResources(theGroup);
+
+    // C++: while (!gSexyAppBase->mShutdown && TodLoadNextResource());
+    // [TODO]: ResourceManager::TodLoadNextResource 逐资源加载循环尚未实现
+
+    // C++: if (gSexyAppBase->mShutdown) return false;
+    // [TODO]: gSexyAppBase->mShutdown 检查
+
+    // C++: if (HadError())
+    // C++: {
+    // C++:     gSexyAppBase->ShowResourceError(true);
+    // C++:     return false;
+    // C++: }
+    if theManager.HadError() {
+        // [TODO]: C++ 中此处调用 gSexyAppBase->ShowResourceError(true) 弹出错误对话框
+        crate::sexy_tod_lib::tod_debug::tod_log_ln("TodLoadResources: resource load error");
+        return false;
+    }
+
+    // C++: if (gExtractResourcesByName && !gExtractResourcesByName(this, theGroup.c_str()))
+    // C++: {
+    // C++:     gSexyAppBase->ShowResourceError(true);
+    // C++:     return false;
+    // C++: }
+    if let Some(extract_fn) = crate::G_EXTRACT_RESOURCES_BY_NAME {
+        let group_cstr = match std::ffi::CString::new(theGroup) {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+        if !extract_fn(mgr_ptr, group_cstr.as_ptr()) {
+            // [TODO]: C++ 中此处调用 gSexyAppBase->ShowResourceError(true) 弹出错误对话框
+            crate::sexy_tod_lib::tod_debug::tod_log_ln("TodLoadResources: ExtractResourcesByName failed");
+            return false;
+        }
+    }
+
+    // C++: mLoadedGroups.insert(theGroup);
+    theManager.mLoadedGroups.push(String::from(theGroup));
+
+    // C++: int aDuration = std::max(aTimer.GetDuration(), 0.0);
+    // C++: if (aDuration > 20)
+    // C++: {
+    // C++:     TodTraceAndLogLn("LOADED: '%s' %d ms on %s", theGroup.c_str(), aDuration, gGetCurrentLevelName().c_str());
+    // C++: }
+    let a_duration = std::cmp::max(a_timer.elapsed().as_millis() as i32, 0);
+    if a_duration > 20 {
+        crate::sexy_tod_lib::tod_debug::tod_log_ln(&format!(
+            "LOADED: '{}' {} ms on {}",
+            theGroup,
+            a_duration,
+            crate::lawn_app::LawnGetCurrentLevelName()
+        ));
+    }
+
+    true
 }

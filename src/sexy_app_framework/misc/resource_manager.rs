@@ -182,6 +182,20 @@ impl ResourceManager {
         self.mLoadedGroups.contains(&String::from(group))
     }
 
+    /// C++: ResourceManager::StartLoadResources (ResourceManager.cpp:964)
+    /// void ResourceManager::StartLoadResources(const std::string &theGroup)
+    /// {
+    ///     mCurResGroup = theGroup;
+    ///     mCurResGroupList = &mResGroupMap[theGroup];
+    ///     mCurResGroupListItr = mCurResGroupList->begin();
+    /// }
+    /// [TRANSLATION_NOTE]: Rust 的 mResGroupMap 是 HashMap<String, Vec<String>>（资源 id 列表），
+    /// 没有 C++ 的 ResList* / 迭代器状态，因此这里仅设置当前组并确保组列表存在。
+    pub fn StartLoadResources(&mut self, the_group: &str) {
+        self.mCurResGroup = String::from(the_group);
+        self.mResGroupMap.entry(self.mCurResGroup.clone()).or_insert_with(Vec::new);
+    }
+
     pub fn DeleteResources(&mut self, group: &str) {
         self.mImageMap.retain(|_, v| v.base.mResGroup != group);
         self.mSoundMap.retain(|_, v| v.base.mResGroup != group);

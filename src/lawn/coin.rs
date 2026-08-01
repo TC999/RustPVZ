@@ -309,7 +309,7 @@ impl Coin {
     pub unsafe fn UpdateFade(&mut self) {
         let app = g_app();
         // C++: if (IsEndlessIZombie || IsEndlessScaryPotter || mType == NOTE || !IsLevelAward())
-        let is_endless_izombie = app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32;
+        let is_endless_izombie = app.mGameMode as i32 == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS as i32;
         if is_endless_izombie
             || app.IsEndlessScaryPotter(app.mGameMode)
             || self.m_type == CoinType::COIN_NOTE

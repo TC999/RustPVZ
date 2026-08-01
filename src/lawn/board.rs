@@ -22,7 +22,7 @@ use crate::lawn::cut_scene::CutScene;
 use crate::lawn::challenge::Challenge;
 use crate::sexy_app_framework::misc::mtrand::MTRand;
 use crate::sexy_tod_lib::data_array::DataArray;
-use crate::sexy_tod_lib::tod_common::{TodSmoothArray, clamp_int};
+use crate::sexy_tod_lib::tod_common::{TodSmoothArray, TodWeightedGridArray, clamp_int};
 use crate::sexy_app_framework::misc::rect::Rect;
 use crate::lawn::board_consts::*;
 
@@ -67,6 +67,7 @@ pub struct Board {
     pub mPaused: bool,
     pub mGridSquareType: [[GridSquareType; 6]; 9],
     pub mGridCelLook: [[i32; 6]; 9],
+    pub mGridCelOffset: [[[i32; 2]; 6]; 9],
     pub mGridCelFog: [[i32; 7]; 9],
     pub mEnableGraveStones: bool,
     pub mSpecialGraveStoneX: i32,
@@ -179,7 +180,7 @@ pub struct Board {
 
 impl Board {
     pub fn new(theApp: *mut LawnApp) -> Self {
-        Board {
+        let mut board = Board {
             mApp: theApp,
             mZombies: DataArray::new(),
             mPlants: DataArray::new(),
@@ -200,6 +201,7 @@ impl Board {
             mPaused: false,
             mGridSquareType: [[GridSquareType::GRIDSQUARE_GRASS; 6]; 9],
             mGridCelLook: [[0i32; 6]; 9],
+            mGridCelOffset: [[[0i32; 2]; 6]; 9],
             mGridCelFog: [[0i32; 7]; 9],
             mEnableGraveStones: false,
             mSpecialGraveStoneX: -1,
@@ -307,13 +309,52 @@ impl Board {
             mWidth: 800,
             mHeight: 600,
             mDirty: true,
+        };
+
+    // C++ 构造函数中的网格初始化循环 (Board.cpp:92-106)
+    // C++: for (int i = 0; i < MAX_GRID_SIZE_X; i++)
+    // C++: {
+    // C++:     for (int j = 0; j < MAX_GRID_SIZE_Y; j++)
+    // C++:     {
+    // C++:         mGridSquareType[i][j] = GridSquareType::GRIDSQUARE_GRASS;
+    // C++:         mGridCelLook[i][j] = Rand(20);
+    // C++:         mGridCelOffset[i][j][0] = Rand(10) - 5;
+    // C++:         mGridCelOffset[i][j][1] = Rand(10) - 5;
+    // C++:     }
+    // C++:     for (int k = 0; k < MAX_GRID_SIZE_Y + 1; k++)
+    // C++:     {
+    // C++:         mGridCelFog[i][k] = 0;
+    // C++:     }
+    // C++: }
+    for i in 0..MAX_GRID_SIZE_X as usize {
+        for j in 0..MAX_GRID_SIZE_Y as usize {
+            board.mGridSquareType[i][j] = GridSquareType::GRIDSQUARE_GRASS;
+            // C++: mGridCelLook[i][j] = Rand(20);
+            board.mGridCelLook[i][j] = crate::sexy_app_framework::common::rand_range(20);
+            // C++: mGridCelOffset[i][j][0] = Rand(10) - 5;
+            board.mGridCelOffset[i][j][0] = crate::sexy_app_framework::common::rand_range(10) - 5;
+            // C++: mGridCelOffset[i][j][1] = Rand(10) - 5;
+            board.mGridCelOffset[i][j][1] = crate::sexy_app_framework::common::rand_range(10) - 5;
+        }
+        for k in 0..MAX_GRID_SIZE_Y as usize + 1 {
+            // C++: mGridCelFog[i][k] = 0;
+            board.mGridCelFog[i][k] = 0;
         }
     }
+    board
+}
 }
 
 // ===== Free functions (translated 1:1 from Board.cpp) =====
 
 pub const NUM_ZOMBIE_TYPES: i32 = 34;
+
+/// C++ Board.h:120 struct BungeeDropGrid
+#[derive(Clone, Copy)]
+pub struct BungeeDropGrid {
+    pub mGridArray: [TodWeightedGridArray; MAX_GRID_SIZE_X as usize * MAX_GRID_SIZE_Y as usize],
+    pub mGridArrayCount: i32,
+}
 
 #[repr(C)]
 pub struct ZombiePicker {
@@ -663,45 +704,45 @@ impl Board {
             (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_REPEATER);
             (*self.mSeedBank).mSeedPackets[4].SetPacketType(SeedType::SEED_SNOWPEA);
             (*self.mSeedBank).mSeedPackets[5].SetPacketType(SeedType::SEED_CHOMPER);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_1 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_2 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_2 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_SCREEN_DOOR);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_3 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_3 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_4 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_4 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_5 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_5 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
             (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_BALLOON);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_6 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_6 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
             (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_GARGANTUAR);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_7 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_7 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
             (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_DANCER);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_8 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_8 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
             (*self.mSeedBank).mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
             (*self.mSeedBank).mSeedPackets[4].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
             (*self.mSeedBank).mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_9 as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_9 as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
@@ -710,7 +751,7 @@ impl Board {
             (*self.mSeedBank).mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
             (*self.mSeedBank).mSeedPackets[6].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
             (*self.mSeedBank).mSeedPackets[7].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
-        } else if aGameMode == GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32 {
+        } else if aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS as i32 {
             (*self.mSeedBank).mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
             (*self.mSeedBank).mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
             (*self.mSeedBank).mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
@@ -763,8 +804,8 @@ impl Board {
 
     pub unsafe fn IsIZombieLevel(&self) -> bool {
         let mode = (*self.mApp).mGameMode as i32;
-        mode >= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_1 as i32
-            && mode <= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32
+        mode >= GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1 as i32
+            && mode <= GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS as i32
     }
 
     pub unsafe fn IsSlotMachineLevel(&self) -> bool {
@@ -1511,25 +1552,309 @@ impl Board {
         // [TODO]: mSeedBank->mSeedPackets[i].Update() for each packet
     }
 
+    /// C++ Board::CanAddBobSled (Board.cpp:2689)
+    pub unsafe fn CanAddBobSled(&self) -> bool {
+        // C++: for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+        for aRow in 0..MAX_GRID_SIZE_Y as usize {
+            // C++: if (mIceTimer[aRow] > 0 && mIceMinX[aRow] < 700) return true;
+            if self.mIceTimer[aRow] > 0 && self.mIceMinX[aRow] < 700 {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// C++ Board::SetupBungeeDrop (Board.cpp:4881)
+    pub unsafe fn SetupBungeeDrop(&self, theBungeeDropGrid: &mut BungeeDropGrid) {
+        // C++: theBungeeDropGrid->mGridArrayCount = 0;
+        theBungeeDropGrid.mGridArrayCount = 0;
+        // C++: for (int aGridX = 4; aGridX < MAX_GRID_SIZE_X; aGridX++)
+        for aGridX in 4..MAX_GRID_SIZE_X {
+            // C++: for (int aGridY = 0; aGridY <= 4; aGridY++)
+            for aGridY in 0..=4 {
+                // C++: int aCount = theBungeeDropGrid->mGridArrayCount;
+                let aCount = theBungeeDropGrid.mGridArrayCount;
+                // C++: theBungeeDropGrid->mGridArray[aCount].mX = aGridX;
+                theBungeeDropGrid.mGridArray[aCount as usize].m_x = aGridX;
+                // C++: theBungeeDropGrid->mGridArray[aCount].mY = aGridY;
+                theBungeeDropGrid.mGridArray[aCount as usize].m_y = aGridY;
+                // C++: theBungeeDropGrid->mGridArray[aCount].mWeight = 10000;
+                theBungeeDropGrid.mGridArray[aCount as usize].m_weight = 10000;
+                // C++: theBungeeDropGrid->mGridArrayCount++;
+                theBungeeDropGrid.mGridArrayCount += 1;
+            }
+        }
+    }
+
+    /// C++ Board::BungeeDropZombie (Board.cpp:4898)
+    pub unsafe fn BungeeDropZombie(&mut self, theBungeeDropGrid: &mut BungeeDropGrid, theZombieType: ZombieType) {
+        // C++: TodWeightedGridArray* aGrid = TodPickFromWeightedGridArray(theBungeeDropGrid->mGridArray, theBungeeDropGrid->mGridArrayCount);
+        // C++: aGrid->mWeight = 1;
+        let aGrid = {
+            let aGridSlice = &mut theBungeeDropGrid.mGridArray[..theBungeeDropGrid.mGridArrayCount as usize];
+            crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_grid_array(aGridSlice)
+        };
+        let aGrid = match aGrid {
+            Some(aGrid) => aGrid,
+            None => return,
+        };
+        aGrid.m_weight = 1;
+
+        // C++: Zombie* aBungeeZombie = AddZombie(ZombieType::ZOMBIE_BUNGEE, mCurrentWave);
+        let aBungeeZombie = self.AddZombie(ZombieType::ZOMBIE_BUNGEE, self.mCurrentWave);
+        // C++: Zombie* aZombie = AddZombie(theZombieType, mCurrentWave);
+        let aZombie = self.AddZombie(theZombieType, self.mCurrentWave);
+        // C++: TOD_ASSERT(aBungeeZombie && aZombie);
+        if aBungeeZombie.is_null() || aZombie.is_null() {
+            return;
+        }
+
+        // C++: aBungeeZombie->BungeeDropZombie(aZombie, aGrid->mX, aGrid->mY);
+        (*aBungeeZombie).BungeeDropZombie(aZombie, aGrid.m_x, aGrid.m_y);
+    }
+
     /// C++ Board::SpawnZombieWave (Board.cpp:5009)
     pub unsafe fn SpawnZombieWave(&mut self) {
-        // [TODO]: mChallenge->SpawnZombieWave()
-        // [TODO]: Handle bungee blitz level dropping
-        // [TODO]: Iterate mZombiesInWave[mCurrentWave] and AddZombie each
+        // C++: mChallenge->SpawnZombieWave();
+        if !self.mChallenge.is_null() {
+            (*self.mChallenge).SpawnZombieWave();
+        }
+        // C++: if (mApp->IsBungeeBlitzLevel())
+        if (*self.mApp).IsBungeeBlitzLevel() {
+            // C++: BungeeDropGrid aBungeeDropGrid;
+            let mut aBungeeDropGrid = BungeeDropGrid {
+                mGridArray: [TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }; MAX_GRID_SIZE_X as usize * MAX_GRID_SIZE_Y as usize],
+                mGridArrayCount: 0,
+            };
+            // C++: SetupBungeeDrop(&aBungeeDropGrid);
+            self.SetupBungeeDrop(&mut aBungeeDropGrid);
+            // C++: for (int i = 0; i < MAX_ZOMBIES_IN_WAVE; i++)
+            for i in 0..MAX_ZOMBIES_IN_WAVE as usize {
+                // C++: ZombieType aZombieType = mZombiesInWave[mCurrentWave][i];
+                let aZombieType = self.mZombiesInWave[self.mCurrentWave as usize][i];
+                // C++: if (aZombieType == ZombieType::ZOMBIE_INVALID) break;
+                if aZombieType == ZombieType::ZOMBIE_INVALID as i32 {
+                    break;
+                }
 
+                // C++: if (aZombieType == ZombieType::ZOMBIE_BUNGEE || aZombieType == ZombieType::ZOMBIE_ZAMBONI)
+                if aZombieType == ZombieType::ZOMBIE_BUNGEE as i32 || aZombieType == ZombieType::ZOMBIE_ZAMBONI as i32 {
+                    // C++: AddZombie(aZombieType, mCurrentWave);
+                    self.AddZombie(std::mem::transmute::<i32, ZombieType>(aZombieType), self.mCurrentWave);
+                } else {
+                    // C++: BungeeDropZombie(&aBungeeDropGrid, aZombieType);
+                    self.BungeeDropZombie(&mut aBungeeDropGrid, std::mem::transmute::<i32, ZombieType>(aZombieType));
+                }
+            }
+        } else {
+            // C++: TOD_ASSERT(mCurrentWave >= 0 && mCurrentWave < MAX_ZOMBIE_WAVES && mCurrentWave < mNumWaves);
+            // C++: for (int i = 0; i < MAX_ZOMBIES_IN_WAVE; i++)
+            for i in 0..MAX_ZOMBIES_IN_WAVE as usize {
+                // C++: ZombieType aZombieType = mZombiesInWave[mCurrentWave][i];
+                let aZombieType = self.mZombiesInWave[self.mCurrentWave as usize][i];
+                // C++: if (aZombieType == ZombieType::ZOMBIE_INVALID) break;
+                if aZombieType == ZombieType::ZOMBIE_INVALID as i32 {
+                    break;
+                }
+
+                // C++: if (aZombieType == ZombieType::ZOMBIE_BOBSLED && !CanAddBobSled())
+                if aZombieType == ZombieType::ZOMBIE_BOBSLED as i32 && !self.CanAddBobSled() {
+                    // C++: for (int i = 0; i < MAX_ZOMBIE_FOLLOWERS; i++)
+                    // C++: { AddZombie(ZombieType::ZOMBIE_NORMAL, mCurrentWave); }
+                    for _ in 0..crate::lawn::zombie::MAX_ZOMBIE_FOLLOWERS as usize {
+                        self.AddZombie(ZombieType::ZOMBIE_NORMAL, self.mCurrentWave);
+                    }
+                } else {
+                    // C++: AddZombie(aZombieType, mCurrentWave);
+                    self.AddZombie(std::mem::transmute::<i32, ZombieType>(aZombieType), self.mCurrentWave);
+                }
+            }
+        }
+
+        // C++: if (mCurrentWave == mNumWaves - 1 && !mApp->IsContinuousChallenge())
         if self.mCurrentWave == self.mNumWaves - 1 && !(*self.mApp).IsContinuousChallenge() {
+            // C++: mRiseFromGraveCounter = 210;
             self.mRiseFromGraveCounter = 210;
         }
+        // C++: if (IsFlagWave(mCurrentWave))
         if self.IsFlagWave(self.mCurrentWave) {
-            self.mFlagRaiseCounter = 100; // FLAG_RAISE_TIME
+            // C++: mFlagRaiseCounter = FLAG_RAISE_TIME;
+            self.mFlagRaiseCounter = FLAG_RAISE_TIME;
         }
+        // C++: mCurrentWave++;
         self.mCurrentWave += 1;
+        // C++: mTotalSpawnedWaves++;
         self.mTotalSpawnedWaves += 1;
     }
 
+    /// C++ Board::GetSurvivalFlagsCompleted (Board.cpp:5118)
+    pub unsafe fn GetSurvivalFlagsCompleted(&self) -> i32 {
+        // C++: int aWavesPerFlag = GetNumWavesPerFlag();
+        let aWavesPerFlag = self.GetNumWavesPerFlag();
+        // C++: int aFlagsCompleted = mChallenge->mSurvivalStage * GetNumWavesPerSurvivalStage() / aWavesPerFlag;
+        let aFlagsCompleted = if self.mChallenge.is_null() {
+            0
+        } else {
+            (*self.mChallenge).mSurvivalStage * self.GetNumWavesPerSurvivalStage() / aWavesPerFlag
+        };
+        // C++: int aCurrentWave = mCurrentWave;
+        let mut aCurrentWave = self.mCurrentWave;
+        // C++: if (IsFlagWave(aCurrentWave - 1) && mBoardFadeOutCounter < 0 && !mNextSurvivalStageCounter)
+        if self.IsFlagWave(aCurrentWave - 1) && self.mBoardFadeOutCounter < 0 && self.mNextSurvivalStageCounter == 0 {
+            // C++: aCurrentWave -= 1;
+            aCurrentWave -= 1;
+        }
+        // C++: return aCurrentWave / aWavesPerFlag + aFlagsCompleted;
+        aCurrentWave / aWavesPerFlag + aFlagsCompleted
+    }
+
+    /// C++ Board::SurvivalSaveScore (Board.cpp:5130)
+    pub unsafe fn SurvivalSaveScore(&mut self) {
+        // C++: if (!mApp->IsSurvivalMode()) return;
+        if !(*self.mApp).is_survival_mode() {
+            return;
+        }
+
+        // C++: uint32_t aFlagsCompleted = GetSurvivalFlagsCompleted();
+        let aFlagsCompleted = self.GetSurvivalFlagsCompleted() as u32;
+        // C++: uint32_t& aFlagsRecord = mApp->mPlayerInfo->mChallengeRecords[mApp->GetCurrentChallengeIndex()];
+        let aPlayerInfo = (*self.mApp).mPlayerInfo as *mut crate::lawn::system::player_info::PlayerInfo;
+        let aChallengeIndex = (*self.mApp).GetCurrentChallengeIndex();
+        // C++: if (aFlagsCompleted > aFlagsRecord)
+        if aFlagsCompleted > (*aPlayerInfo).mChallengeRecords[aChallengeIndex as usize] {
+            // C++: aFlagsRecord = aFlagsCompleted;
+            (*aPlayerInfo).mChallengeRecords[aChallengeIndex as usize] = aFlagsCompleted;
+            // C++: mApp->WriteCurrentUserConfig();
+            (*self.mApp).WriteCurrentUserConfig();
+        }
+    }
+
+    /// C++ Board::StopAllZombieSounds (Board.cpp:5108)
+    pub unsafe fn StopAllZombieSounds(&mut self) {
+        // C++: Zombie* aZombie = nullptr; while (IterateZombies(aZombie)) { aZombie->StopZombieSound(); }
+        let mut aZombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut aZombie) {
+            (*aZombie).StopZombieSound();
+        }
+    }
+
     /// C++ Board::ZombiesWon (Board.cpp:5158)
-    pub unsafe fn ZombiesWon(&mut self, _theZombie: *mut Zombie) {
-        // [TODO]: Start zombies-won cutscene
+    pub unsafe fn ZombiesWon(&mut self, theZombie: *mut Zombie) {
+        // C++: if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON) return;
+        if (*self.mApp).mGameScene == GameScenes::SCENE_ZOMBIES_WON {
+            return;
+        }
+
+        // C++: ClearAdvice(AdviceType::ADVICE_NONE);
+        self.ClearAdvice(AdviceType::ADVICE_NONE as i32);
+        // C++: mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;
+        (*self.mApp).mBoardResult = BoardResult::BOARDRESULT_LOST;
+
+        // C++: Zombie* aZombie = nullptr;
+        // C++: while (IterateZombies(aZombie))
+        let mut aZombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut aZombie) {
+            // C++: if (aZombie == theZombie) continue;
+            if aZombie == theZombie {
+                continue;
+            }
+
+            // C++: if (aZombie->GetZombieRect().mX < -50 ||
+            // C++:     aZombie->mZombiePhase == ZombiePhase::PHASE_RISING_FROM_GRAVE ||
+            // C++:     aZombie->mZombiePhase == ZombiePhase::PHASE_DANCER_RISING)
+            if (*aZombie).GetZombieRect().m_x < -50
+                || (*aZombie).m_zombie_phase == ZombiePhase::PHASE_RISING_FROM_GRAVE
+                || (*aZombie).m_zombie_phase == ZombiePhase::PHASE_DANCER_RISING
+            {
+                // C++: if ((aZombie->mZombieType == ZombieType::ZOMBIE_GARGANTUAR ||
+                // C++:      aZombie->mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) &&
+                // C++:     aZombie->IsDeadOrDying() && aZombie->mPosX < 140)
+                if ((*aZombie).m_zombie_type == ZombieType::ZOMBIE_GARGANTUAR
+                    || (*aZombie).m_zombie_type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
+                    && (*aZombie).IsDeadOrDying()
+                    && (*aZombie).m_pos_x < 140.0
+                {
+                    // C++: aZombie->DieNoLoot();
+                    (*aZombie).DieNoLoot();
+                }
+            }
+        }
+        // C++: SurvivalSaveScore();
+        self.SurvivalSaveScore();
+
+        // C++: std::string aGameOverMsg;
+        let aGameOverMsg: String;
+        // C++: if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM)
+        if (*self.mApp).mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM {
+            // C++: aGameOverMsg = "[ZOMBIQUARIUM_DEATH_MESSAGE]";
+            aGameOverMsg = "[ZOMBIQUARIUM_DEATH_MESSAGE]".to_string();
+        }
+        // C++: else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+        else if (*self.mApp).mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND {
+            // C++: std::string aFlagStr = mApp->Pluralize(GetSurvivalFlagsCompleted(), "[ONE_FLAG]", "[COUNT_FLAGS]");
+            let aFlagStr = LawnApp::Pluralize(self.GetSurvivalFlagsCompleted(), "[ONE_FLAG]", "[COUNT_FLAGS]");
+            // C++: aGameOverMsg = TodReplaceString("[LAST_STAND_DEATH_MESSAGE]", "{FLAGS}", aFlagStr);
+            aGameOverMsg = crate::sexy_tod_lib::tod_common::tod_replace_string("[LAST_STAND_DEATH_MESSAGE]", "{FLAGS}", &aFlagStr);
+        }
+        // C++: else if (mApp->IsEndlessIZombie(mApp->mGameMode) || mApp->IsEndlessScaryPotter(mApp->mGameMode))
+        else if (*self.mApp).IsEndlessIZombie((*self.mApp).mGameMode)
+            || (*self.mApp).IsEndlessScaryPotter((*self.mApp).mGameMode)
+        {
+            // C++: aGameOverMsg = TodReplaceNumberString("[ENDLESS_PUZZLE_DEATH_MESSAGE]", "{STREAK}", mChallenge->mSurvivalStage);
+            aGameOverMsg = crate::sexy_tod_lib::tod_common::tod_replace_number_string(
+                "[ENDLESS_PUZZLE_DEATH_MESSAGE]",
+                "{STREAK}",
+                if self.mChallenge.is_null() { 0 } else { (*self.mChallenge).mSurvivalStage },
+            );
+        }
+        // C++: else if (mApp->IsIZombieLevel())
+        else if (*self.mApp).IsIZombieLevel() {
+            // C++: aGameOverMsg = "[I_ZOMBIE_DEATH_MESSAGE]";
+            aGameOverMsg = "[I_ZOMBIE_DEATH_MESSAGE]".to_string();
+        }
+        else {
+            // C++: mApp->mGameScene = GameScenes::SCENE_ZOMBIES_WON;
+            (*self.mApp).mGameScene = GameScenes::SCENE_ZOMBIES_WON;
+            // C++: if (theZombie) { theZombie->WalkIntoHouse(); }
+            if !theZombie.is_null() {
+                // [TODO]: theZombie->WalkIntoHouse() — 僵尸走进房子动画尚未实现
+            }
+
+            // C++: ClearAdvice(AdviceType::ADVICE_NONE);
+            self.ClearAdvice(AdviceType::ADVICE_NONE as i32);
+            // C++: mCutScene->StartZombiesWon();
+            if !self.mCutScene.is_null() {
+                (*self.mCutScene).StartZombiesWon();
+            }
+            // C++: FreezeEffectsForCutscene(true);
+            // [TODO]: FreezeEffectsForCutscene 尚未实现
+            // C++: TutorialArrowRemove();
+            // [TODO]: TutorialArrowRemove 尚未实现
+            // C++: UpdateCursor();
+            // [TODO]: UpdateCursor 尚未实现
+            return;
+        }
+
+        // C++: GameOverDialog* aGameOverDialog = new GameOverDialog(aGameOverMsg, true);
+        // C++: mApp->AddDialog(Dialogs::DIALOG_GAME_OVER, aGameOverDialog);
+        // C++: mApp->mWidgetManager->SetFocus(aGameOverDialog);
+        // [TODO]: GameOverDialog / AddDialog / WidgetManager 尚未实现
+
+        // C++: mApp->mMusic->StopAllMusic();
+        // [TODO]: mMusic->StopAllMusic() 尚未实现
+        // C++: StopAllZombieSounds();
+        self.StopAllZombieSounds();
+        // C++: mApp->PlaySample(Sexy::SOUND_LOSEMUSIC);
+        // [TODO]: mApp->PlaySample(SOUND_LOSEMUSIC) 尚未实现
+
+        // C++: ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_ZOMBIES_WON, true);
+        // C++: Reanimation* aReanim = mApp->AddReanimation(-BOARD_OFFSET, 0,
+        // C++:     MakeRenderOrder(RenderLayer::RENDER_LAYER_SCREEN_FADE, 0, 0),
+        // C++:     ReanimationType::REANIM_ZOMBIES_WON);
+        // C++: aReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+        // C++: aReanim->GetTrackInstanceByName("fullscreen")->mTrackColor = Color::Black;
+        // C++: aReanim->SetFramesForLayer("anim_screen");
+        // [TODO]: 游戏失败动画 Reanimation 尚未实现
     }
 
     /// C++ Board::NextWaveComing (Board.cpp:5322)

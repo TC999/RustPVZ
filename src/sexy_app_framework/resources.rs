@@ -1737,6 +1737,23 @@ pub fn ExtractResourcesByName(theResourceManager: &ResourceManager, theName: &st
     }
 }
 
+// [TRANSLATION_NOTE]:
+// C++: bool (*gExtractResourcesByName)(Sexy::ResourceManager* theResourceManager, const char* theName);
+// Rust 的 ExtractResourcesByName 使用 &ResourceManager 和 &str，为了匹配 C++ 的函数指针
+// 调用约定 (TodCommon.cpp:1074 通过 gExtractResourcesByName(this, theGroup.c_str()) 调用)，
+// 这里提供 FFI 风格的适配包装函数，供 main.cpp:115 的赋值使用。
+pub unsafe fn extract_resources_by_name_callback(
+    theResourceManager: *mut ResourceManager,
+    theName: *const std::os::raw::c_char,
+) -> bool {
+    if theResourceManager.is_null() {
+        return false;
+    }
+    let theManager = &*theResourceManager;
+    let theNameStr = std::ffi::CStr::from_ptr(theName).to_string_lossy().into_owned();
+    ExtractResourcesByName(theManager, &theNameStr)
+}
+
 // ==================== DelayLoad Extract Functions ====================
 pub fn ExtractDelayLoad_AlmanacResources(theManager: &ResourceManager) -> bool {
     unsafe { G_NEED_RECALC_VARIABLE_TO_ID_MAP = true; }

@@ -5,6 +5,8 @@ use std::collections::{HashMap, LinkedList};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 
+use crate::sexy_app_framework::misc::resource_manager::ResourceManager;
+
 pub const CURSOR_POINTER: i32 = 0;
 pub const CURSOR_HAND: i32 = 1;
 pub const CURSOR_DRAGGING: i32 = 2;
@@ -75,6 +77,7 @@ pub struct SexyAppBase {
     pub m_window: *mut std::ffi::c_void,
     pub m_context: *mut std::ffi::c_void,
     pub m_surface: *mut std::ffi::c_void,
+    pub m_resource_manager: *mut ResourceManager,
     pub m_rand_seed: u32,
     pub m_company_name: String,
     pub m_full_company_name: String,
@@ -194,6 +197,8 @@ impl SexyAppBase {
             m_window: std::ptr::null_mut(),
             m_context: std::ptr::null_mut(),
             m_surface: std::ptr::null_mut(),
+            // C++: mResourceManager = new ResourceManager(this);
+            m_resource_manager: Box::into_raw(Box::new(ResourceManager::new(std::ptr::null_mut()))),
             m_rand_seed: 0,
             m_company_name: String::new(),
             m_full_company_name: String::new(),

@@ -12,25 +12,27 @@ mod lawn_app;
 
 use lawn_app::{LawnApp, G_LAWN_APP};
 use crate::sexy_tod_lib::tod_string_file::{get_lawn_string_formats, tod_string_list_set_colors, get_tod_string_format_count};
+use crate::sexy_app_framework::misc::resource_manager::ResourceManager;
+use crate::sexy_app_framework::resources::extract_resources_by_name_callback;
 use std::ffi::CString;
 
 // =========================================================================
-// 全局函数指针 (C++: gGetCurrentLevelName, gAppCloseRequest, gAppHasUsedCheatKeys)
+// 全局函数指针 (C++: gGetCurrentLevelName, gAppCloseRequest, gAppHasUsedCheatKeys, gExtractResourcesByName)
 // =========================================================================
 pub type GetCurrentLevelNameFn = unsafe fn() -> String;
 pub type CloseRequestFn = unsafe fn() -> bool;
 pub type HasUsedCheatKeysFn = unsafe fn() -> bool;
+pub type ExtractResourcesByNameFn = unsafe fn(*mut ResourceManager, *const std::os::raw::c_char) -> bool;
 
 pub static mut G_GET_CURRENT_LEVEL_NAME: Option<GetCurrentLevelNameFn> = None;
 pub static mut G_APP_CLOSE_REQUEST: Option<CloseRequestFn> = None;
 pub static mut G_APP_HAS_USED_CHEAT_KEYS: Option<HasUsedCheatKeysFn> = None;
+pub static mut G_EXTRACT_RESOURCES_BY_NAME: Option<ExtractResourcesByNameFn> = None;
 
 // =========================================================================
 // C++ main() 的 Rust 翻译
 // =========================================================================
 fn main() {
-    println!("RustPVZ - Plants vs. Zombies Portable (Rust Translation)");
-
     // C++: BuildUtf8ArgsFromWin32(argc, argv) — Windows 平台 UTF-8 参数转换
     // Rust 的 std::env::args_os() 已返回平台原生编码，不需要额外转换
 
@@ -45,10 +47,12 @@ fn main() {
     // C++: gGetCurrentLevelName = LawnGetCurrentLevelName;
     // C++: gAppCloseRequest = LawnGetCloseRequest;
     // C++: gAppHasUsedCheatKeys = LawnHasUsedCheatKeys;
+    // C++: gExtractResourcesByName = Sexy::ExtractResourcesByName;
     unsafe {
         G_GET_CURRENT_LEVEL_NAME = Some(lawn_app::LawnGetCurrentLevelName);
         G_APP_CLOSE_REQUEST = Some(lawn_app::LawnGetCloseRequest);
         G_APP_HAS_USED_CHEAT_KEYS = Some(lawn_app::LawnHasUsedCheatKeys);
+        G_EXTRACT_RESOURCES_BY_NAME = Some(extract_resources_by_name_callback);
     }
 
     // C++: gLawnApp = new LawnApp();
@@ -75,10 +79,8 @@ fn main() {
         // C++: gLawnApp->Init();
         (*app).Init();
 
-        if !(*app).m_close_request {
-            // C++: gLawnApp->Start();
-            (*app).Start();
-        }
+        // C++: gLawnApp->Start();
+        (*app).Start();
 
         // C++: gLawnApp->Shutdown(); (非 Emscripten 环境)
         // C++: #ifndef __EMSCRIPTEN__

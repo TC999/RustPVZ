@@ -363,21 +363,26 @@ impl LawnApp {
     }
 
     pub fn is_art_challenge(&self) -> bool {
-        let mode = self.mGameMode as i32;
-        mode >= GameMode::GAMEMODE_CHALLENGE_WAR_AND_PEAS as i32 
-            && mode <= GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS_2 as i32
+        // C++ LawnApp::IsArtChallenge (LawnApp.cpp:2174)
+        // if (mBoard == nullptr) return false;
+        if self.m_board.is_none() {
+            return false;
+        }
+        self.mGameMode == GameMode::GAMEMODE_CHALLENGE_ART_CHALLENGE_WALLNUT
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_ART_CHALLENGE_SUNFLOWER
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_SEEING_STARS
     }
 
     pub fn is_challenge_without_seed_bank(&self) -> bool {
-        self.mGameMode == GameMode::GAMEMODE_CHALLENGE_SLOT_MACHINE
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_LITTLE_TROUBLE
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_POGO_PARTY
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING_2
-            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIES_ON_THE_ROCKS
+        // C++ LawnApp::IsChallengeWithoutSeedBank (LawnApp.cpp:2295)
+        self.mGameMode == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS
+            || self.mGameMode == GameMode::GAMEMODE_UPSELL
+            || self.mGameMode == GameMode::GAMEMODE_INTRO
+            || self.IsWhackAZombieLevel()
+            || self.IsSquirrelLevel()
+            || self.IsScaryPotterLevel()
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN
+            || self.mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM
     }
 
     pub fn is_shovel_level(&self) -> bool {
@@ -418,6 +423,15 @@ impl LawnApp {
         theGameMode as i32 == GameMode::GAMEMODE_SCARY_POTTER_ENDLESS as i32
     }
 
+    /// C++ LawnApp::IsEndlessIZombie
+    /// bool LawnApp::IsEndlessIZombie(GameMode theGameMode)
+    /// {
+    ///     return theGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS;
+    /// }
+    pub fn IsEndlessIZombie(&self, theGameMode: GameMode) -> bool {
+        theGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS
+    }
+
     pub fn IsStormyNightLevel(&self) -> bool {
         self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_STORMY_NIGHT as i32
     }
@@ -430,14 +444,20 @@ impl LawnApp {
         self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_WHACK_A_ZOMBIE as i32
     }
 
+    /// C++ LawnApp::IsSquirrelLevel (LawnApp.cpp:2185)
+    /// return mBoard && mGameMode == GameMode::GAMEMODE_CHALLENGE_SQUIRREL;
+    pub fn IsSquirrelLevel(&self) -> bool {
+        self.m_board.is_some() && self.mGameMode == GameMode::GAMEMODE_CHALLENGE_SQUIRREL
+    }
+
     pub fn IsSlotMachineLevel(&self) -> bool {
         self.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_SLOT_MACHINE as i32
     }
 
     pub fn IsIZombieLevel(&self) -> bool {
         let mode = self.mGameMode as i32;
-        mode >= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_1 as i32
-            && mode <= GameMode::GAMEMODE_CHALLENGE_PUZZLE_I_ZOMBIE_ENDLESS as i32
+        mode >= GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1 as i32
+            && mode <= GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS as i32
     }
 
     // =========================================================================
@@ -571,10 +591,32 @@ impl LawnApp {
         // [TODO]
     }
 
-    /// C++ LawnApp::IsContinuousChallenge
+    /// C++ LawnApp::IsContinuousChallenge (LawnApp.cpp:2162)
+    /// return
+    ///     IsArtChallenge() ||
+    ///     IsSlotMachineLevel() ||
+    ///     IsFinalBossLevel() ||
+    ///     mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED ||
+    ///     mGameMode == GameMode::GAMEMODE_UPSELL ||
+    ///     mGameMode == GameMode::GAMEMODE_INTRO ||
+    ///     mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST;
     pub unsafe fn IsContinuousChallenge(&self) -> bool {
-        // [TODO]: check if continuous mode
-        false
+        self.is_art_challenge()
+            || self.IsSlotMachineLevel()
+            || self.IsFinalBossLevel()
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED
+            || self.mGameMode == GameMode::GAMEMODE_UPSELL
+            || self.mGameMode == GameMode::GAMEMODE_INTRO
+            || self.mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST
+    }
+
+    /// C++ LawnApp::GetCurrentChallengeIndex
+    /// int LawnApp::GetCurrentChallengeIndex()
+    /// {
+    ///     return static_cast<int>(mGameMode) - static_cast<int>(GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1);
+    /// }
+    pub unsafe fn GetCurrentChallengeIndex(&self) -> i32 {
+        self.mGameMode as i32 - GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1 as i32
     }
 
     /// C++ LawnApp::HasFinishedAdventure (inline)
