@@ -270,6 +270,16 @@ pub struct SexyAppBase {
     pub m_demo_start_time: u64,
     pub m_demo_time_zone_offset: i32,
     pub m_demo_record_file_limit: u32,
+    // C++: std::map<std::string, std::string> mStringProperties;
+    pub m_string_properties: HashMap<String, String>,
+    // C++: StringBoolMap mBoolProperties;
+    pub m_bool_properties: StringBoolMap,
+    // C++: StringIntMap mIntProperties;
+    pub m_int_properties: StringIntMap,
+    // C++: StringDoubleMap mDoubleProperties;
+    pub m_double_properties: StringDoubleMap,
+    // C++: StringStringVectorMap mStringVectorProperties;
+    pub m_string_vector_properties: StringStringVectorMap,
 }
 
 impl SexyAppBase {
@@ -458,12 +468,292 @@ impl SexyAppBase {
             m_demo_start_time: 0,
             m_demo_time_zone_offset: 0,
             m_demo_record_file_limit: 0,
+            m_string_properties: HashMap::new(),
+            m_bool_properties: HashMap::new(),
+            m_int_properties: HashMap::new(),
+            m_double_properties: HashMap::new(),
+            m_string_vector_properties: HashMap::new(),
         }
     }
 
     // =====================================================================
     // 运行层核心方法 — C++ SexyAppBase.cpp 保真翻译
     // =====================================================================
+
+    /// C++: SexyAppBase::SetString
+    pub fn set_string(&mut self, the_id: &str, the_string: &str) {
+        self.m_string_properties.insert(the_id.to_string(), the_string.to_string());
+    }
+
+    /// C++: SexyAppBase::SetBoolean
+    pub fn set_boolean(&mut self, the_id: &str, the_bool: bool) {
+        self.m_bool_properties.insert(the_id.to_string(), the_bool);
+    }
+
+    /// C++: SexyAppBase::SetInteger
+    pub fn set_integer(&mut self, the_id: &str, the_int: i32) {
+        self.m_int_properties.insert(the_id.to_string(), the_int);
+    }
+
+    /// C++: SexyAppBase::SetDouble
+    pub fn set_double(&mut self, the_id: &str, the_double: f64) {
+        self.m_double_properties.insert(the_id.to_string(), the_double);
+    }
+
+    /// C++: SexyAppBase::GetBoolean(std::string_view theId)
+    pub fn get_boolean(&self, the_id: &str) -> bool {
+        self.get_boolean_default(the_id, false)
+    }
+
+    /// C++: SexyAppBase::GetBoolean(std::string_view theId, bool theDefault)
+    pub fn get_boolean_default(&self, the_id: &str, the_default: bool) -> bool {
+        if let Some(val) = self.m_bool_properties.get(the_id) {
+            return *val;
+        }
+        the_default
+    }
+
+    /// C++: SexyAppBase::GetInteger(std::string_view theId)
+    pub fn get_integer(&self, the_id: &str) -> i32 {
+        self.get_integer_default(the_id, 0)
+    }
+
+    /// C++: SexyAppBase::GetInteger(std::string_view theId, int theDefault)
+    pub fn get_integer_default(&self, the_id: &str, the_default: i32) -> i32 {
+        if let Some(val) = self.m_int_properties.get(the_id) {
+            return *val;
+        }
+        the_default
+    }
+
+    /// C++: SexyAppBase::GetDouble(std::string_view theId)
+    pub fn get_double(&self, the_id: &str) -> f64 {
+        self.get_double_default(the_id, 0.0)
+    }
+
+    /// C++: SexyAppBase::GetDouble(std::string_view theId, double theDefault)
+    pub fn get_double_default(&self, the_id: &str, the_default: f64) -> f64 {
+        if let Some(val) = self.m_double_properties.get(the_id) {
+            return *val;
+        }
+        the_default
+    }
+
+    /// C++: SexyAppBase::GetString(std::string_view theId, const std::string& theDefault)
+    pub fn get_string(&self, the_id: &str, the_default: &str) -> String {
+        if let Some(val) = self.m_string_properties.get(the_id) {
+            return val.clone();
+        }
+        the_default.to_string()
+    }
+
+    /// C++: SexyAppBase::IsScreenSaver
+    pub fn is_screen_saver(&self) -> bool {
+        self.m_is_screen_saver
+    }
+
+    /// C++: SexyAppBase::Popup
+    pub fn popup(&mut self, the_string: &str) {
+        if self.is_screen_saver() {
+            return;
+        }
+        println!("{}", the_string);
+    }
+
+    /// C++: SexyAppBase::ReadBufferFromFile
+    pub fn read_buffer_from_file(&self, the_file_name: &str, the_buffer: &mut crate::sexy_app_framework::misc::buffer::Buffer) -> bool {
+        let bytes = match std::fs::read(the_file_name) {
+            Ok(b) => b,
+            Err(_) => return false,
+        };
+        let a_file_length = bytes.len() as i32;
+        if a_file_length <= 0 {
+            return false;
+        }
+        let a_byte_vec: Vec<crate::sexy_app_framework::common::Uchar> =
+            bytes.iter().map(|&b| b as crate::sexy_app_framework::common::Uchar).collect();
+        the_buffer.write_bytes(&a_byte_vec, a_file_length);
+        the_buffer.seek_front();
+        true
+    }
+
+    /// C++: SexyAppBase::LoadProperties
+    pub fn load_properties(&mut self, the_file_name: &str, required: bool, _check_sig: bool) -> bool {
+        let mut a_buffer = crate::sexy_app_framework::misc::buffer::Buffer::new();
+        if !self.read_buffer_from_file(the_file_name, &mut a_buffer) {
+            if !required {
+                return true;
+            }
+            let a_msg = self.get_string("UNABLE_OPEN_PROPERTIES", "Unable to open properties file ") + the_file_name;
+            self.popup(&a_msg);
+            return false;
+        }
+
+        let mut a_properties_parser = crate::sexy_app_framework::misc::properties_parser::PropertiesParser::new(self);
+        if !a_properties_parser.parse_properties_buffer(&a_buffer) {
+            let an_error = a_properties_parser.get_error_text().to_string();
+            drop(a_properties_parser);
+            self.popup(&an_error);
+            return false;
+        }
+        true
+    }
+
+    /// C++: SexyAppBase::LoadProperties() — 加载默认语言文件
+    pub fn load_properties_default(&mut self) -> bool {
+        self.load_properties("properties/default.xml", true, false)
+    }
+
+    /// C++: SexyAppBase::RegistryReadString — Windows 注册表读取
+    /// [TRANSLATION_NOTE]: Rust 移植中无注册表，统一返回 false（等效于键不存在）
+    pub fn registry_read_string(&self, _the_key: &str, _the_string: &mut String) -> bool {
+        false
+    }
+
+    /// C++: SexyAppBase::SetCursor
+    pub fn set_cursor(&mut self, the_cursor_num: i32) {
+        self.m_cursor_num = the_cursor_num;
+        self.enforce_cursor();
+    }
+
+    /// C++: SexyAppBase::InitHook — 钩子，由子类覆盖
+    pub fn init_hook(&mut self) {
+    }
+
+    /// C++: SexyAppBase::InitInput — 输入子系统初始化
+    pub fn init_input(&mut self) {
+    }
+
+    /// C++: SexyAppBase::InitPropertiesHook — 由 SexyApp 覆盖
+    /// 对应 C++ SexyApp::InitPropertiesHook（SexyApp.cpp:117）
+    pub fn init_properties_hook(&mut self) {
+        // C++: bool checkSig = !IsScreenSaver();
+        let check_sig = !self.is_screen_saver();
+        // C++: LoadProperties("properties/partner.xml", false, checkSig);
+        self.load_properties("properties/partner.xml", false, check_sig);
+
+        // C++: mProdName = GetString("ProdName", mProdName);
+        let a_prod_name = self.get_string("ProdName", &self.m_prod_name);
+        self.m_prod_name = a_prod_name;
+
+        // C++: mIsWindowed = GetBoolean("DefaultWindowed", mIsWindowed);
+        self.m_is_windowed = self.get_boolean_default("DefaultWindowed", self.m_is_windowed);
+
+        // C++: std::string aNewTitle = GetString("Title", "");
+        let a_new_title = self.get_string("Title", "");
+        if a_new_title.len() > 0 {
+            // C++: mTitle = aNewTitle + " " + mProductVersion;
+            self.m_title = a_new_title + " " + &self.m_product_version;
+        }
+    }
+
+    /// C++: SexyAppBase::ChangeDirHook — 由子类覆盖，LawnApp 返回 false
+    pub fn change_dir_hook(&mut self, _the_intended_path: &str) -> bool {
+        false
+    }
+
+    /// C++: SexyAppBase::Init() — 基类初始化（C++ SexyAppBase.cpp:3474）
+    /// 由 LawnApp::Init 通过 SexyApp::Init 链调用
+    pub fn init(&mut self) {
+        self.m_primary_thread_id = std::thread::current().id();
+
+        if self.m_shutdown {
+            return;
+        }
+
+        // C++: if (!ChangeDirHook(mResourceDir.c_str())) SetResourceFolder(mResourceDir);
+        let a_resource_dir = self.m_resource_dir.clone();
+        if !self.change_dir_hook(&a_resource_dir) {
+            crate::sexy_app_framework::common::set_resource_folder(&a_resource_dir);
+        }
+
+        // C++: gPakInterface->AddPakFile(GetResourcePath("main.pak"));
+        // [TRANSLATION_NOTE]: paklib 尚未翻译，main.pak 读取由后续资源系统实现
+
+        // C++: demo 播放初始化（mPlayingDemoBuffer 默认 false，跳过）
+
+        // C++: InitPropertiesHook();
+        self.init_properties_hook();
+
+        // C++: SetAppDataFolder(SDL_GetPrefPath(...)) — 使用程序目录下的 savedata
+        if self.m_custom_save_dir.is_empty() {
+            let a_data_folder = crate::sexy_app_framework::common::get_resource_path("savedata");
+            crate::sexy_app_framework::common::set_app_data_folder(&a_data_folder);
+        } else {
+            crate::sexy_app_framework::common::set_app_data_folder(&self.m_custom_save_dir);
+        }
+
+        // C++: mCmdLineParsed = true;
+        self.m_cmd_line_parsed = true;
+
+        if self.is_screen_saver() {
+            self.m_only_allow_one_copy_to_run = false;
+        }
+
+        // C++: ReadFromRegistry();
+        self.read_from_registry();
+
+        // C++: mRandSeed = SDL_GetTicks(); SRand(mRandSeed);
+        self.m_rand_seed = sdl_get_ticks();
+        let mut a_rand = crate::sexy_app_framework::misc::mtrand::MTRand::new();
+        a_rand.srand_u32(self.m_rand_seed);
+
+        // C++: srand(SDL_GetTicks());
+        crate::sexy_app_framework::common::srand(sdl_get_ticks());
+
+        // C++: mIsWideWindow = sizeof(char) > 1; (恒为 false)
+        self.m_is_wide_window = false;
+
+        // C++: PreDisplayHook();
+        self.pre_display_hook();
+
+        // C++: mWidgetManager->Resize(Rect(0, 0, mWidth, mHeight), Rect(0, 0, mWidth, mHeight));
+        if let Some(wm) = &mut self.m_widget_manager {
+            let a_rect = Rect::new(0, 0, self.m_width, self.m_height);
+            wm.resize(&a_rect, &a_rect);
+        }
+
+        // C++: MakeWindow();
+        self.make_window();
+
+        if self.m_gl_interface.is_null() {
+            eprintln!("FATAL: Failed to create OpenGL interface.");
+            self.m_shutdown = true;
+            return;
+        }
+
+        // C++: if (mSoundManager == nullptr) mSoundManager = new SDLSoundManager();
+        if self.m_sound_manager.is_none() {
+            self.m_sound_manager = Some(Box::new(crate::sexy_app_framework::sound::sound_manager::DummySoundManager::new()));
+        }
+
+        // C++: SetSfxVolume(mSfxVolume);
+        self.set_sfx_volume(self.m_sfx_volume);
+
+        // C++: mMusicInterface = CreateMusicInterface();
+        if self.m_music_interface.is_none() {
+            self.m_music_interface = Some(Box::new(crate::sexy_app_framework::sound::music_interface::DummyMusicInterface::new()));
+        }
+
+        // C++: SetMusicVolume(mMusicVolume);
+        self.set_music_volume(self.m_music_volume);
+
+        if self.is_screen_saver() {
+            self.set_cursor(CURSOR_NONE);
+        }
+
+        // C++: InitHook();
+        self.init_hook();
+
+        // C++: InitInput();
+        self.init_input();
+
+        self.m_initialized = true;
+    }
+
+    /// C++: SexyAppBase::PreDisplayHook — 由子类覆盖
+    pub fn pre_display_hook(&mut self) {
+    }
 
     /// C++: SexyAppBase::Is3DAccelerated — return true
     pub fn is_3d_accelerated(&self) -> bool {
@@ -1537,7 +1827,7 @@ pub fn sdl_get_ticks() -> u32 {
 // SexyAppBase::Init() — C++ 保真翻译 (被 LawnApp::Init 调用)
 // C++ 流程: MakeWindow() -> mGLInterface->Init -> WidgetManager 初始化
 // =========================================================================
-pub unsafe fn sexy_app_base_init(_app: &mut crate::lawn_app::LawnApp) {
+pub unsafe fn sexy_app_base_init(app: &mut crate::lawn_app::LawnApp) {
     // C++: 构造 SexyAppBase 时即创建 WidgetManager(new WidgetManager(this))
     if G_SEXY_APP.is_none() {
         G_SEXY_APP = Some(Box::new(SexyAppBase::new()));
@@ -1556,14 +1846,15 @@ pub unsafe fn sexy_app_base_init(_app: &mut crate::lawn_app::LawnApp) {
         base.m_widget_manager = Some(wm);
     }
 
-    // C++: MakeWindow() — 创建窗口 + GL 接口
-    base.make_window();
+    // C++: SexyAppBase::Init() — 完整基类初始化流程（含 MakeWindow）
+    base.init();
 
-    if base.m_loading_failed {
+    // C++: LawnApp::Init 中 if (mShutdown) return; // MakeWindow() failed
+    if base.m_shutdown || base.m_loading_failed {
+        app.m_close_request = true;
         return;
     }
 
-    base.m_initialized = true;
     base.m_loaded = false;
 }
 

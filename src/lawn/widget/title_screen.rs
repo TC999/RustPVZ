@@ -200,3 +200,58 @@ impl TitleScreen {
         // [TODO]: 处理按钮点击（开始游戏、选项等）
     }
 }
+
+// ============================================================
+// WidgetTrait 实现（TitleScreen 作为 Widget 接入 WidgetManager）
+// ============================================================
+impl crate::sexy_app_framework::widget::widget_traits::WidgetContainerTrait for TitleScreen {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+    fn add_widget(&mut self, _widget: *mut dyn crate::sexy_app_framework::widget::widget_traits::WidgetTrait) {}
+    fn remove_widget(&mut self, _widget: *mut dyn crate::sexy_app_framework::widget::widget_traits::WidgetTrait) {}
+    fn remove_all_widgets(&mut self) {}
+    fn get_widget_at(&self, _x: i32, _y: i32) -> Option<*mut dyn crate::sexy_app_framework::widget::widget_traits::WidgetTrait> { None }
+}
+
+impl crate::sexy_app_framework::widget::widget_traits::WidgetTrait for TitleScreen {
+    fn set_visible(&mut self, is_visible: bool) {
+        self.base.base.mVisible = is_visible;
+    }
+    fn is_visible(&self) -> bool {
+        self.base.base.mVisible
+    }
+    fn set_disabled(&mut self, is_disabled: bool) {
+        self.base.base.mDisabled = is_disabled;
+    }
+    fn is_disabled(&self) -> bool {
+        self.base.base.mDisabled
+    }
+    fn resize(&mut self, x: i32, y: i32, width: i32, height: i32) {
+        unsafe { self.Resize(x, y, width, height); }
+    }
+    fn get_rect(&self) -> crate::sexy_app_framework::misc::rect::Rect {
+        crate::sexy_app_framework::misc::rect::Rect::new(0, 0, self.mWidth, self.mHeight)
+    }
+    fn draw(&self, g: &mut Graphics) {
+        unsafe { self.Draw(g); }
+    }
+    fn update(&mut self) {
+        unsafe { self.Update(); }
+    }
+    fn mouse_down(&mut self, x: i32, y: i32, click_count: i32) {
+        unsafe { self.MouseDown(x, y, click_count); }
+    }
+    fn key_down(&mut self, the_key: u32) -> bool {
+        unsafe { self.KeyDown(the_key as i32); }
+        true
+    }
+    fn mark_dirty(&mut self) {
+        self.base.base.mDirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.base.base.mDirty = false;
+    }
+    fn is_dirty(&self) -> bool {
+        self.base.base.mDirty
+    }
+}

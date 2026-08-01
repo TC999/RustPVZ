@@ -13,3 +13,4 @@ pub mod mod_val;
 pub mod perf_timer;
 pub mod debug;
 pub mod reg_emu;
+pub mod properties_parser;

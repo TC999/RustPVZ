@@ -5,6 +5,13 @@ use std::collections::LinkedList;
 use crate::const_enums::*;
 use crate::sexy_tod_lib::tod_foley::FoleyType;
 use crate::lawn::board::Board;
+use crate::lawn::widget::title_screen::TitleScreen;
+use crate::lawn::system::music::Music;
+use crate::lawn::system::profile_mgr::ProfileMgr;
+use crate::lawn::system::player_info::PlayerInfo;
+use crate::lawn::system::typing_check::TypingCheck;
+use crate::sexy_tod_lib::tod_foley::TodFoley;
+use crate::sexy_tod_lib::effect_system::EffectSystem;
 
 pub type ButtonList = LinkedList<*mut std::ffi::c_void>;
 pub type ImageList = LinkedList<*mut std::ffi::c_void>;
@@ -25,13 +32,13 @@ impl LevelStats {
 
 pub struct LawnApp {
     pub m_board: Option<Box<Board>>,
-    pub m_title_screen: *mut std::ffi::c_void,
+    pub m_title_screen: *mut TitleScreen,
     pub m_game_selector: *mut std::ffi::c_void,
     pub m_seed_chooser_screen: *mut std::ffi::c_void,
     pub m_award_screen: *mut std::ffi::c_void,
     pub m_credit_screen: *mut std::ffi::c_void,
     pub m_challenge_screen: *mut std::ffi::c_void,
-    pub m_sound_system: *mut std::ffi::c_void,
+    pub m_sound_system: *mut TodFoley,
     pub m_control_button_list: ButtonList,
     pub m_created_image_list: ImageList,
     pub m_refer_id: String,
@@ -50,14 +57,14 @@ pub struct LawnApp {
     pub m_easy_planting_cheat: bool,
     pub m_pool_effect: *mut std::ffi::c_void,
     pub m_zen_garden: *mut std::ffi::c_void,
-    pub m_effect_system: *mut std::ffi::c_void,
+    pub m_effect_system: *mut EffectSystem,
     pub m_reanimator_cache: *mut std::ffi::c_void,
-    pub m_profile_mgr: *mut std::ffi::c_void,
-    pub m_player_info: *mut std::ffi::c_void,
+    pub m_profile_mgr: *mut ProfileMgr,
+    pub m_player_info: *mut PlayerInfo,
     pub m_last_level_stats: Option<Box<LevelStats>>,
     pub m_close_request: bool,
     pub m_app_counter: u32,
-    pub m_music: *mut std::ffi::c_void,
+    pub m_music: *mut Music,
     pub m_crazy_dave_reanim_id: ReanimationID,
     pub m_crazy_dave_state: CrazyDaveState,
     pub m_crazy_dave_blink_counter: i32,
@@ -72,16 +79,16 @@ pub struct LawnApp {
     pub mSawYeti: bool,
     pub mAppRandSeed: i32,
     pub mPlayerInfo: *mut std::ffi::c_void,
-    pub m_konami_check: *mut std::ffi::c_void,
-    pub m_mustache_check: *mut std::ffi::c_void,
-    pub m_moustache_check: *mut std::ffi::c_void,
-    pub m_super_mower_check: *mut std::ffi::c_void,
-    pub m_super_mower_check2: *mut std::ffi::c_void,
-    pub m_future_check: *mut std::ffi::c_void,
-    pub m_pinata_check: *mut std::ffi::c_void,
-    pub m_dance_check: *mut std::ffi::c_void,
-    pub m_daisy_check: *mut std::ffi::c_void,
-    pub m_sukhbir_check: *mut std::ffi::c_void,
+    pub m_konami_check: *mut TypingCheck,
+    pub m_mustache_check: *mut TypingCheck,
+    pub m_moustache_check: *mut TypingCheck,
+    pub m_super_mower_check: *mut TypingCheck,
+    pub m_super_mower_check2: *mut TypingCheck,
+    pub m_future_check: *mut TypingCheck,
+    pub m_pinata_check: *mut TypingCheck,
+    pub m_dance_check: *mut TypingCheck,
+    pub m_daisy_check: *mut TypingCheck,
+    pub m_sukhbir_check: *mut TypingCheck,
     pub m_mustache_mode: bool,
     pub m_super_mower_mode: bool,
     pub m_future_mode: bool,
@@ -251,72 +258,137 @@ impl LawnApp {
         // C++: mSawYeti = false;
         self.mSawYeti = false;
 
-        // C++: SexyApp::Init();  — 调用基类初始化
-        // [TRANSLATION_NOTE]: 由于 Rust 版本使用组合而非继承，此处调用 SexyAppBase 的 Init
+        // C++: SexyApp::Init();  — 打印产品信息 + SexyAppBase::Init()
+        // [TRANSLATION_NOTE]: SexyApp 中间层（SexyApp.cpp）并入此调用
         crate::sexy_app_framework::sexy_app_base::sexy_app_base_init(self);
 
-        // C++: if (mShutdown) return; (mShutdown 在 MakeWindow() 失败时设置)
+        // C++: if (mShutdown) return; (MakeWindow() failed)
         if self.m_close_request {
             return;
         }
 
-        // C++: Demo 缓冲区相关 (mRecordingDemoBuffer / mPlayingDemoBuffer)
-        // 当前版本未实现 demo 录制/回放，因此跳过
+        // C++: if (mRecordingDemoBuffer || mPlayingDemoBuffer)
+        // C++:     mAppRandSeed = mRandSeed; // demo sessions derive the app-level seed
+        // [TRANSLATION_NOTE]: demo 缓冲未启用（默认 false），跳过
 
         // C++: TodAssertInitForApp();
         crate::sexy_tod_lib::tod_debug::tod_assert_init_for_app();
         crate::sexy_tod_lib::tod_debug::tod_log_ln(&format!("session id: {}", self.m_session_id));
 
         // C++: if (!mResourceManager->ParseResourcesFile("properties/resources.xml"))
-        // C++:     { ShowResourceError(true); return; }
-        // [TODO]: 资源管理器尚未实现，跳过
-        // if !self.mResourceManager->ParseResourcesFile("properties/resources.xml") ...
-        // 暂时不检查资源文件加载
+        // C++: { ShowResourceError(true); return; }
+        let base_ptr = crate::sexy_app_framework::sexy_app_base::g_sexy_app_ptr();
+        if base_ptr.is_null() {
+            return;
+        }
+        {
+            let base = &mut *base_ptr;
+            let mgr = &mut *base.m_resource_manager;
+            if !mgr.ParseResourcesFile("properties/resources.xml") {
+                let an_error = mgr.GetErrorText().to_string();
+                // C++: ShowResourceError(true) — Popup + DoExit(1)
+                base.popup(&an_error);
+                base.do_exit(1);
+                return;
+            }
+        }
 
         // C++: if (!TodLoadResources("Init")) { return; }
-        // [TODO]: TodLoadResources 尚未实现，跳过
+        if !crate::sexy_tod_lib::tod_common::TodLoadResources("Init") {
+            return;
+        }
 
-        // C++: PerfTimer mTimer; mTimer.Start();
-        // [TODO]: 性能计时器，跳过
+        // C++: PerfTimer mTimer; mTimer.Start(); (计时器，仅调试用)
 
         // C++: mProfileMgr->Load();
-        // [TODO]: 配置文件加载，跳过
+        self.m_profile_mgr = Box::into_raw(Box::new(ProfileMgr::new()));
+        (*self.m_profile_mgr).Load();
 
         // C++: std::string aCurUser;
         // C++: if (mPlayerInfo == nullptr && RegistryReadString("CurUser", &aCurUser))
         // C++:     mPlayerInfo = mProfileMgr->GetProfile(aCurUser);
+        let mut a_cur_user = String::new();
+        let base2 = &mut *base_ptr;
+        if self.m_player_info.is_null() && base2.registry_read_string("CurUser", &mut a_cur_user) {
+            self.m_player_info = match (*self.m_profile_mgr).GetProfile(&a_cur_user) {
+                Some(p) => p as *mut PlayerInfo,
+                None => std::ptr::null_mut(),
+            };
+        }
         // C++: if (mPlayerInfo == nullptr) mPlayerInfo = mProfileMgr->GetAnyProfile();
-        // [TODO]: 用户配置加载，跳过
+        if self.m_player_info.is_null() {
+            self.m_player_info = match (*self.m_profile_mgr).GetAnyProfile() {
+                Some(p) => p as *mut PlayerInfo,
+                None => std::ptr::null_mut(),
+            };
+        }
 
         // C++: mMaxExecutions = GetInteger("MaxExecutions", 0);
-        self.m_max_executions = 0;
+        self.m_max_executions = base2.get_integer_default("MaxExecutions", 0);
 
         // C++: mMaxPlays = GetInteger("MaxPlays", 0);
-        self.m_max_plays = 0;
+        self.m_max_plays = base2.get_integer_default("MaxPlays", 0);
 
         // C++: mMaxTime = GetInteger("MaxTime", 60);
-        self.m_max_time = 60;
+        self.m_max_time = base2.get_integer_default("MaxTime", 60);
 
         // C++: mTitleScreen = new TitleScreen(this);
         // C++: mTitleScreen->Resize(0, 0, mWidth, mHeight);
         // C++: mWidgetManager->AddWidget(mTitleScreen);
         // C++: mWidgetManager->SetFocus(mTitleScreen);
-        // [TODO]: TitleScreen 实例化和 widget 管理，跳过
+        let mut a_title_screen = Box::new(TitleScreen::new(self as *mut LawnApp));
+        a_title_screen.Resize(0, 0, base2.m_width, base2.m_height);
+        let ts_ptr = Box::into_raw(a_title_screen);
+        self.m_title_screen = ts_ptr;
+        {
+            let base3 = &mut *base_ptr;
+            if let Some(wm) = &mut base3.m_widget_manager {
+                wm.add_widget(ts_ptr as *mut dyn crate::sexy_app_framework::widget::widget_traits::WidgetTrait);
+                wm.set_focus(ts_ptr as *mut dyn crate::sexy_app_framework::widget::widget_traits::WidgetTrait);
+            }
+        }
 
         // C++: mMusic = new Music();
         // C++: mSoundSystem = new TodFoley();
         // C++: mEffectSystem = new EffectSystem();
         // C++: mEffectSystem->EffectSystemInitialize();
-        // [TODO]: 子系统初始化，跳过
+        self.m_music = Box::into_raw(Box::new(Music::new(self as *mut LawnApp)));
+        self.m_sound_system = Box::into_raw(Box::new(TodFoley::new()));
+        let mut a_effect_system = Box::new(EffectSystem::new());
+        a_effect_system.effect_system_initialize();
+        self.m_effect_system = Box::into_raw(a_effect_system);
 
-        // C++: TypingCheck 作弊码检测
-        // C++: mKonamiCheck = new TypingCheck(); 等 9 个 TypingCheck
-        // [TODO]: 作弊码检测初始化，跳过
+        // C++: 作弊码 TypingCheck 检测器
+        // C++: mKonamiCheck = new TypingCheck();
+        // C++: mKonamiCheck->AddKeyCode(KEYCODE_UP); ... mKonamiCheck->AddChar('b'); AddChar('a');
+        let mut a_konami = TypingCheck::new();
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_UP);
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_UP);
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_DOWN);
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_DOWN);
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_LEFT);
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_RIGHT);
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_LEFT);
+        a_konami.add_key_code(crate::sexy_app_framework::misc::key_codes::KEYCODE_RIGHT);
+        a_konami.add_char('b');
+        a_konami.add_char('a');
+        self.m_konami_check = Box::into_raw(Box::new(a_konami));
+        self.m_mustache_check = Box::into_raw(Box::new(TypingCheck::with_phrase("mustache")));
+        self.m_moustache_check = Box::into_raw(Box::new(TypingCheck::with_phrase("moustache")));
+        self.m_super_mower_check = Box::into_raw(Box::new(TypingCheck::with_phrase("trickedout")));
+        self.m_super_mower_check2 = Box::into_raw(Box::new(TypingCheck::with_phrase("tricked out")));
+        self.m_future_check = Box::into_raw(Box::new(TypingCheck::with_phrase("future")));
+        self.m_pinata_check = Box::into_raw(Box::new(TypingCheck::with_phrase("pinata")));
+        self.m_dance_check = Box::into_raw(Box::new(TypingCheck::with_phrase("dance")));
+        self.m_daisy_check = Box::into_raw(Box::new(TypingCheck::with_phrase("daisies")));
+        self.m_sukhbir_check = Box::into_raw(Box::new(TypingCheck::with_phrase("sukhbir")));
 
         // C++: ReanimatorLoadDefinitions(gLawnReanimationArray, ReanimationType::NUM_REANIMS);
         // C++: ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOADBAR_SPROUT, true);
         // C++: ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOADBAR_ZOMBIEHEAD, true);
-        // [TODO]: 动画定义加载，跳过
+        crate::sexy_tod_lib::reanimator::reanimator_load_definitions();
+        crate::sexy_tod_lib::reanimator::reanimator_ensure_definition_loaded(ReanimationType::REANIM_LOADBAR_SPROUT);
+        crate::sexy_tod_lib::reanimator::reanimator_ensure_definition_loaded(ReanimationType::REANIM_LOADBAR_ZOMBIEHEAD);
     }
 
     /// C++: LawnApp::Start() — 保真翻译

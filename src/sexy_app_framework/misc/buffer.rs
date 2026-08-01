@@ -181,9 +181,12 @@ impl Buffer {
 
     pub fn to_utf8_string(&self, the_string: &mut String) -> bool {
         the_string.clear();
-        for &b in &self.m_data {
-            the_string.push(b as char);
-        }
+        // C++: Buffer::ToString — 将原始字节复制到 std::string。
+        // [TRANSLATION_NOTE]: Rust String 必须是合法 UTF-8，此处按 UTF-8 字节序列解释
+        // （与原版一致，XML/文本资源均为 UTF-8）。此前的 b as char 逐字节 Latin-1
+        // 转换会破坏 UTF-8 多字节序列（如 UTF-8 BOM），故改为 from_utf8_lossy。
+        let bytes: Vec<u8> = self.m_data.iter().map(|&b| b as u8).collect();
+        *the_string = String::from_utf8_lossy(&bytes).into_owned();
         true
     }
 

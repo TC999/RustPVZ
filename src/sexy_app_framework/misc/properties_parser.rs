@@ -26,7 +26,7 @@ impl<'a> PropertiesParser<'a> {
         if !self.m_has_failed {
             self.m_has_failed = true;
             let a_line_num = if let Some(ref parser) = self.m_xml_parser {
-                parser.get_current_line_num()
+                parser.GetCurrentLineNum()
             } else {
                 0
             };
@@ -36,8 +36,8 @@ impl<'a> PropertiesParser<'a> {
                 self.m_error += &format!(" on Line {}", a_line_num);
             }
             if let Some(ref parser) = self.m_xml_parser {
-                if !parser.get_file_name().is_empty() {
-                    self.m_error += &format!(" in File '{}'", parser.get_file_name());
+                if !parser.GetFileName().is_empty() {
+                    self.m_error += &format!(" in File '{}'", parser.GetFileName());
                 }
             }
         }
@@ -47,17 +47,17 @@ impl<'a> PropertiesParser<'a> {
         a_string.clear();
         loop {
             let mut a_xml_element = XMLElement::new();
-            if !self.m_xml_parser.as_mut().unwrap().next_element(&mut a_xml_element) {
+            if !self.m_xml_parser.as_mut().unwrap().NextElement(&mut a_xml_element) {
                 return false;
             }
 
-            match a_xml_element.m_type {
+            match a_xml_element.mType {
                 XMLElementType::TYPE_START => {
-                    self.fail(&format!("Unexpected Section: '{}'", a_xml_element.m_value));
+                    self.fail(&format!("Unexpected Section: '{}'", a_xml_element.mValue));
                     return false;
                 }
                 XMLElementType::TYPE_ELEMENT => {
-                    *a_string = a_xml_element.m_value;
+                    *a_string = a_xml_element.mValue;
                 }
                 XMLElementType::TYPE_END => {
                     return true;
@@ -71,25 +71,25 @@ impl<'a> PropertiesParser<'a> {
         the_string_vector.clear();
         loop {
             let mut a_xml_element = XMLElement::new();
-            if !self.m_xml_parser.as_mut().unwrap().next_element(&mut a_xml_element) {
+            if !self.m_xml_parser.as_mut().unwrap().NextElement(&mut a_xml_element) {
                 return false;
             }
 
-            match a_xml_element.m_type {
+            match a_xml_element.mType {
                 XMLElementType::TYPE_START => {
-                    if a_xml_element.m_value == "String" {
+                    if a_xml_element.mValue == "String" {
                         let mut a_string = String::new();
                         if !self.parse_single_element(&mut a_string) {
                             return false;
                         }
                         the_string_vector.push(a_string);
                     } else {
-                        self.fail(&format!("Invalid Section '{}'", a_xml_element.m_value));
+                        self.fail(&format!("Invalid Section '{}'", a_xml_element.mValue));
                         return false;
                     }
                 }
                 XMLElementType::TYPE_ELEMENT => {
-                    self.fail(&format!("Element Not Expected '{}'", a_xml_element.m_value));
+                    self.fail(&format!("Element Not Expected '{}'", a_xml_element.mValue));
                     return false;
                 }
                 XMLElementType::TYPE_END => {
@@ -103,27 +103,27 @@ impl<'a> PropertiesParser<'a> {
     fn parse_properties(&mut self) -> bool {
         loop {
             let mut a_xml_element = XMLElement::new();
-            if !self.m_xml_parser.as_mut().unwrap().next_element(&mut a_xml_element) {
+            if !self.m_xml_parser.as_mut().unwrap().NextElement(&mut a_xml_element) {
                 return false;
             }
 
-            match a_xml_element.m_type {
+            match a_xml_element.mType {
                 XMLElementType::TYPE_START => {
-                    if a_xml_element.m_value == "String" {
+                    if a_xml_element.mValue == "String" {
                         let mut a_def = String::new();
                         if !self.parse_single_element(&mut a_def) {
                             return false;
                         }
-                        let an_id = a_xml_element.m_attributes.get("id").cloned().unwrap_or_default();
+                        let an_id = a_xml_element.mAttributes.get("id").cloned().unwrap_or_default();
                         self.m_app.set_string(&an_id, &a_def);
-                    } else if a_xml_element.m_value == "StringArray" {
+                    } else if a_xml_element.mValue == "StringArray" {
                         let mut a_def = Vec::new();
                         if !self.parse_string_array(&mut a_def) {
                             return false;
                         }
-                        let an_id = a_xml_element.m_attributes.get("id").cloned().unwrap_or_default();
+                        let an_id = a_xml_element.mAttributes.get("id").cloned().unwrap_or_default();
                         self.m_app.m_string_vector_properties.insert(an_id, a_def);
-                    } else if a_xml_element.m_value == "Boolean" {
+                    } else if a_xml_element.mValue == "Boolean" {
                         let mut a_val = String::new();
                         if !self.parse_single_element(&mut a_val) {
                             return false;
@@ -137,9 +137,9 @@ impl<'a> PropertiesParser<'a> {
                                 return false;
                             }
                         };
-                        let an_id = a_xml_element.m_attributes.get("id").cloned().unwrap_or_default();
+                        let an_id = a_xml_element.mAttributes.get("id").cloned().unwrap_or_default();
                         self.m_app.set_boolean(&an_id, bool_val);
-                    } else if a_xml_element.m_value == "Integer" {
+                    } else if a_xml_element.mValue == "Integer" {
                         let mut a_val = String::new();
                         if !self.parse_single_element(&mut a_val) {
                             return false;
@@ -149,9 +149,9 @@ impl<'a> PropertiesParser<'a> {
                             self.fail(&format!("Invalid Integer Value: '{}'", a_val));
                             return false;
                         }
-                        let an_id = a_xml_element.m_attributes.get("id").cloned().unwrap_or_default();
+                        let an_id = a_xml_element.mAttributes.get("id").cloned().unwrap_or_default();
                         self.m_app.set_integer(&an_id, an_int);
-                    } else if a_xml_element.m_value == "Double" {
+                    } else if a_xml_element.mValue == "Double" {
                         let mut a_val = String::new();
                         if !self.parse_single_element(&mut a_val) {
                             return false;
@@ -161,15 +161,15 @@ impl<'a> PropertiesParser<'a> {
                             self.fail(&format!("Invalid Double Value: '{}'", a_val));
                             return false;
                         }
-                        let an_id = a_xml_element.m_attributes.get("id").cloned().unwrap_or_default();
+                        let an_id = a_xml_element.mAttributes.get("id").cloned().unwrap_or_default();
                         self.m_app.set_double(&an_id, a_double);
                     } else {
-                        self.fail(&format!("Invalid Section '{}'", a_xml_element.m_value));
+                        self.fail(&format!("Invalid Section '{}'", a_xml_element.mValue));
                         return false;
                     }
                 }
                 XMLElementType::TYPE_ELEMENT => {
-                    self.fail(&format!("Element Not Expected '{}'", a_xml_element.m_value));
+                    self.fail(&format!("Element Not Expected '{}'", a_xml_element.mValue));
                     return false;
                 }
                 XMLElementType::TYPE_END => {
@@ -181,27 +181,27 @@ impl<'a> PropertiesParser<'a> {
     }
 
     fn do_parse_properties(&mut self) -> bool {
-        let has_failed = self.m_xml_parser.as_ref().map_or(true, |p| p.has_failed());
+        let has_failed = self.m_xml_parser.as_ref().map_or(true, |p| p.HasFailed());
         if !has_failed {
             loop {
                 let mut a_xml_element = XMLElement::new();
-                if !self.m_xml_parser.as_mut().unwrap().next_element(&mut a_xml_element) {
+                if !self.m_xml_parser.as_mut().unwrap().NextElement(&mut a_xml_element) {
                     break;
                 }
 
-                match a_xml_element.m_type {
+                match a_xml_element.mType {
                     XMLElementType::TYPE_START => {
-                        if a_xml_element.m_value == "Properties" {
+                        if a_xml_element.mValue == "Properties" {
                             if !self.parse_properties() {
                                 break;
                             }
                         } else {
-                            self.fail(&format!("Invalid Section '{}'", a_xml_element.m_value));
+                            self.fail(&format!("Invalid Section '{}'", a_xml_element.mValue));
                             break;
                         }
                     }
                     XMLElementType::TYPE_ELEMENT => {
-                        self.fail(&format!("Element Not Expected '{}'", a_xml_element.m_value));
+                        self.fail(&format!("Element Not Expected '{}'", a_xml_element.mValue));
                         break;
                     }
                     _ => {}
@@ -209,8 +209,9 @@ impl<'a> PropertiesParser<'a> {
             }
         }
 
-        if self.m_xml_parser.as_ref().map_or(false, |p| p.has_failed()) {
-            self.fail(&self.m_xml_parser.as_ref().unwrap().get_error_text());
+        if self.m_xml_parser.as_ref().map_or(false, |p| p.HasFailed()) {
+            let an_error = self.m_xml_parser.as_ref().unwrap().GetErrorText().to_string();
+            self.fail(&an_error);
         }
 
         self.m_xml_parser = None;
@@ -221,14 +222,14 @@ impl<'a> PropertiesParser<'a> {
         let mut parser = XMLParser::new();
         let mut a_string = String::new();
         the_buffer.to_utf8_string(&mut a_string);
-        parser.set_string_source(&a_string);
+        parser.SetStringSource(&a_string);
         self.m_xml_parser = Some(parser);
         self.do_parse_properties()
     }
 
     pub fn parse_properties_file(&mut self, the_filename: &str) -> bool {
         let mut parser = XMLParser::new();
-        parser.open_file(the_filename);
+        parser.OpenFile(the_filename);
         self.m_xml_parser = Some(parser);
         self.do_parse_properties()
     }

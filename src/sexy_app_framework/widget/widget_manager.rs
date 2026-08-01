@@ -55,7 +55,7 @@ impl WidgetTrait for NullWidget {
     fn is_disabled(&self) -> bool { true }
     fn resize(&mut self, _x: i32, _y: i32, _width: i32, _height: i32) {}
     fn get_rect(&self) -> Rect { Rect::new(0, 0, 0, 0) }
-    fn draw(&self, _g: &mut dyn crate::sexy_app_framework::widget::widget_traits::GraphicsTrait) {}
+    fn draw(&self, _g: &mut Graphics) {}
     fn update(&mut self) {}
 }
 

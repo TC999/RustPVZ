@@ -206,6 +206,16 @@ pub fn XMLDecodeString(theString: &str) -> String {
 
 // ==================== XML 类型定义 ====================
 pub type XMLParamMap = HashMap<String, String>;
+
+/// XMLElementType 常量（对应 C++ XMLElement 中的匿名枚举）
+pub mod XMLElementType {
+    pub const TYPE_NONE: i32 = 0;
+    pub const TYPE_START: i32 = 1;
+    pub const TYPE_END: i32 = 2;
+    pub const TYPE_ELEMENT: i32 = 3;
+    pub const TYPE_INSTRUCTION: i32 = 4;
+    pub const TYPE_COMMENT: i32 = 5;
+}
 pub type XMLParserBuffer = Vec<u8>;
 
 // XMLParamMapIteratorList - stores attribute iterators in their original order
@@ -496,9 +506,10 @@ impl XMLParser {
                 if (aChar1 == 0xFF && aChar2 == 0xFE) || (aChar1 == 0xFE && aChar2 == 0xFF) {
                     // Will use GetUTF16Char - we don't need to set mGetCharFunc since
                     // we dispatch based on the encoding
-                    p_ungetc(aChar2, self.mFile);
-                    p_ungetc(aChar1, self.mFile);
                 }
+                // C++: 无论是否 UTF-16，探测读取的两个字节都必须退回
+                p_ungetc(aChar2, self.mFile);
+                p_ungetc(aChar1, self.mFile);
             }
             // Simplified: default to UTF8 detection with BOM
             // In C++ this sets mGetCharFunc function pointer; we inline the encoding logic
@@ -559,7 +570,8 @@ impl XMLParser {
                             c = ch;
                             aVal = 1;
                         } else {
-                            self.Fail("Illegal Character");
+                            // C++: EOF 不是编码错误（GetUTF8Char 返回 false 时 error 保持 false），
+                            // 由外层处理 "Unexpected End of File"
                             aVal = 0;
                         }
                     } else {

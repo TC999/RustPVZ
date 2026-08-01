@@ -1,6 +1,7 @@
 // [TRANSLATION_NOTE]: WidgetContainer.h -> Rust struct
 
 use std::any::Any;
+use crate::sexy_app_framework::graphics::graphics::Graphics;
 use crate::sexy_app_framework::misc::rect::Rect;
 
 pub trait WidgetContainerTrait {
@@ -22,7 +23,7 @@ pub trait WidgetTrait: WidgetContainerTrait {
     fn resize(&mut self, x: i32, y: i32, width: i32, height: i32);
     fn get_rect(&self) -> Rect;
     
-    fn draw(&self, g: &mut dyn GraphicsTrait);
+    fn draw(&self, g: &mut Graphics);
     fn update(&mut self);
     
     fn mouse_down(&mut self, _x: i32, _y: i32, _click_count: i32) {}
