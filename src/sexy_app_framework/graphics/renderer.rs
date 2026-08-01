@@ -94,6 +94,27 @@ pub fn present() {
     canvas().present();
 }
 
+/// 获取 SDL 事件泵（主线程调用）
+pub fn pump_events() -> Option<sdl2::EventPump> {
+    unsafe {
+        if let Some(sdl) = G_SDL.as_mut() {
+            sdl.event_pump().ok()
+        } else {
+            None
+        }
+    }
+}
+
+/// 显示/隐藏鼠标光标（对应 C++ SDL_ShowCursor）
+pub fn set_show_cursor(show: bool) {
+    unsafe {
+        if let Some(sdl) = G_SDL.as_ref() {
+            let mouse_util = sdl.mouse();
+            let _ = mouse_util.show_cursor(show);
+        }
+    }
+}
+
 /// 获取窗口尺寸
 pub fn get_window_size() -> (u32, u32) {
     canvas().output_size().unwrap_or((800, 600))

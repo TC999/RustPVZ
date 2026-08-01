@@ -375,6 +375,31 @@ impl<'a> Drop for GraphicsAutoState<'a> {
     }
 }
 
+// ============================================================
+// GraphicsTrait 实现（对应 C++ Graphics 作为 Widget 绘制接口）
+// ============================================================
+impl crate::sexy_app_framework::widget::widget_traits::GraphicsTrait for Graphics {
+    fn draw_rect(&mut self, rect: &Rect) {
+        Graphics::draw_rect(self, rect.m_x, rect.m_y, rect.m_width, rect.m_height);
+    }
+
+    fn fill_rect(&mut self, rect: &Rect) {
+        Graphics::fill_rect(self, rect.m_x, rect.m_y, rect.m_width, rect.m_height);
+    }
+
+    fn set_color(&mut self, color: &crate::sexy_app_framework::graphics::color::Color) {
+        self.state.m_color = *color;
+    }
+
+    fn draw_string(&self, text: &str, x: i32, y: i32) {
+        Graphics::draw_string(self, text, x, y);
+    }
+
+    fn draw_image(&self, _image: &dyn crate::sexy_app_framework::widget::widget_traits::ImageTrait, _x: i32, _y: i32) {
+        // [TODO]: 图像绘制（DrawImage 完整翻译时实现）
+    }
+}
+
 // MemoryImage - 内存图像（对应 C++ Sexy::MemoryImage）
 pub const MEMORYCHECK_ID: u32 = 0x4BEEFADE;
 pub static mut G_OPTIMIZE_SOFTWARE_DRAWING: bool = true;

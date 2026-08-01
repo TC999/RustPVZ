@@ -20,6 +20,8 @@ pub trait MusicInterface {
     fn release_music(&mut self, the_music_id: isize);
     fn stop_all_music(&mut self);
     fn unload_music(&mut self, the_music_id: isize);
+    /// C++: MusicInterface::Update() — 每帧更新
+    fn update(&mut self);
 }
 
 /// DummyMusicInterface — 什么都不做的默认实现
@@ -45,4 +47,5 @@ impl MusicInterface for DummyMusicInterface {
     fn release_music(&mut self, _the_music_id: isize) {}
     fn stop_all_music(&mut self) {}
     fn unload_music(&mut self, _the_music_id: isize) {}
+    fn update(&mut self) {}
 }

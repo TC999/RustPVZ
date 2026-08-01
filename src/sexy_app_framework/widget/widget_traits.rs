@@ -29,6 +29,13 @@ pub trait WidgetTrait: WidgetContainerTrait {
     fn mouse_move(&mut self, _x: i32, _y: i32) {}
     fn mouse_up(&mut self, _x: i32, _y: i32) {}
     fn mouse_drag(&mut self, _x: i32, _y: i32) {}
+    fn mouse_enter(&mut self, _x: i32, _y: i32) {}
+    fn mouse_exit(&mut self, _x: i32, _y: i32) {}
+    fn got_focus(&mut self) {}
+    fn lost_focus(&mut self) {}
+    fn mark_dirty(&mut self) {}
+    fn mark_clean(&mut self) {}
+    fn is_dirty(&self) -> bool { false }
     fn key_down(&mut self, _key: u32) -> bool { false }
     fn key_up(&mut self, _key: u32) -> bool { false }
     fn key_char(&mut self, _c: char) -> bool { false }
