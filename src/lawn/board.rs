@@ -2770,6 +2770,18 @@ impl Board {
 
         a_killed_zombies
     }
+    /// Board::TutorialArrowShow — 显示教程箭头
+    pub unsafe fn TutorialArrowShow(&mut self, the_x: f32, the_y: f32) {
+        // [TODO]: 箭头 widget 显示
+        let _ = the_x;
+        let _ = the_y;
+    }
+
+    /// Board::TutorialArrowRemove — 移除教程箭头
+    pub unsafe fn TutorialArrowRemove(&mut self) {
+        // [TODO]: 箭头 widget 移除
+    }
+
     /// Board::SetTutorialState — 设置教程状态
     pub unsafe fn SetTutorialState(&mut self, the_state: i32) {
         self.mTutorialState = the_state;

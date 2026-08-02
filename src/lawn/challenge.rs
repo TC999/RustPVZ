@@ -1316,9 +1316,145 @@ impl Challenge {
         // [TODO]: PortalCombat 系列
     }
 
-    /// C++ Challenge::ZombiquariumUpdate — 僵尸水族馆更新
+    /// C++ Challenge::ZombiquariumSpawnSnorkle (Challenge.cpp:3545)
+    pub unsafe fn ZombiquariumSpawnSnorkle(&mut self) -> *mut crate::lawn::zombie::Zombie {
+        // C++: AddZombieInRow(ZOMBIE_SNORKEL, 0, 0)
+        let the_board = &mut *self.mBoard;
+        let a_zombie = the_board.AddZombieInRow(ZombieType::ZOMBIE_SNORKEL, 0, 0);
+        if !a_zombie.is_null() {
+            (*a_zombie).m_pos_x = crate::sexy_tod_lib::tod_common::rand_range_float(50.0, 650.0);
+            (*a_zombie).m_pos_y = crate::sexy_tod_lib::tod_common::rand_range_float(100.0, 400.0);
+        }
+        a_zombie
+    }
+
+    /// C++ Challenge::ZombiquariumPacketClicked (Challenge.cpp:3553) — 点击种子包
+    pub unsafe fn ZombiquariumPacketClicked(&mut self, the_seed_packet: *mut crate::lawn::seed_packet::SeedPacket) {
+        let the_board = &mut *self.mBoard;
+        let a_cost = the_board.GetCurrentPlantCost((*the_seed_packet).mPacketType, SeedType::SEED_NONE);
+        if !the_board.CanTakeSunMoney(a_cost) {
+            return;
+        }
+
+        if (*the_seed_packet).mPacketType == SeedType::SEED_ZOMBIQUARIUM_SNORKLE {
+            if the_board.CountZombiesOnScreen() > 100 {
+                return;
+            }
+
+            if the_board.mTutorialState == TutorialState::TUTORIAL_ZOMBIQUARIUM_BUY_SNORKEL as i32 {
+                the_board.ClearAdvice(AdviceType::ADVICE_ZOMBIQUARIUM_BUY_SNORKEL as i32);
+                the_board.TutorialArrowRemove();
+                the_board.mTutorialState = TutorialState::TUTORIAL_ZOMBIQUARIUM_BOUGHT_SNORKEL as i32;
+            }
+
+            let a_zombie = self.ZombiquariumSpawnSnorkle();
+            // [TODO]: mApp->PlayFoley(FOLEY_ZOMBIESPLASH); AddTodParticle(PARTICLE_PLANTING_POOL)
+            let _ = a_zombie;
+        } else if (*the_seed_packet).mPacketType == SeedType::SEED_ZOMBIQUARIUM_TROPHY {
+            // C++: SpawnLevelAward(2, 0)
+            // [TODO]: SpawnLevelAward
+            the_board.ClearAdvice(AdviceType::ADVICE_NONE as i32);
+        }
+
+        the_board.TakeSunMoney(a_cost);
+    }
+
+    /// C++ Challenge::ZombiquariumDropBrain (Challenge.cpp:3584) — 投放大脑
+    pub unsafe fn ZombiquariumDropBrain(&mut self, x: i32, y: i32) {
+        let the_board = &mut *self.mBoard;
+        the_board.ClearAdvice(AdviceType::ADVICE_ZOMBIQUARIUM_CLICK_TO_FEED as i32);
+        // C++: GridItem* aBrain = mBoard->mGridItems.DataArrayAlloc();
+        let a_brain = the_board.mGridItems.data_array_alloc();
+        if a_brain.is_null() {
+            return;
+        }
+        (*a_brain).mGridItemType = GridItemType::GRIDITEM_BRAIN;
+        (*a_brain).mRenderOrder = 400000;
+        (*a_brain).mGridX = 0;
+        (*a_brain).mGridY = 0;
+        (*a_brain).mGridItemCounter = 0;
+        (*a_brain).mPosX = (x - 15) as f32;
+        (*a_brain).mPosY = (y - 15) as f32;
+        // [TODO]: mApp->PlaySample(SOUND_TAP)
+    }
+
+    /// C++ Challenge::ZombiquariumMouseDown (Challenge.cpp:3598) — 水族馆内点击
+    pub unsafe fn ZombiquariumMouseDown(&mut self, x: i32, y: i32) {
+        if x < 80 || x > 720 || y < 90 || y > 430 {
+            return;
+        }
+
+        // C++: 统计大脑数量（最多 3 个）
+        let mut a_brains_count = 0;
+        let the_board = &mut *self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_BRAIN {
+                a_brains_count += 1;
+            }
+        }
+        if a_brains_count < 3 && the_board.TakeSunMoney(5) {
+            self.ZombiquariumDropBrain(x, y);
+        }
+    }
+
+    /// C++ Challenge::ZombiquariumUpdate (Challenge.cpp:3618) — 僵尸水族馆更新
     pub unsafe fn ZombiquariumUpdate(&mut self) {
-        // [TODO]: Zombiquarium 系列
+        let the_board = &mut *self.mBoard;
+        // C++: 无僵尸且未掉奖励 → 僵尸获胜
+        if the_board.mZombies.m_size == 0 && !the_board.mLevelAwardSpawned {
+            the_board.ZombiesWon(std::ptr::null_mut());
+            return;
+        }
+
+        // C++: 提示收集阳光
+        // [TODO]: mBoard->mAdvice->IsBeingDisplayed() 检查 + DisplayAdvice(ADVICE_ZOMBIQUARIUM_COLLECT_SUN)
+
+        // C++: 进度条
+        let a_score = crate::sexy_tod_lib::tod_common::clamp_int(the_board.mSunMoney, 0, ZOMBIQUARIUM_WINNING_SCORE);
+        the_board.mProgressMeterWidth = crate::sexy_tod_lib::tod_common::tod_animate_curve(
+            0, ZOMBIQUARIUM_WINNING_SCORE, a_score, 0, crate::lawn::board_consts::PROGRESS_METER_COUNTER,
+            crate::const_enums::TodCurves::CURVE_LINEAR,
+        );
+        if a_score >= ZOMBIQUARIUM_WINNING_SCORE - 100 {
+            the_board.DisplayAdvice("[ADVICE_ALMOST_THERE]", 0, AdviceType::ADVICE_ALMOST_THERE as i32);
+        }
+
+        // C++: 教程：得分 ≥110 提示买潜水僵尸
+        if a_score >= 110 && the_board.mTutorialState == TutorialState::TUTORIAL_OFF as i32 {
+            the_board.mTutorialState = TutorialState::TUTORIAL_ZOMBIQUARIUM_BUY_SNORKEL as i32;
+            let a_pos_x = if the_board.mSeedBank.is_null() { 0.0 } else { unsafe { (*the_board.mSeedBank).mX as f32 } };
+            let a_pos_y = if the_board.mSeedBank.is_null() { 0.0 } else { unsafe { (*the_board.mSeedBank).mY as f32 } };
+            the_board.TutorialArrowShow(a_pos_x, a_pos_y);
+            the_board.DisplayAdvice("[ADVICE_ZOMBIQUARIUM_BUY_SNORKEL]", 0, AdviceType::ADVICE_ZOMBIQUARIUM_BUY_SNORKEL as i32);
+        } else if a_score < 100 && the_board.mTutorialState == TutorialState::TUTORIAL_ZOMBIQUARIUM_BUY_SNORKEL as i32 {
+            the_board.TutorialArrowRemove();
+            the_board.ClearAdvice(AdviceType::ADVICE_ZOMBIQUARIUM_BUY_SNORKEL as i32);
+            the_board.mTutorialState = TutorialState::TUTORIAL_OFF as i32;
+        }
+
+        // C++: 教程：得分满 → 提示点击奖杯
+        if a_score >= ZOMBIQUARIUM_WINNING_SCORE && the_board.mTutorialState == TutorialState::TUTORIAL_ZOMBIQUARIUM_BOUGHT_SNORKEL as i32 {
+            the_board.mTutorialState = TutorialState::TUTORIAL_ZOMBIQUARIUM_CLICK_TROPHY as i32;
+            the_board.TutorialArrowShow(0.0, 0.0);
+            the_board.DisplayAdvice("[ADVICE_ZOMBIQUARIUM_CLICK_TROPHY]", 0, AdviceType::ADVICE_ZOMBIQUARIUM_CLICK_TROPHY as i32);
+        } else if a_score < ZOMBIQUARIUM_WINNING_SCORE && the_board.mTutorialState == TutorialState::TUTORIAL_ZOMBIQUARIUM_CLICK_TROPHY as i32 {
+            the_board.TutorialArrowRemove();
+            the_board.ClearAdvice(AdviceType::ADVICE_ZOMBIQUARIUM_CLICK_TROPHY as i32);
+            the_board.mTutorialState = TutorialState::TUTORIAL_ZOMBIQUARIUM_BOUGHT_SNORKEL as i32;
+        }
+
+        // C++: 大脑下落
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_BRAIN {
+                (*a_grid_item).mGridItemCounter += 1;
+                (*a_grid_item).mPosY += 0.15;
+                if (*a_grid_item).mPosY >= 500.0 {
+                    (*a_grid_item).GridItemDie();
+                }
+            }
+        }
     }
 
     /// C++ Challenge::TreeOfWisdomUpdate — 智慧树更新
