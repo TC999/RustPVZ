@@ -522,27 +522,123 @@ impl Challenge {
             self.UpdateConveyorBelt();
         }
 
-        // Dispatch to mode-specific updates
-        match app.mGameMode as i32 {
-            x if x == GameMode::GAMEMODE_CHALLENGE_BEGHOULED as i32
-                || x == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST as i32 => {}
-            _x if (*app).IsScaryPotterLevel() => {}
-            _x if (*app).IsWhackAZombieLevel() => {}
-            _x if (*app).IsIZombieLevel() => {}
-            _x if (*app).IsSlotMachineLevel() => {}
-            x if x == GameMode::GAMEMODE_CHALLENGE_SPEED as i32 => {
-                board.UpdateGame();
+        // C++ Challenge.cpp:2155 — Beghouled 更新
+        if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_BEGHOULED as i32
+            || app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST as i32
+        {
+            self.UpdateBeghouled();
+        }
+
+        // C++: 恐怖罐更新
+        if (*app).IsScaryPotterLevel() {
+            self.ScaryPotterUpdate();
+        }
+
+        // C++: 恐怖罐/打地鼠关卡中种子银行从屏幕下方滑入
+        if (*app).IsScaryPotterLevel() || (*app).IsWhackAZombieLevel() {
+            let a_seed_bank = board.mSeedBank;
+            if !a_seed_bank.is_null() && (*a_seed_bank).mY < 0 {
+                if board.mSunMoney + board.CountSunBeingCollected() > 0
+                    || (*a_seed_bank).mY > 80 /* IMAGE_SEEDBANK->mWidth */
+                {
+                    (*a_seed_bank).mY += 2;
+                    if (*a_seed_bank).mY > 0 {
+                        (*a_seed_bank).mY = 0;
+                    }
+                }
             }
-            x if x == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS as i32 => {}
-            x if x == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT as i32 => {}
-            x if x == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM as i32 => {}
-            x if x == GameMode::GAMEMODE_TREE_OF_WISDOM as i32 => {}
-            x if x == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32 => {}
-            _ => {}
+        }
+
+        // C++: 打地鼠更新
+        if (*app).IsWhackAZombieLevel() {
+            self.WhackAZombieUpdate();
+        }
+        // C++: IZombie 更新
+        if (*app).IsIZombieLevel() {
+            self.IZombieUpdate();
+        }
+        // C++: 老虎机更新
+        if (*app).IsSlotMachineLevel() {
+            self.UpdateSlotMachine();
+        }
+        // C++: 极速模式
+        if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_SPEED as i32 {
+            board.UpdateGame();
+        }
+        // C++: 种子雨
+        if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS as i32 {
+            self.UpdateRainingSeeds();
+        }
+        // C++: 传送门
+        if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT as i32 {
+            self.UpdatePortalCombat();
+        }
+        // C++: 僵尸水族馆
+        if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM as i32 {
+            self.ZombiquariumUpdate();
+        }
+        // C++: 智慧树
+        if app.mGameMode as i32 == GameMode::GAMEMODE_TREE_OF_WISDOM as i32 {
+            self.TreeOfWisdomUpdate();
+        }
+        // C++: 冰道关卡 3000 帧提示（音效）
+        if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ICE as i32 && board.mMainCounter == 3000 {
+            // [TODO]: mApp->PlayFoley(FOLEY_FLOOP); mApp->PlaySample(SOUND_LOSEMUSIC)
+        }
+        // C++: 最后一战
+        if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32 {
+            self.LastStandUpdate();
         }
 
         // ReanimChallenge update
         // Reanimation* aReanim = app->ReanimationTryToGet(mReanimChallenge);
+        // [TODO]: Reanimation 更新
+    }
+
+    /// C++ Challenge::UpdateBeghouled (Challenge.cpp:1413) — 宝石迷阵更新
+    pub unsafe fn UpdateBeghouled(&mut self) {
+        // [TODO]: Beghouled 交互状态机（拖动/消除/掉落）
+        self.BeghouledCheckStuckState();
+    }
+
+    /// C++ Challenge::ScaryPotterUpdate — 恐怖罐更新
+    pub unsafe fn ScaryPotterUpdate(&mut self) {
+        // [TODO]: ScaryPotter 系列
+    }
+
+    /// C++ Challenge::WhackAZombieUpdate — 打地鼠更新
+    pub unsafe fn WhackAZombieUpdate(&mut self) {
+        // [TODO]: WhackAZombie 系列
+    }
+
+    /// C++ Challenge::IZombieUpdate — IZombie 更新
+    pub unsafe fn IZombieUpdate(&mut self) {
+        // [TODO]: IZombie 系列
+    }
+
+    /// C++ Challenge::UpdateRainingSeeds — 种子雨更新
+    pub unsafe fn UpdateRainingSeeds(&mut self) {
+        // [TODO]: RainingSeeds 系列
+    }
+
+    /// C++ Challenge::UpdatePortalCombat — 传送门更新
+    pub unsafe fn UpdatePortalCombat(&mut self) {
+        // [TODO]: PortalCombat 系列
+    }
+
+    /// C++ Challenge::ZombiquariumUpdate — 僵尸水族馆更新
+    pub unsafe fn ZombiquariumUpdate(&mut self) {
+        // [TODO]: Zombiquarium 系列
+    }
+
+    /// C++ Challenge::TreeOfWisdomUpdate — 智慧树更新
+    pub unsafe fn TreeOfWisdomUpdate(&mut self) {
+        // [TODO]: TreeOfWisdom 系列
+    }
+
+    /// C++ Challenge::LastStandUpdate — 最后一战更新
+    pub unsafe fn LastStandUpdate(&mut self) {
+        // [TODO]: LastStand 系列
     }
 
     /// C++ Challenge::UpdateConveyorBelt() (from Challenge.cpp:1616)
