@@ -291,6 +291,15 @@ pub enum DamageRangeFlags {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
+pub enum FilterEffect {
+    FILTER_EFFECT_NONE = -1,
+    FILTER_EFFECT_WASHED_OUT,
+    FILTER_EFFECT_LESS_WASHED_OUT,
+    FILTER_EFFECT_WHITE,
+    NUM_FILTER_EFFECTS,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
 pub enum Dialogs {
     DIALOG_NEW_GAME,
     DIALOG_OPTIONS,

@@ -1249,9 +1249,126 @@ impl Challenge {
         }
     }
 
-    /// C++ Challenge::IZombieUpdate — IZombie 更新
+    /// C++ Challenge::IZombieSeedTypeToZombieType (Challenge.cpp:4233) — 种子转僵尸类型
+    pub fn IZombieSeedTypeToZombieType(the_seed_type: SeedType) -> ZombieType {
+        match the_seed_type {
+            SeedType::SEED_ZOMBIE_NORMAL => ZombieType::ZOMBIE_NORMAL,
+            SeedType::SEED_ZOMBIE_TRAFFIC_CONE => ZombieType::ZOMBIE_TRAFFIC_CONE,
+            SeedType::SEED_ZOMBIE_POLEVAULTER => ZombieType::ZOMBIE_POLEVAULTER,
+            SeedType::SEED_ZOMBIE_PAIL => ZombieType::ZOMBIE_PAIL,
+            SeedType::SEED_ZOMBIE_LADDER => ZombieType::ZOMBIE_LADDER,
+            SeedType::SEED_ZOMBIE_DIGGER => ZombieType::ZOMBIE_DIGGER,
+            SeedType::SEED_ZOMBIE_BUNGEE => ZombieType::ZOMBIE_BUNGEE,
+            SeedType::SEED_ZOMBIE_FOOTBALL => ZombieType::ZOMBIE_FOOTBALL,
+            SeedType::SEED_ZOMBIE_BALLOON => ZombieType::ZOMBIE_BALLOON,
+            SeedType::SEED_ZOMBIE_SCREEN_DOOR => ZombieType::ZOMBIE_DOOR,
+            SeedType::SEED_ZOMBONI => ZombieType::ZOMBIE_ZAMBONI,
+            SeedType::SEED_ZOMBIE_POGO => ZombieType::ZOMBIE_POGO,
+            SeedType::SEED_ZOMBIE_DANCER => ZombieType::ZOMBIE_DANCER,
+            SeedType::SEED_ZOMBIE_GARGANTUAR => ZombieType::ZOMBIE_GARGANTUAR,
+            SeedType::SEED_ZOMBIE_IMP => ZombieType::ZOMBIE_IMP,
+            _ => ZombieType::ZOMBIE_NORMAL,
+        }
+    }
+
+    /// C++ Challenge::IZombiePlaceZombie (Challenge.cpp:4258) — 放置僵尸
+    pub unsafe fn IZombiePlaceZombie(&mut self, the_zombie_type: ZombieType, the_grid_x: i32, the_grid_y: i32) {
+        let the_board = &mut *self.mBoard;
+        let a_zombie = the_board.AddZombieInRow(the_zombie_type, the_grid_y, 0);
+        if a_zombie.is_null() {
+            return;
+        }
+
+        if the_zombie_type == ZombieType::ZOMBIE_BUNGEE {
+            // C++: 蹦极僵尸定点放置
+            (*a_zombie).m_target_col = the_grid_x;
+            (*a_zombie).SetRow(the_grid_y);
+            (*a_zombie).m_pos_x = the_board.GridToPixelX(the_grid_x, the_grid_y) as f32;
+            (*a_zombie).m_pos_y = (*a_zombie).GetPosYBasedOnRow(the_grid_y);
+            (*a_zombie).base.m_render_order = crate::lawn::board::Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_GRAVE_STONE, the_grid_y, 7);
+        } else {
+            // C++: aZombie->mPosX = mBoard->GridToPixelX(theGridX, theGridY) - 30.0f;
+            (*a_zombie).m_pos_x = the_board.GridToPixelX(the_grid_x, the_grid_y) as f32 - 30.0;
+        }
+    }
+
+    /// C++ Challenge::IZombieStart (Challenge.cpp:4640)
+    pub unsafe fn IZombieStart(&mut self) {
+        let the_board = &mut *self.mBoard;
+        the_board.DisplayAdvice("[ADVICE_I_ZOMBIE_EAT_ALL_BRAINS]", 0, AdviceType::ADVICE_I_ZOMBIE_EAT_ALL_BRAINS as i32);
+    }
+
+    /// C++ Challenge::IZombieUpdate (Challenge.cpp:4645) — IZombie 更新
     pub unsafe fn IZombieUpdate(&mut self) {
-        // [TODO]: IZombie 系列
+        let the_board = &mut *self.mBoard;
+        let a_sun_money = the_board.mSunMoney + the_board.CountSunBeingCollected();
+
+        // C++: 空闲僵尸随机变速
+        let mut a_zombie: *mut crate::lawn::zombie::Zombie = std::ptr::null_mut();
+        while the_board.IterateZombies(&mut a_zombie) {
+            if !(*a_zombie).IsDeadOrDying()
+                && (*a_zombie).m_zombie_phase != ZombiePhase::PHASE_POLEVAULTER_IN_VAULT
+                && !(*a_zombie).m_is_eating
+                && (*a_zombie).m_just_got_shot_counter < -500
+            {
+                (*a_zombie).PickRandomSpeed();
+            }
+        }
+
+        // C++: 活跃植物检测（倭瓜/大嘴花）
+        let mut an_active = false;
+        let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+        while the_board.IteratePlants(&mut a_plant) {
+            let a_state = (*a_plant).m_state;
+            if a_state == crate::lawn::plant::PlantState::STATE_SQUASH_FALLING
+                || a_state == crate::lawn::plant::PlantState::STATE_SQUASH_DONE_FALLING
+                || a_state == crate::lawn::plant::PlantState::STATE_CHOMPER_BITING
+                || a_state == crate::lawn::plant::PlantState::STATE_CHOMPER_BITING_GOT_ONE
+            {
+                an_active = true;
+            }
+        }
+        // [TODO]: IterateParticles + PARTICLE_POTATO_MINE 检测（粒子系统未翻译）
+
+        // C++: 可用阳光检测
+        let mut a_has_available_sun = false;
+        let mut a_coin_for_sun: *mut crate::lawn::coin::Coin = std::ptr::null_mut();
+        while the_board.IterateCoins(&mut a_coin_for_sun) {
+            if (*a_coin_for_sun).IsSun() && !(*a_coin_for_sun).m_is_being_collected && !(*a_coin_for_sun).m_dead {
+                a_has_available_sun = true;
+                break;
+            }
+        }
+
+        // C++: 无僵尸 + 阳光不足 50 + 无活跃动作 → 僵尸获胜
+        if the_board.mZombies.m_size == 0
+            && a_sun_money < 50
+            && !the_board.mLevelAwardSpawned
+            && !an_active
+            && !a_has_available_sun
+        {
+            let mut a_coin: *mut crate::lawn::coin::Coin = std::ptr::null_mut();
+            while the_board.IterateCoins(&mut a_coin) {
+                if (*a_coin).IsMoney() {
+                    (*a_coin).Die();
+                }
+            }
+
+            the_board.ZombiesWon(std::ptr::null_mut());
+        }
+    }
+
+    /// C++ Challenge::IZombieSetPlantFilterEffect (Challenge.cpp:4726) — 植物滤镜
+    pub unsafe fn IZombieSetPlantFilterEffect(&mut self, the_plant: *mut crate::lawn::plant::Plant, _the_filter_effect: FilterEffect) {
+        if the_plant.is_null() {
+            return;
+        }
+        // C++: 遍历植物 4 个 Reanimation（body/head/head2/head3）设置 mFilterEffect
+        // [TODO]: Reanimation 系统翻译后实现
+        let _ = (*the_plant).m_body_reanim_id;
+        let _ = (*the_plant).m_head_reanim_id;
+        let _ = (*the_plant).m_head_reanim_id2;
+        let _ = (*the_plant).m_head_reanim_id3;
     }
 
     /// C++ Challenge::UpdateRainingSeeds (Challenge.cpp:1919) — 种子雨更新
