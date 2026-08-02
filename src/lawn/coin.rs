@@ -3,6 +3,7 @@
 
 use crate::const_enums::*;
 use super::game_object::GameObject;
+use crate::sexy_tod_lib::tod_foley::FoleyType;
 
 #[derive(Clone)]
 pub struct PottedPlant {
@@ -189,6 +190,125 @@ impl Coin {
         }
     }
 
+    /// C++ Coin::StartFade (Coin.cpp:467)
+    pub fn StartFade(&mut self) {
+        self.m_fade_count = 15;
+    }
+
+    /// C++ Coin::GetSunScale (Coin.cpp:1298)
+    pub fn GetSunScale(&self) -> f32 {
+        if self.m_type == CoinType::COIN_SMALLSUN {
+            0.5
+        } else if self.m_type == CoinType::COIN_LARGESUN {
+            2.0
+        } else {
+            1.0
+        }
+    }
+
+    /// C++ Coin::CoinGetsBouncyArrow (Coin.cpp:1488) — 是否显示弹跳箭头
+    pub unsafe fn CoinGetsBouncyArrow(&self) -> bool {
+        if self.IsLevelAward() {
+            return true;
+        }
+
+        if self.m_type == CoinType::COIN_SILVER || self.m_type == CoinType::COIN_GOLD {
+            let the_app = g_app();
+            if (*the_app).IsFirstTimeAdventureMode() {
+                if let Some(board) = &(*the_app).m_board {
+                    // C++: mBoard && mBoard->mLevel == 11 && !mBoard->mDroppedFirstCoin
+                    if board.mLevel == 11 && !board.mDroppedFirstCoin {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        self.IsPresentWithAdvice()
+    }
+
+    /// C++ Coin::PlayCollectSound (Coin.cpp:1336) — 收集音效
+    pub unsafe fn PlayCollectSound(&mut self) {
+        let the_app = g_app();
+        if self.m_type == CoinType::COIN_USABLE_SEED_PACKET {
+            // [TODO]: mApp->PlaySample(SOUND_SEEDLIFT)
+            return;
+        }
+
+        if self.m_type == CoinType::COIN_SILVER || self.m_type == CoinType::COIN_GOLD {
+            (*the_app).PlayFoley(FoleyType::FOLEY_COIN);
+            return;
+        }
+
+        if self.m_type == CoinType::COIN_DIAMOND {
+            // [TODO]: mApp->PlaySample(SOUND_DIAMOND)
+            return;
+        }
+
+        if self.IsSun() {
+            (*the_app).PlayFoley(FoleyType::FOLEY_SUN);
+            return;
+        }
+
+        if self.m_type == CoinType::COIN_CHOCOLATE
+            || self.m_type == CoinType::COIN_PRESENT_PLANT
+            || self.IsPresentWithAdvice()
+            || self.m_type == CoinType::COIN_AWARD_PRESENT
+            || self.m_type == CoinType::COIN_AWARD_CHOCOLATE
+        {
+            (*the_app).PlayFoley(FoleyType::FOLEY_PRIZE);
+            return;
+        }
+
+        // C++: 兜底（Coin.cpp:1372-1375）
+        if self.IsSun() {
+            (*the_app).PlayFoley(FoleyType::FOLEY_SUN);
+        }
+    }
+
+    /// C++ Coin::FanOutCoins (Coin.cpp:1011) — 从礼物中扇形弹出金币
+    pub unsafe fn FanOutCoins(&mut self, the_coin_type: CoinType, the_num_coins: i32) {
+        let the_app = g_app();
+        if let Some(board) = &mut (*the_app).m_board {
+            let mut i = 0;
+            while i < the_num_coins {
+                // C++: float aAngle = PI / 2 + PI * (i + 1) / (theNumCoins + 1);
+                let a_angle = std::f32::consts::PI / 2.0
+                    + std::f32::consts::PI * (i as f32 + 1.0) / (the_num_coins as f32 + 1.0);
+                let a_pos_x = self.m_pos_x + 20.0;
+                let a_pos_y = self.m_pos_y;
+                let a_coin = board.AddCoin(a_pos_x as i32, a_pos_y as i32, the_coin_type, CoinMotion::COIN_MOTION_FROM_PRESENT);
+                if !a_coin.is_null() {
+                    // C++: aCoin->mVelX = 5.0f * sin(aAngle); aCoin->mVelY = 5.0f * cos(aAngle);
+                    (*a_coin).m_vel_x = 5.0 * a_angle.sin();
+                    (*a_coin).m_vel_y = 5.0 * a_angle.cos();
+                }
+                i += 1;
+            }
+        }
+    }
+
+    /// C++ Coin::TryAutoCollectAfterLevelAward (Coin.cpp:1026) — 关卡奖励自动收集
+    pub unsafe fn TryAutoCollectAfterLevelAward(&mut self) {
+        let mut a_can_be_auto_collected = false;
+        if self.IsMoney() && self.m_coin_motion != CoinMotion::COIN_MOTION_FROM_PRESENT {
+            a_can_be_auto_collected = true;
+        }
+        if self.IsSun() {
+            a_can_be_auto_collected = true;
+        }
+        if self.m_type == CoinType::COIN_PRESENT_PLANT
+            || self.m_type == CoinType::COIN_CHOCOLATE
+            || self.IsPresentWithAdvice()
+        {
+            a_can_be_auto_collected = true;
+        }
+
+        if a_can_be_auto_collected {
+            self.PlayCollectSound();
+            self.Collect(self.m_pos_x, self.m_pos_y);
+        }
+    }
     /// C++ Coin::ScoreCoin (Coin.cpp:435) — 金币/阳光计分
     pub unsafe fn ScoreCoin(&mut self) {
         self.Die();
