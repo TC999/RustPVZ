@@ -169,20 +169,61 @@ impl Coin {
     }
 
     pub fn IsPresentWithAdvice(&self) -> bool {
-        self.m_type == CoinType::COIN_FINAL_SEED_PACKET
-            || self.m_type == CoinType::COIN_SHOVEL
-            || self.m_type == CoinType::COIN_CARKEYS
-            || self.m_type == CoinType::COIN_ALMANAC
-            || self.m_type == CoinType::COIN_TACO
-            || self.m_type == CoinType::COIN_NOTE
-            || self.m_type == CoinType::COIN_WATERING_CAN
-            || self.m_type == CoinType::COIN_VASE
-            || self.m_type == CoinType::COIN_AWARD_CHOCOLATE
-            || self.m_type == CoinType::COIN_AWARD_MONEY_BAG
-            || self.m_type == CoinType::COIN_AWARD_BAG_DIAMOND
-            || self.m_type == CoinType::COIN_AWARD_PRESENT
-            || self.m_type == CoinType::COIN_CHOCOLATE
-            || self.m_type == CoinType::COIN_PRESENT_PLANT
+        // C++ Coin.cpp:429-432: COIN_PRESENT_MINIGAMES || COIN_PRESENT_PUZZLE_MODE || COIN_PRESENT_SURVIVAL_MODE
+        self.m_type == CoinType::COIN_PRESENT_MINIGAMES
+            || self.m_type == CoinType::COIN_PRESENT_PUZZLE_MODE
+            || self.m_type == CoinType::COIN_PRESENT_SURVIVAL_MODE
+    }
+
+    /// C++ Coin::GetSunValue (Coin.cpp:1303)
+    pub fn GetSunValue(&self) -> i32 {
+        // C++: COIN_SUN ? 25 : COIN_SMALLSUN ? 15 : COIN_LARGESUN ? 50 : 0
+        if self.m_type == CoinType::COIN_SUN {
+            25
+        } else if self.m_type == CoinType::COIN_SMALLSUN {
+            15
+        } else if self.m_type == CoinType::COIN_LARGESUN {
+            50
+        } else {
+            0
+        }
+    }
+
+    /// C++ Coin::ScoreCoin (Coin.cpp:435) — 金币/阳光计分
+    pub unsafe fn ScoreCoin(&mut self) {
+        self.Die();
+
+        if self.IsSun() {
+            let a_sun_value = self.GetSunValue();
+            let the_app = g_app();
+            if let Some(ref mut board) = (*the_app).m_board {
+                board.AddSunMoney(a_sun_value);
+            }
+        } else if self.IsMoney() {
+            let a_coin_value = Coin::GetCoinValue(self.m_type);
+            let the_app = g_app();
+            if !(*the_app).m_player_info.is_null() {
+                (*(*the_app).m_player_info).AddCoins(a_coin_value);
+            }
+            if let Some(ref mut board) = (*the_app).m_board {
+                board.mCoinsCollected += a_coin_value as u32;
+
+                // C++: 银币/金币计数 + 30 枚成就
+                if self.m_type == CoinType::COIN_SILVER || self.m_type == CoinType::COIN_GOLD {
+                    board.mLevelCoinsCollected += 1;
+                    if board.mLevelCoinsCollected == 30 {
+                        // [TODO]: ReportAchievement::GiveAchievement(PennyPincher, true)
+                    }
+                }
+            }
+        }
+
+        if self.m_type == CoinType::COIN_DIAMOND {
+            let the_app = g_app();
+            if let Some(ref mut board) = (*the_app).m_board {
+                board.mDiamondsCollected += 1;
+            }
+        }
     }
 
     // =========================================================================
