@@ -56,6 +56,7 @@ pub struct Challenge {
     pub m_beghouled_mouse_down_x: i32,
     pub m_beghouled_mouse_down_y: i32,
     pub m_beghouled_matches_this_move: i32,
+    pub m_scary_potter_pots: i32,
 }
 
 impl Challenge {
@@ -78,6 +79,7 @@ impl Challenge {
             m_beghouled_mouse_down_x: 0,
             m_beghouled_mouse_down_y: 0,
             m_beghouled_matches_this_move: 0,
+            m_scary_potter_pots: 0,
         }
     }
 
@@ -595,15 +597,443 @@ impl Challenge {
         // [TODO]: Reanimation 更新
     }
 
+    // =========================================================================
+    // ★ ScaryPotter（恐怖罐）系列 — C++ Challenge.cpp 保真翻译
+    // =========================================================================
+
+    /// C++: Challenge::ScaryPotterDontPlaceInCol (Challenge.cpp:3692)
+    pub unsafe fn ScaryPotterDontPlaceInCol(&mut self, the_col: i32, the_grid_array: &mut [crate::sexy_tod_lib::tod_common::TodWeightedGridArray], the_grid_array_count: i32) {
+        let mut i = 0;
+        while i < the_grid_array_count {
+            if the_grid_array[i as usize].m_x == the_col {
+                the_grid_array[i as usize].m_weight = 0;
+            }
+            i += 1;
+        }
+    }
+
+    /// C++: Challenge::ScaryPotterFillColumnWithPlant (Challenge.cpp:3703)
+    pub unsafe fn ScaryPotterFillColumnWithPlant(&mut self, the_col: i32, the_seed_type: SeedType, the_grid_array: &mut [crate::sexy_tod_lib::tod_common::TodWeightedGridArray], the_grid_array_count: i32) {
+        self.ScaryPotterDontPlaceInCol(the_col, the_grid_array, the_grid_array_count);
+
+        // C++: for (int i = 0; i < MAX_GRID_SIZE_Y - 1; i++)
+        let mut i = 0;
+        while i < crate::lawn::board_consts::MAX_GRID_SIZE_Y - 1 {
+            let the_board = &mut *self.mBoard;
+            let a_plant = the_board.NewPlant(the_col, i, the_seed_type as i32, SeedType::SEED_NONE as i32);
+            if !a_plant.is_null() && the_seed_type == SeedType::SEED_POTATOMINE {
+                (*a_plant).m_state_countdown = 10;
+            }
+            i += 1;
+        }
+    }
+
+    /// C++: Challenge::ScaryPotterPlacePot (Challenge.cpp:3718)
+    pub unsafe fn ScaryPotterPlacePot(&mut self, the_scary_pot_type: ScaryPotType, the_zombie_type: ZombieType, the_seed_type: SeedType, the_count: i32, the_grid_array: &mut [crate::sexy_tod_lib::tod_common::TodWeightedGridArray], the_grid_array_count: i32) {
+        let a_pot_type = the_scary_pot_type;
+        let mut the_count = the_count;
+        while the_count > 0 {
+            // C++: TodWeightedGridArray* aGrid = TodPickFromWeightedGridArray(theGridArray, theGridArrayCount);
+            let a_grid: *mut crate::sexy_tod_lib::tod_common::TodWeightedGridArray = match crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_grid_array(the_grid_array) {
+                Some(g) => g,
+                None => std::ptr::null_mut(),
+            };
+            if a_grid.is_null() {
+                break;
+            }
+
+            let the_board = &mut *self.mBoard;
+            let a_scary_pot = the_board.mGridItems.data_array_alloc();
+            if a_scary_pot.is_null() {
+                break;
+            }
+            // C++: aScaryPot->mGridItemType = GRIDITEM_SCARY_POT;
+            (*a_scary_pot).mGridItemType = GridItemType::GRIDITEM_SCARY_POT;
+            // C++: aScaryPot->mGridItemState = GRIDITEM_STATE_SCARY_POT_QUESTION;
+            (*a_scary_pot).mGridItemState = 3; /* GRIDITEM_STATE_SCARY_POT_QUESTION */
+            (*a_scary_pot).mGridX = (*a_grid).m_x;
+            (*a_scary_pot).mGridY = (*a_grid).m_y;
+            (*a_grid).m_weight = 0;
+            (*a_scary_pot).mRenderOrder = crate::lawn::board::Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PLANT, (*a_grid).m_y, 0);
+            (*a_scary_pot).mZombieType = the_zombie_type;
+            (*a_scary_pot).mSeedType = the_seed_type;
+            (*a_scary_pot).mScaryPotType = a_pot_type;
+            if a_pot_type == ScaryPotType::SCARYPOT_SUN {
+                // C++: aScaryPot->mSunCount = Rand(3) + 1;
+                (*a_scary_pot).mSunCount = crate::sexy_app_framework::common::rand_int() % 3 + 1;
+            }
+            the_count -= 1;
+        }
+    }
+
+    /// C++: Challenge::ScaryPotterChangePotType (Challenge.cpp:3742)
+    pub unsafe fn ScaryPotterChangePotType(&mut self, the_pot_type: i32, the_count: i32) {
+        let mut a_pot_array: [crate::sexy_tod_lib::tod_common::TodWeightedArray; 54] = [
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+        ];
+        let mut a_pot_count = 0;
+
+        let the_board = &mut *self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_SCARY_POT {
+                // C++: 选择指定类型的罐子（LEAF 对应 SCARYPOT_SEED，ZOMBIE 对应伽刚特尔）
+                if (the_pot_type == 4 /* GRIDITEM_STATE_SCARY_POT_LEAF */ && (*a_grid_item).mScaryPotType == ScaryPotType::SCARYPOT_SEED)
+                    || (the_pot_type == 5 /* GRIDITEM_STATE_SCARY_POT_ZOMBIE */ && (*a_grid_item).mZombieType == ZombieType::ZOMBIE_GARGANTUAR)
+                {
+                    a_pot_array[a_pot_count].m_item = a_grid_item as isize;
+                    a_pot_array[a_pot_count].m_weight = 1;
+                    a_pot_count += 1;
+                }
+            }
+        }
+
+        // C++: theCount = std::min(theCount, aPotCount);
+        let the_count = the_count.min(a_pot_count as i32);
+
+        let mut i = 0;
+        while i < the_count {
+            // C++: TodPickArrayItemFromWeightedArray(aPotArray, aPotCount)
+            let a_scary_pot_array = crate::sexy_tod_lib::tod_common::tod_pick_array_item_from_weighted_array(&mut a_pot_array[..a_pot_count as usize]);
+            if a_scary_pot_array.is_null() {
+                break;
+            }
+            (*a_scary_pot_array).m_weight = 0;
+            // C++: ((GridItem*)aScaryPotArray->mItem)->mGridItemState = thePotType;
+            let a_pot_grid = (*a_scary_pot_array).m_item as *mut crate::lawn::grid_item::GridItem;
+            (*a_pot_grid).mGridItemState = the_pot_type;
+            i += 1;
+        }
+    }
+
+    /// C++: Challenge::ScaryPotterCountPots (Challenge.cpp:4052)
+    pub unsafe fn ScaryPotterCountPots(&self) -> i32 {
+        let mut a_count = 0;
+        let the_board = &*self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_SCARY_POT {
+                a_count += 1;
+            }
+        }
+        a_count
+    }
+
+    /// C++: Challenge::ScaryPotterIsCompleted (Challenge.cpp:4003)
+    pub unsafe fn ScaryPotterIsCompleted(&self) -> i32 {
+        let the_board = &*self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_SCARY_POT {
+                return 0;
+            }
+        }
+
+        if the_board.AreEnemyZombiesOnScreen() { 0 } else { 1 }
+    }
+
+    /// C++: Challenge::ScaryPotterStart (Challenge.cpp:3995)
+    pub unsafe fn ScaryPotterStart(&mut self) {
+        if (*self.mApp).is_adventure_mode() {
+            let the_board = &mut *self.mBoard;
+            the_board.DisplayAdvice("[ADVICE_USE_SHOVEL_ON_POTS]", 0, AdviceType::ADVICE_USE_SHOVEL_ON_POTS as i32);
+        }
+    }
+
+    /// C++: Challenge::ScaryPotterMalletPot (Challenge.cpp:4039)
+    pub unsafe fn ScaryPotterMalletPot(&mut self, the_scary_pot: *mut crate::lawn::grid_item::GridItem) {
+        if the_scary_pot.is_null() {
+            return;
+        }
+        self.mChallengeGridX = (*the_scary_pot).mGridX;
+        self.mChallengeGridY = (*the_scary_pot).mGridY;
+        let the_board = &mut *self.mBoard;
+        let a_x_pos = the_board.GridToPixelX((*the_scary_pot).mGridX, (*the_scary_pot).mGridY);
+        let a_y_pos = the_board.GridToPixelY((*the_scary_pot).mGridX, (*the_scary_pot).mGridY);
+        // [TODO]: AddReanimation(aXPos, aYPos, RENDER_LAYER_TOP, REANIM_HAMMER) + PlayReanim("anim_pot_open")
+        self.mChallengeState = ChallengeState::STATECHALLENGE_SCARY_POTTER_MALLETING;
+        // [TODO]: mApp->PlayFoley(FOLEY_SWING)
+    }
+
+    /// C++: Challenge::ScaryPotterOpenPot (Challenge.cpp:4109)
+    pub unsafe fn ScaryPotterOpenPot(&mut self, the_scary_pot: *mut crate::lawn::grid_item::GridItem) {
+        if the_scary_pot.is_null() {
+            return;
+        }
+        // C++: 按罐子类型发放内容（种子/僵尸/阳光）
+        let the_board = &mut *self.mBoard;
+        let a_pos_x = the_board.GridToPixelX((*the_scary_pot).mGridX, (*the_scary_pot).mGridY);
+        let a_pos_y = the_board.GridToPixelY((*the_scary_pot).mGridX, (*the_scary_pot).mGridY);
+        match (*the_scary_pot).mScaryPotType {
+            ScaryPotType::SCARYPOT_SEED => {
+                // [TODO]: 释放种子植物（NewPlant）
+                let _ = a_pos_x;
+                let _ = a_pos_y;
+            }
+            ScaryPotType::SCARYPOT_ZOMBIE => {
+                // [TODO]: AddZombieInRow(僵尸类型) + GridItemDie
+            }
+            ScaryPotType::SCARYPOT_SUN => {
+                // [TODO]: 按 mSunCount 掉落阳光
+                let _ = a_pos_x;
+            }
+            ScaryPotType::SCARYPOT_NONE => {}
+        }
+        // [TODO]: GridItemDie + 粒子
+    }
+    /// C++: Challenge::ScaryPotterPopulate (Challenge.cpp:3772) — 生成恐怖罐棋盘
+    pub unsafe fn ScaryPotterPopulate(&mut self) {
+        let mut a_grid_array: [crate::sexy_tod_lib::tod_common::TodWeightedGridArray; 54] = [
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+        ];
+        let mut a_grid_array_count = 0;
+
+        // C++: 遍历 9x5 网格建立权重数组
+        let mut a_grid_x = 0;
+        while a_grid_x < crate::lawn::board_consts::MAX_GRID_SIZE_X {
+            let mut a_grid_y = 0;
+            while a_grid_y < crate::lawn::board_consts::MAX_GRID_SIZE_Y - 1 {
+                a_grid_array[a_grid_array_count as usize].m_x = a_grid_x;
+                a_grid_array[a_grid_array_count as usize].m_y = a_grid_y;
+                a_grid_array[a_grid_array_count as usize].m_weight = 1;
+                a_grid_array_count += 1;
+                a_grid_y += 1;
+            }
+            a_grid_x += 1;
+        }
+
+        // C++: 冒险模式第 35 关（3 阶段）
+        if (*self.mApp).is_adventure_mode() && !self.mBoard.is_null() && (*self.mBoard).mLevel == 35 {
+            match self.mSurvivalStage {
+                0 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PEASHOOTER, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                }
+                1 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PEASHOOTER, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_FOOTBALL, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                2 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PEASHOOTER, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_HYPNOSHROOM, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_DANCER, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 3);
+                }
+                _ => {}
+            }
+        } else {
+            // C++: 各恐怖罐挑战关卡配置
+            match (*self.mApp).mGameMode {
+                GameMode::GAMEMODE_SCARY_POTTER_1 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PEASHOOTER, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_2 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(8, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 7, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_WALLNUT, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_POTATOMINE, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_3 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_HYPNOSHROOM, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_WALLNUT, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 8, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_DANCER, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_4 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PUFFSHROOM, 11, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_HYPNOSHROOM, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 8, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 7, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_FOOTBALL, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_5 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PUMPKINSHELL, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_HYPNOSHROOM, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_MAGNETSHROOM, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_FOOTBALL, SeedType::SEED_NONE, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_6 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 7, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_TALLNUT, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_THREEPEATER, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_TORCHWOOD, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 7, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_POLEVAULTER, SeedType::SEED_NONE, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_FOOTBALL, SeedType::SEED_NONE, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_7 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SPIKEWEED, 13, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_WALLNUT, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 10, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_8 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PUFFSHROOM, 7, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_WALLNUT, 3, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 8, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_POGO, SeedType::SEED_NONE, 4, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_9 => {
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PEASHOOTER, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_THREEPEATER, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_POTATOMINE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_WALLNUT, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PLANTERN, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 8, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_GARGANTUAR, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                }
+                GameMode::GAMEMODE_SCARY_POTTER_ENDLESS => {
+                    // C++: int aNumExtraGargantuars = ClampInt(mSurvivalStage / 10, 0, 8);
+                    let a_num_extra_gargantuars = crate::sexy_tod_lib::tod_common::clamp_int(self.mSurvivalStage / 10, 0, 8);
+                    self.ScaryPotterDontPlaceInCol(0, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterDontPlaceInCol(1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_LEFTPEATER, 6, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SNOWPEA, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PEASHOOTER, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_THREEPEATER, 2, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_SQUASH, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_POTATOMINE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_WALLNUT, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SEED, ZombieType::ZOMBIE_INVALID, SeedType::SEED_PLANTERN, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_SUN, ZombieType::ZOMBIE_INVALID, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_NORMAL, SeedType::SEED_NONE, 8 - a_num_extra_gargantuars, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_PAIL, SeedType::SEED_NONE, 5, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_JACK_IN_THE_BOX, SeedType::SEED_NONE, 1, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterPlacePot(ScaryPotType::SCARYPOT_ZOMBIE, ZombieType::ZOMBIE_GARGANTUAR, SeedType::SEED_NONE, 1 + a_num_extra_gargantuars, &mut a_grid_array, a_grid_array_count);
+                    self.ScaryPotterChangePotType(4 /* LEAF */, 2);
+                    // [TODO]: mSurvivalStage == 15 成就 ChinaShop
+                }
+                _ => {}
+            }
+        }
+
+        // C++: mScaryPotterPots = ScaryPotterCountPots();
+        self.m_scary_potter_pots = self.ScaryPotterCountPots();
+    }
     /// C++ Challenge::UpdateBeghouled (Challenge.cpp:1413) — 宝石迷阵更新
     pub unsafe fn UpdateBeghouled(&mut self) {
         // [TODO]: Beghouled 交互状态机（拖动/消除/掉落）
         self.BeghouledCheckStuckState();
     }
 
-    /// C++ Challenge::ScaryPotterUpdate — 恐怖罐更新
+    /// C++ Challenge::ScaryPotterUpdate (Challenge.cpp:4017) — 恐怖罐更新
     pub unsafe fn ScaryPotterUpdate(&mut self) {
-        // [TODO]: ScaryPotter 系列
+        // C++: if (mChallengeState == STATECHALLENGE_SCARY_POTTER_MALLETING)
+        if self.mChallengeState == ChallengeState::STATECHALLENGE_SCARY_POTTER_MALLETING {
+            // [TODO]: Reanimation(mReanimChallenge)->mLoopCount > 0 检查
+            {
+                let the_board = &mut *self.mBoard;
+                let a_scary_pot = the_board.GetGridItemAt(GridItemType::GRIDITEM_SCARY_POT, self.mChallengeGridX, self.mChallengeGridY);
+                if !a_scary_pot.is_null() {
+                    self.ScaryPotterOpenPot(a_scary_pot);
+                }
+
+                self.mChallengeGridX = 0;
+                self.mChallengeGridY = 0;
+                // [TODO]: aMalletReanim->ReanimationDie();
+                self.mChallengeState = ChallengeState::STATECHALLENGE_NORMAL;
+            }
+        }
     }
 
     /// C++ Challenge::WhackAZombieUpdate — 打地鼠更新
