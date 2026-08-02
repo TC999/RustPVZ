@@ -13,6 +13,16 @@ pub struct ChosenSeed {
     pub mSeedType: SeedType,
     pub mSeedState: i32,
     pub mSeedPositionInChooser: i32,
+    pub mX: i32,
+    pub mY: i32,
+    pub mStartX: i32,
+    pub mStartY: i32,
+    pub mEndX: i32,
+    pub mEndY: i32,
+    pub mSeedIndexInBank: i32,
+    pub mCrazyDavePicked: bool,
+    pub mTimeStartMotion: i32,
+    pub mTimeEndMotion: i32,
 }
 
 pub struct SeedChooserScreen {
@@ -34,6 +44,7 @@ pub struct SeedChooserScreen {
     pub mChosenSeedIndex: i32,
     pub mChooseMode: i32,
     pub mRepickWarningDialog: *mut crate::lawn::widget::lawn_dialog::LawnDialog,
+    pub mSeedsInBank: i32,
 }
 
 impl SeedChooserScreen {
@@ -57,6 +68,7 @@ impl SeedChooserScreen {
             mChosenSeedIndex: -1,
             mChooseMode: 0,
             mRepickWarningDialog: std::ptr::null_mut(),
+            mSeedsInBank: 0,
         }
     }
     pub fn Draw(&self, g: &mut Graphics) { self.base.Draw(g); }
@@ -151,6 +163,163 @@ impl SeedChooserScreen {
         true
     }
 
+    /// C++ SeedChooserScreen::PickFromWeightedArrayUsingSpecialRandSeed (SeedChooserScreen.cpp:207)
+    pub fn PickFromWeightedArrayUsingSpecialRandSeed(&self, the_array: &[crate::sexy_tod_lib::tod_common::TodWeightedArray], the_count: i32, the_level_rng: &mut crate::sexy_app_framework::misc::mtrand::MTRand) -> isize {
+        let mut a_total_weight = 0;
+        let mut i = 0;
+        while i < the_count {
+            a_total_weight += the_array[i as usize].m_weight;
+            i += 1;
+        }
+
+        // C++: int aRndResult = theLevelRNG.Next(aTotalWeight);
+        let a_rnd_result = the_level_rng.next() % a_total_weight as u32;
+
+        let mut a_weight = 0;
+        let mut j = 0;
+        while j < the_count {
+            a_weight += the_array[j as usize].m_weight;
+            if a_weight > a_rnd_result as i32 {
+                return the_array[j as usize].m_item;
+            }
+            j += 1;
+        }
+        0
+    }
+
+    /// C++ SeedChooserScreen::SeedNotRecommendedToPick (SeedChooserScreen.cpp:326)
+    pub fn SeedNotRecommendedToPick(&self, the_seed_type: SeedType) -> u32 {
+        // C++: aRecFlags = mBoard->SeedNotRecommendedForLevel(theSeedType);
+        // [TODO]: SeedNotRecommendedForLevel 完整翻译
+        let a_rec_flags: u32 = 0;
+        // C++: if (TestBit(aRecFlags, NOT_RECOMMENDED_NOCTURNAL) && PickedPlantType(SEED_INSTANT_COFFEE))
+        // C++:     SetBit(aRecFlags, NOT_RECOMMENDED_NOCTURNAL, false);
+        let _ = the_seed_type;
+        a_rec_flags
+    }
+
+    /// C++ SeedChooserScreen::CrazyDavePickSeeds (SeedChooserScreen.cpp:225) — 疯狂戴夫选种
+    pub unsafe fn CrazyDavePickSeeds(&mut self) {
+        let mut a_seed_array: [crate::sexy_tod_lib::tod_common::TodWeightedArray; 100] = [crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }; 100];
+
+        // C++: 遍历 PEASHOOTER..NUM_SEEDS_IN_CHOOSER 设置权重
+        let mut a_seed_type = SeedType::SEED_PEASHOOTER as i32;
+        while a_seed_type < NUM_SEEDS_IN_CHOOSER {
+            let the_seed_type = std::mem::transmute::<i32, SeedType>(a_seed_type);
+            a_seed_array[a_seed_type as usize].m_item = a_seed_type as isize;
+            if !(*self.mApp).HasSeedType(the_seed_type)
+                || self.SeedNotRecommendedToPick(the_seed_type) != 0
+                || self.SeedNotAllowedToPick(the_seed_type)
+                || crate::lawn::plant::Plant::is_upgrade(the_seed_type)
+                || the_seed_type == SeedType::SEED_IMITATER
+                || the_seed_type == SeedType::SEED_UMBRELLA
+                || the_seed_type == SeedType::SEED_BLOVER
+            {
+                a_seed_array[a_seed_type as usize].m_weight = 0;
+            } else {
+                a_seed_array[a_seed_type as usize].m_weight = 1;
+            }
+            a_seed_type += 1;
+        }
+
+        // C++: 蹦极/投石车关卡解锁伞
+        let the_board = &mut *self.mBoard;
+        if the_board.mZombieAllowed[ZombieType::ZOMBIE_BUNGEE as usize]
+            || the_board.mZombieAllowed[ZombieType::ZOMBIE_CATAPULT as usize]
+        {
+            a_seed_array[SeedType::SEED_UMBRELLA as usize].m_weight = 1;
+        }
+        // C++: 气球/雾关卡解锁三叶草
+        if the_board.mZombieAllowed[ZombieType::ZOMBIE_BALLOON as usize] || the_board.StageHasFog() {
+            a_seed_array[SeedType::SEED_BLOVER as usize].m_weight = 1;
+        }
+        // C++: 屋顶关卡禁用火炬树桩
+        if the_board.StageHasRoof() {
+            a_seed_array[SeedType::SEED_TORCHWOOD as usize].m_weight = 0;
+        }
+
+        // C++: MTRand aLevelRNG = MTRand(mBoard->GetLevelRandSeed());
+        let mut a_level_rng = crate::sexy_app_framework::misc::mtrand::MTRand::new();
+        a_level_rng.srand_u32(the_board.GetLevelRandSeed() as u32);
+
+        // C++: 选 3 个种子放入银行
+        let mut i = 0;
+        while i < 3 {
+            let a_picked_seed = std::mem::transmute::<i32, SeedType>(self.PickFromWeightedArrayUsingSpecialRandSeed(&a_seed_array, NUM_SEEDS_IN_CHOOSER, &mut a_level_rng) as i32);
+            a_seed_array[a_picked_seed as usize].m_weight = 0;
+            let a_chosen_seed = &mut self.mChosenSeeds[a_picked_seed as usize];
+
+            let a_pos_x = the_board.GetSeedPacketPositionX(i);
+            a_chosen_seed.mX = a_pos_x;
+            a_chosen_seed.mY = 8;
+            a_chosen_seed.mStartX = a_pos_x;
+            a_chosen_seed.mStartY = 8;
+            a_chosen_seed.mEndX = a_pos_x;
+            a_chosen_seed.mEndY = 8;
+            a_chosen_seed.mSeedState = ChosenSeedState::SEED_IN_BANK as i32;
+            a_chosen_seed.mSeedIndexInBank = i;
+            a_chosen_seed.mCrazyDavePicked = true;
+            self.mSeedsInBank += 1;
+            i += 1;
+        }
+    }
+
+    /// C++ SeedChooserScreen::LandFlyingSeed (SeedChooserScreen.cpp:476)
+    pub unsafe fn LandFlyingSeed(&mut self, the_chosen_seed: &mut ChosenSeed) {
+        // [TODO]: 飞行种子落地动画
+        let _ = the_chosen_seed;
+    }
+
+    /// C++ SeedChooserScreen::CloseSeedChooser — 关闭选种界面
+    pub unsafe fn CloseSeedChooser(&mut self) {
+        // [TODO]: 关闭界面并开始关卡
+    }
+
+    /// C++ SeedChooserScreen::PickRandomSeeds (SeedChooserScreen.cpp:709)
+    pub unsafe fn PickRandomSeeds(&mut self) {
+        // C++: 为剩余种子包随机选种
+        let the_board = &mut *self.mBoard;
+        let a_num_packets = if the_board.mSeedBank.is_null() { 0 } else { (*the_board.mSeedBank).mNumPackets };
+        let mut an_index = self.mSeedsInBank;
+        while an_index < a_num_packets {
+            let a_seed_type: SeedType = loop {
+                // C++: aSeedType = Rand(mApp->GetSeedsAvailable())
+                let a_try_seed = std::mem::transmute::<i32, SeedType>(crate::sexy_app_framework::common::rand_int() % (*self.mApp).GetSeedsAvailable());
+                if !(*self.mApp).HasSeedType(a_try_seed)
+                    || a_try_seed == SeedType::SEED_IMITATER
+                    || self.mChosenSeeds[a_try_seed as usize].mSeedState != ChosenSeedState::SEED_IN_CHOOSER as i32
+                {
+                    continue;
+                }
+                break a_try_seed;
+            };
+            let mut a_chosen_seed = self.mChosenSeeds[a_seed_type as usize].clone();
+            a_chosen_seed.mTimeStartMotion = 0;
+            a_chosen_seed.mTimeEndMotion = 0;
+            a_chosen_seed.mStartX = a_chosen_seed.mX;
+            a_chosen_seed.mStartY = a_chosen_seed.mY;
+            let mut a_end_x = a_chosen_seed.mEndX;
+            let mut a_end_y = a_chosen_seed.mEndY;
+            self.GetSeedPositionInBank(an_index, &mut a_end_x, &mut a_end_y);
+            a_chosen_seed.mEndX = a_end_x;
+            a_chosen_seed.mEndY = a_end_y;
+            a_chosen_seed.mSeedState = ChosenSeedState::SEED_IN_BANK as i32;
+            a_chosen_seed.mSeedIndexInBank = an_index;
+            self.mChosenSeeds[a_seed_type as usize] = a_chosen_seed;
+            self.mSeedsInBank += 1;
+            an_index += 1;
+        }
+
+        // C++: 落地所有飞行种子 + 关闭
+        let mut a_seed_flying = SeedType::SEED_PEASHOOTER as i32;
+        while a_seed_flying < NUM_SEEDS_IN_CHOOSER {
+            let mut seed = self.mChosenSeeds[a_seed_flying as usize].clone();
+            self.LandFlyingSeed(&mut seed);
+            self.mChosenSeeds[a_seed_flying as usize] = seed;
+            a_seed_flying += 1;
+        }
+        self.CloseSeedChooser();
+    }
     /// C++ SeedChooserScreen::PickedPlantType — 是否已选该种子
     pub fn PickedPlantType(&self, the_seed_type: SeedType) -> bool {
         let mut i = 0;
