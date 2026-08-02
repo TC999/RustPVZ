@@ -546,6 +546,171 @@ impl Challenge {
     }
 
     /// C++ Challenge::UpdateConveyorBelt() (from Challenge.cpp:1616)
+    /// C++: Challenge::SlotMachineGetHandleRect (Challenge.cpp:1339)
+    pub unsafe fn SlotMachineGetHandleRect(&self) -> crate::sexy_app_framework::misc::rect::Rect {
+        // C++: return Rect(mBoard->mSeedBank->mX + 473, mBoard->mSeedBank->mY, 55, 80);
+        let the_board = &*self.mBoard;
+        let a_seed_bank = the_board.mSeedBank;
+        let (a_bank_x, a_bank_y) = if a_seed_bank.is_null() {
+            (0, 0)
+        } else {
+            unsafe { ((*a_seed_bank).mX, (*a_seed_bank).mY) }
+        };
+        crate::sexy_app_framework::misc::rect::Rect::new(a_bank_x + 473, a_bank_y, 55, 80)
+    }
+
+    /// C++: Challenge::UpdateSlotMachine (Challenge.cpp:2001) — 老虎机更新
+    pub unsafe fn UpdateSlotMachine(&mut self) {
+        let the_board = &mut *self.mBoard;
+
+        // C++: int aSunMoney = ClampInt(mBoard->mSunMoney, 0, 2000);
+        let a_sun_money = crate::sexy_tod_lib::tod_common::clamp_int(the_board.mSunMoney, 0, 2000);
+        if a_sun_money >= SLOT_MACHINE_WINNING_SCORE - 100 {
+            the_board.DisplayAdvice("[ADVICE_ALMOST_THERE]", 0 /* MESSAGE_STYLE_HINT_FAST */, AdviceType::ADVICE_ALMOST_THERE as i32);
+        }
+        if a_sun_money >= 2000 {
+            // [TODO]: SpawnLevelAward(4, 2)
+            the_board.ClearAdvice(AdviceType::ADVICE_NONE as i32);
+        }
+        // C++: mBoard->mProgressMeterWidth = TodAnimateCurve(0, SLOT_MACHINE_WINNING_SCORE, aSunMoney, 0, PROGRESS_METER_COUNTER, CURVE_LINEAR);
+        the_board.mProgressMeterWidth = crate::sexy_tod_lib::tod_common::tod_animate_curve(
+            0, SLOT_MACHINE_WINNING_SCORE, a_sun_money, 0, crate::lawn::board_consts::PROGRESS_METER_COUNTER,
+            crate::const_enums::TodCurves::CURVE_LINEAR,
+        );
+
+        // C++: 提示收集阳光
+        // [TODO]: mBoard->mAdvice->IsBeingDisplayed() 检查 + DisplayAdvice(ADVICE_SLOT_MACHINE_COLLECT_SUN)
+
+        // C++: if (mChallengeState == STATECHALLENGE_SLOT_MACHINE_ROLLING)
+        if self.mChallengeState == ChallengeState::STATECHALLENGE_SLOT_MACHINE_ROLLING {
+            let mut a_machine_finished = true;
+            let a_seed_bank = the_board.mSeedBank;
+            if !a_seed_bank.is_null() {
+                // C++: 三个滚轮倒计时
+                let mut i = 0;
+                while i < 3 {
+                    let a_packet = &mut (*(*a_seed_bank).mSeedPackets.as_mut_ptr().add(i));
+                    if a_packet.mSlotMachineCountDown > 0 {
+                        a_packet.mSlotMachineCountDown -= 1;
+                        if a_packet.mSlotMachineCountDown == 0 {
+                            a_packet.mPacketType = a_packet.mSlotMachiningNextSeed;
+                            // [TODO]: Reanimation 滚轮动画
+                        }
+                    }
+                    if a_packet.mSlotMachineCountDown > 0 {
+                        a_machine_finished = false;
+                    }
+                    i += 1;
+                }
+            }
+
+            if a_machine_finished {
+                self.mChallengeState = ChallengeState::STATECHALLENGE_NORMAL;
+                let a_seed_bank = the_board.mSeedBank;
+
+                let a_packet1 = (*(*a_seed_bank).mSeedPackets.as_ptr()).mPacketType;
+                let a_packet2 = (*(*a_seed_bank).mSeedPackets.as_ptr().add(1)).mPacketType;
+                let a_packet3 = (*(*a_seed_bank).mSeedPackets.as_ptr().add(2)).mPacketType;
+                if a_packet1 != a_packet2 || a_packet2 != a_packet3 {
+                    // C++: 两个相同
+                    if a_packet1 == a_packet2 || a_packet2 == a_packet3 || a_packet1 == a_packet3 {
+                        // [TODO]: mApp->PlayFoley(FOLEY_ART_CHALLENGE)
+                        let a_seed_type = if a_packet1 == a_packet2 || a_packet1 == a_packet3 { a_packet1 } else { a_packet2 };
+                        if a_seed_type == SeedType::SEED_SLOT_MACHINE_DIAMOND {
+                            the_board.DisplayAdvice("[ADVICE_SLOT_MACHINE_2_DIAMONDS]", 0, AdviceType::ADVICE_NONE as i32);
+                            the_board.AddCoin(360, 85, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
+                        } else if a_seed_type == SeedType::SEED_SLOT_MACHINE_SUN {
+                            the_board.DisplayAdvice("[ADVICE_SLOT_MACHINE_2_SUNS]", 0, AdviceType::ADVICE_NONE as i32);
+                            let mut i = 0;
+                            while i < 4 {
+                                the_board.AddCoin(320 + i * 15, 85, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_COIN);
+                                i += 1;
+                            }
+                        } else {
+                            the_board.DisplayAdvice("[ADVICE_SLOT_MACHINE_2_OF_A_KIND]", 0, AdviceType::ADVICE_NONE as i32);
+                            let a_coin = the_board.AddCoin(360, 85, CoinType::COIN_USABLE_SEED_PACKET, CoinMotion::COIN_MOTION_COIN);
+                            if !a_coin.is_null() {
+                                (*a_coin).m_usable_seed_type = a_seed_type;
+                            }
+                        }
+                    }
+                } else {
+                    // C++: 三个相同（Jackpot）
+                    // [TODO]: mApp->PlayFoley(FOLEY_ART_CHALLENGE)
+                    if a_packet1 == SeedType::SEED_SLOT_MACHINE_DIAMOND {
+                        the_board.DisplayAdvice("[ADVICE_SLOT_MACHINE_DIAMOND_JACKPOT]", 0, AdviceType::ADVICE_NONE as i32);
+                        let mut i = 0;
+                        while i < 5 {
+                            the_board.AddCoin(320 + i * 12, 85, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
+                            i += 1;
+                        }
+                    } else if a_packet1 == SeedType::SEED_SLOT_MACHINE_SUN {
+                        the_board.DisplayAdvice("[ADVICE_SLOT_MACHINE_SUN_JACKPOT]", 0, AdviceType::ADVICE_NONE as i32);
+                        let mut i = 0;
+                        while i < 20 {
+                            the_board.AddCoin(320 + i * 3, 85, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_COIN);
+                            i += 1;
+                        }
+                    } else {
+                        the_board.DisplayAdvice("[ADVICE_SLOT_MACHINE_3_OF_A_KIND]", 0, AdviceType::ADVICE_NONE as i32);
+                        let mut i = 0;
+                        while i < 3 {
+                            let a_coin = the_board.AddCoin(320 + i * 20, 85, CoinType::COIN_USABLE_SEED_PACKET, CoinMotion::COIN_MOTION_COIN);
+                            if !a_coin.is_null() {
+                                (*a_coin).m_usable_seed_type = a_packet1;
+                            }
+                            i += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// C++: Challenge::BeghouledCheckStuckState (Challenge.cpp:2094)
+    pub unsafe fn BeghouledCheckStuckState(&mut self) {
+        if self.mChallengeState != ChallengeState::STATECHALLENGE_NORMAL {
+            return;
+        }
+        let the_board = &mut *self.mBoard;
+        if the_board.mLevelAwardSpawned {
+            return;
+        }
+
+        let mut a_board_state = BeghouledBoardState::new();
+        self.LoadBeghouledBoardState(&mut a_board_state);
+        if !self.BeghouledCheckForPossibleMoves(&mut a_board_state) {
+            self.mChallengeState = ChallengeState::STATECHALLENGE_BEGHOULED_NO_MATCHES;
+            self.mChallengeStateCounter = 500;
+            the_board.DisplayAdviceAgain("[ADVICE_BEGHOULED_NO_MOVES]", 0, AdviceType::ADVICE_BEGHOULED_NO_MOVES as i32);
+        }
+    }
+
+    /// C++: Challenge::ZombieAtePlant (Challenge.cpp:2109) — 僵尸吃掉宝石植物
+    pub unsafe fn ZombieAtePlant(&mut self, the_plant: *mut crate::lawn::plant::Plant) {
+        if (*self.mApp).mGameMode != GameMode::GAMEMODE_CHALLENGE_BEGHOULED
+            && (*self.mApp).mGameMode != GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST
+        {
+            return;
+        }
+
+        let the_board = &mut *self.mBoard;
+        // C++: mBeghouledEated[thePlant->mPlantCol][thePlant->mRow] = true;
+        if !the_plant.is_null() {
+            self.m_beghouled_eated[(*the_plant).m_plant_col as usize][(*the_plant).base.m_row as usize] = 1;
+        }
+
+        // C++: 吃满 4 个植物解锁陨石按钮
+        let a_seed_bank = the_board.mSeedBank;
+        if !a_seed_bank.is_null() && (*a_seed_bank).mNumPackets == 4 {
+            (*a_seed_bank).mNumPackets += 1;
+            (*(*a_seed_bank).mSeedPackets.as_mut_ptr().add(4)).SetPacketType(SeedType::SEED_BEGHOULED_BUTTON_CRATER);
+            the_board.DisplayAdvice("[ADVICE_BEGHOULED_USE_CRATER_1]", 0, AdviceType::ADVICE_BEGHOULED_USE_CRATER_1 as i32);
+        }
+
+        self.BeghouledCheckStuckState();
+        // [TODO]: BeghouledUpdateCraters
+    }
     pub unsafe fn UpdateConveyorBelt(&mut self) {
         let _board = self.board();
         if self.mConveyorBeltCounter > 0 {
@@ -556,10 +721,6 @@ impl Challenge {
                 // mBoard->mSeedBank->AddSeed(PickConveyorBeltSeed());
             }
         }
-    }
-
-    pub unsafe fn ZombieAtePlant(&mut self, _thePlant: *mut crate::lawn::plant::Plant) {
-        // Challenge::ZombieAtePlant - track plants eaten for challenges
     }
 
     pub unsafe fn PlantAdded(&mut self, _thePlant: *mut crate::lawn::plant::Plant) {

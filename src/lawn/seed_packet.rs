@@ -43,6 +43,92 @@ impl SeedPacket {
         }
     }
 
+    /// C++: SeedPacket::PickNextSlotMachineSeed (SeedPacket.cpp:53)
+    pub unsafe fn PickNextSlotMachineSeed(&mut self) {
+        // C++: int aPeasCount = mBoard->CountPlantByType(SEED_PEASHOOTER);
+        let the_app = &mut *crate::lawn_app::G_LAWN_APP;
+        let a_peas_count = if let Some(board) = (*the_app).m_board.as_ref() {
+            board.CountPlantByType(SeedType::SEED_PEASHOOTER)
+        } else {
+            0
+        };
+
+        // C++: SLOT_SEED_TYPES[] — 老虎机 6 种图案
+        let a_slot_seed_types: [SeedType; 6] = [
+            SeedType::SEED_SUNFLOWER,
+            SeedType::SEED_PEASHOOTER,
+            SeedType::SEED_SNOWPEA,
+            SeedType::SEED_WALLNUT,
+            SeedType::SEED_SLOT_MACHINE_SUN,
+            SeedType::SEED_SLOT_MACHINE_DIAMOND,
+        ];
+
+        let mut a_seed_weight_array: [crate::sexy_tod_lib::tod_common::TodWeightedArray; 6] = [
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+        ];
+        let mut a_seeds_count = 0;
+
+        let mut i = 0;
+        while i < 6 {
+            let a_seed_type = a_slot_seed_types[i];
+
+            // C++: int aWeight = 100; 豌豆数量越多权重越低；钻石固定 30
+            let mut a_weight = 100;
+            if a_seed_type == SeedType::SEED_PEASHOOTER {
+                // C++: TodAnimateCurve(0, 5, aPeasCount, 200, 100, CURVE_LINEAR)
+                a_weight = crate::sexy_tod_lib::tod_common::tod_animate_curve(0, 5, a_peas_count, 200, 100, crate::const_enums::TodCurves::CURVE_LINEAR);
+            } else if a_seed_type == SeedType::SEED_SLOT_MACHINE_DIAMOND {
+                a_weight = 30;
+            }
+
+            // C++: 第三个滚轮（mIndex == 2）：非钻石图案若与前两个即将出现的相同则加半权重
+            if self.mIndex == 2 && a_seed_type != SeedType::SEED_SLOT_MACHINE_DIAMOND {
+                let mut a_matches_next = false;
+                if let Some(board) = (*the_app).m_board.as_ref() {
+                    let a_seed_bank = board.mSeedBank;
+                    if !a_seed_bank.is_null() {
+                        unsafe {
+                            if a_seed_type == (*(*a_seed_bank).mSeedPackets.as_ptr()).mSlotMachiningNextSeed
+                                || a_seed_type == (*(*a_seed_bank).mSeedPackets.as_ptr().add(1)).mSlotMachiningNextSeed
+                            {
+                                a_matches_next = true;
+                            }
+                        }
+                    }
+                }
+                if a_matches_next {
+                    a_weight += a_weight / 2;
+                }
+            }
+
+            // C++: aSeedWeightArray[aSeedsCount].mItem = (int)aSeedType; .mWeight = aWeight;
+            a_seed_weight_array[a_seeds_count] = crate::sexy_tod_lib::tod_common::TodWeightedArray {
+                m_item: a_seed_type as isize,
+                m_weight: a_weight,
+            };
+            a_seeds_count += 1;
+            i += 1;
+        }
+
+        // C++: mSlotMachiningNextSeed = (SeedType)TodPickFromWeightedArray(aSeedWeightArray, aSeedsCount);
+        let a_picked = crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_array(&a_seed_weight_array[..a_seeds_count]);
+        self.mSlotMachiningNextSeed = std::mem::transmute::<i32, SeedType>(a_picked as i32);
+    }
+
+    /// C++: SeedPacket::SlotMachineStart (SeedPacket.cpp:98)
+    pub unsafe fn SlotMachineStart(&mut self) {
+        // C++: mSlotMachineCountDown = 300;
+        self.mSlotMachineCountDown = 300;
+        // C++: mSlotMachiningPosition = 0.0f;
+        self.mSlotMachiningPosition = 0.0;
+        // C++: PickNextSlotMachineSeed();
+        self.PickNextSlotMachineSeed();
+    }
     pub unsafe fn SetPacketType(&mut self, theType: SeedType) {
         self.mPacketType = theType;
         self.mActive = true;
@@ -140,21 +226,7 @@ impl SeedPacket {
         }
     }
 
-    /// C++ SeedPacket::PickNextSlotMachineSeed (SeedPacket.cpp:53)
-    pub unsafe fn PickNextSlotMachineSeed(&mut self) {
-        // C++: 随机选择老虎机下一个种子
-        // [TODO]: 从可用种子中随机选取
-        self.mSlotMachiningNextSeed = SeedType::SEED_PEASHOOTER; // Placeholder
-    }
-
-    /// C++ SeedPacket::SlotMachineStart (SeedPacket.cpp:98)
-    pub unsafe fn SlotMachineStart(&mut self) {
-        self.mSlotMachineCountDown = SLOT_MACHINE_TIME;
-        self.mSlotMachiningPosition = 0.0;
-        self.mActive = false;
-        self.PickNextSlotMachineSeed();
-    }
-
+    /// C++ SeedPacket::CanPickUp
     pub unsafe fn CanPickUp(&self) -> bool {
         self.mActive && self.mPacketType != SeedType::SEED_NONE
     }
