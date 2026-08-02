@@ -1036,9 +1036,217 @@ impl Challenge {
         }
     }
 
-    /// C++ Challenge::WhackAZombieUpdate — 打地鼠更新
+    /// C++ Challenge::WhackAZombiePlaceGraves (Challenge.cpp:2733) — 加权放置墓碑
+    pub unsafe fn WhackAZombiePlaceGraves(&mut self, the_grave_count: i32) {
+        let mut a_picks: [crate::sexy_tod_lib::tod_common::TodWeightedGridArray; 36] = [
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+        ];
+        let mut a_pick_count = 0;
+
+        // C++: 从第 3 列开始遍历
+        let mut a_col = 3;
+        while a_col < crate::lawn::board_consts::MAX_GRID_SIZE_X {
+            let mut a_row = 0;
+            while a_row < crate::lawn::board_consts::MAX_GRID_SIZE_Y {
+                let the_board = &mut *self.mBoard;
+                if the_board.CanAddGraveStoneAt(a_col, a_row) {
+                    let a_has_plant = !the_board.GetTopPlantAt(a_col, a_row, PlantPriority::TOPPLANT_ANY).is_null();
+                    // C++: 有权植物 → 1，无植物 → 100000
+                    a_picks[a_pick_count as usize].m_weight = if a_has_plant { 1 } else { 100000 };
+                    a_picks[a_pick_count as usize].m_x = a_col;
+                    a_picks[a_pick_count as usize].m_y = a_row;
+                    a_pick_count += 1;
+                }
+                a_row += 1;
+            }
+            a_col += 1;
+        }
+
+        // C++: theGraveCount = std::min(theGraveCount, aPickCount);
+        let the_grave_count = the_grave_count.min(a_pick_count);
+        if a_pick_count == 0 || the_grave_count <= 0 {
+            return;
+        }
+
+        let mut i = 0;
+        while i < the_grave_count {
+            // C++: TodPickFromWeightedGridArray(aPicks, aPickCount)
+            let a_pick: *mut crate::sexy_tod_lib::tod_common::TodWeightedGridArray = match crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_grid_array(&mut a_picks) {
+                Some(g) => g,
+                None => std::ptr::null_mut(),
+            };
+            if a_pick.is_null() {
+                break;
+            }
+
+            // C++: 移除该格植物
+            let the_board = &mut *self.mBoard;
+            let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+            while the_board.IteratePlants(&mut a_plant) {
+                if (*a_plant).m_plant_col == (*a_pick).m_x && (*a_plant).base.m_row == (*a_pick).m_y {
+                    (*a_plant).Die();
+                }
+            }
+
+            the_board.AddAGraveStone((*a_pick).m_x, (*a_pick).m_y);
+            (*a_pick).m_weight = 0;
+            i += 1;
+        }
+    }
+
+    /// C++ Challenge::WhackAZombieSpawning (Challenge.cpp:2775) — 打地鼠僵尸生成
+    pub unsafe fn WhackAZombieSpawning(&mut self) {
+        let the_board = &mut *self.mBoard;
+        if the_board.mCurrentWave == the_board.mNumWaves && the_board.mZombieCountDown == 0 {
+            return;
+        }
+
+        the_board.mZombieCountDown -= 1;
+        if the_board.mZombieCountDown == 100 && the_board.mCurrentWave > 0 {
+            // C++: int aNumGraves = 5 - mBoard->GetGraveStonesCount();
+            let a_num_graves = 5 - the_board.GetGraveStonesCount();
+            self.WhackAZombiePlaceGraves(a_num_graves.max(1));
+        }
+        if the_board.mZombieCountDown == 5 {
+            the_board.NextWaveComing();
+        }
+        if the_board.mZombieCountDown == 0 {
+            the_board.mZombieCountDown = 2000;
+            the_board.mZombieCountDownStart = the_board.mZombieCountDown;
+            if the_board.mCurrentWave < the_board.mNumWaves {
+                the_board.mCurrentWave += 1;
+            }
+            self.mChallengeStateCounter = if the_board.mCurrentWave == the_board.mNumWaves { 300 } else { 1 };
+        } else if the_board.mZombieCountDown < 300 {
+            return;
+        }
+
+        self.mChallengeStateCounter -= 1;
+        if self.mChallengeStateCounter == 0 {
+            // C++: 阶段 = ClampInt((mCurrentWave - 1) * 6 / 12, 0, 5)
+            let a_phase = crate::sexy_tod_lib::tod_common::clamp_int((the_board.mCurrentWave - 1) * 6 / 12, 0, 5);
+            // C++: 各阶段概率表
+            let a_double_chance: [i32; 6] = [0, 30, 10, 10, 15, 18];
+            let a_triple_chance: [i32; 6] = [0, 0, 0, 0, 10, 13];
+            let a_pail_chance: [i32; 6] = [0, 0, 0, 10, 15, 15];
+            let a_cone_chance: [i32; 6] = [0, 0, 30, 30, 30, 30];
+            let mut a_zombie_count = 1;
+            let mut a_zombie_type = ZombieType::ZOMBIE_NORMAL;
+            let a_num_hit = crate::sexy_app_framework::common::rand_int() % 100;
+            let a_type_hit = crate::sexy_app_framework::common::rand_int() % 100;
+            let a_is_final_wave = the_board.mCurrentWave == the_board.mNumWaves;
+
+            // C++: 确定僵尸数量
+            if a_is_final_wave {
+                a_zombie_count = 20;
+            } else if a_num_hit < a_triple_chance[a_phase as usize] {
+                a_zombie_count = 3;
+            } else if a_num_hit < a_triple_chance[a_phase as usize] + a_double_chance[a_phase as usize] {
+                a_zombie_count = 2;
+            }
+
+            // C++: 确定僵尸类型
+            if a_type_hit < a_pail_chance[a_phase as usize] && a_zombie_count < 3 {
+                a_zombie_type = ZombieType::ZOMBIE_PAIL;
+            } else if a_type_hit < a_pail_chance[a_phase as usize] + a_cone_chance[a_phase as usize] {
+                a_zombie_type = ZombieType::ZOMBIE_TRAFFIC_CONE;
+            }
+
+            // C++: 收集可出怪的墓碑（排除墓碑吞噬者）
+            let mut a_grid_picks: [crate::sexy_tod_lib::tod_common::TodWeightedArray; 54] = [
+                crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+                crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+                crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+                crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+                crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+                crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+            ];
+            let mut a_grid_picks_count = 0;
+
+            let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+            while the_board.IterateGridItems(&mut a_grid_item) {
+                if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_GRAVESTONE {
+                    // C++: 有墓碑吞噬者的墓碑不参与
+                    let a_plant = the_board.GetTopPlantAt((*a_grid_item).mGridX, (*a_grid_item).mGridY, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
+                    if a_plant.is_null() || (*a_plant).m_seed_type != SeedType::SEED_GRAVEBUSTER {
+                        a_grid_picks[a_grid_picks_count as usize].m_item = a_grid_item as isize;
+                        a_grid_picks[a_grid_picks_count as usize].m_weight = 1;
+                        a_grid_picks_count += 1;
+                    }
+                }
+            }
+
+            // C++: float aMaxSpeed = TodAnimateCurve(1, 12, mCurrentWave, 1, 3, CURVE_EASE_IN);
+            let mut a_max_speed = crate::sexy_tod_lib::tod_common::tod_animate_curve(1, 12, the_board.mCurrentWave, 1, 3, crate::const_enums::TodCurves::CURVE_EASE_IN) as f32;
+            a_zombie_count = a_zombie_count.min(a_grid_picks_count);
+
+            let mut i = 0;
+            while i < a_zombie_count {
+                // C++: TodPickArrayItemFromWeightedArray(aGridPicks, aGridPicksCount)
+                let a_grid = crate::sexy_tod_lib::tod_common::tod_pick_array_item_from_weighted_array(&mut a_grid_picks[..a_grid_picks_count as usize]);
+                if a_grid.is_null() {
+                    break;
+                }
+                let a_grave_stone = (*a_grid).m_item as *mut crate::lawn::grid_item::GridItem;
+                (*a_grid).m_weight = 0;
+
+                if a_is_final_wave {
+                    // C++: aZombieType = Rand(2) == 0 ? ZOMBIE_TRAFFIC_CONE : ZOMBIE_PAIL;
+                    a_zombie_type = if crate::sexy_app_framework::common::rand_int() % 2 == 0 {
+                        ZombieType::ZOMBIE_TRAFFIC_CONE
+                    } else {
+                        ZombieType::ZOMBIE_PAIL
+                    };
+                    a_max_speed = 2.0;
+                }
+
+                let a_zombie = the_board.AddZombie(a_zombie_type, the_board.mCurrentWave);
+                if a_zombie.is_null() {
+                    break;
+                }
+
+                // C++: aZombie->RiseFromGrave(aGraveStone->mGridX, aGraveStone->mGridY);
+                (*a_zombie).RiseFromGrave((*a_grave_stone).mGridX, (*a_grave_stone).mGridY);
+                (*a_zombie).m_phase_counter = 50;
+                // C++: mVelX = RandRangeFloat(0.5f, aMaxSpeed);
+                (*a_zombie).m_vel_x = crate::sexy_tod_lib::tod_common::rand_range_float(0.5, a_max_speed);
+                (*a_zombie).UpdateAnimSpeed();
+                i += 1;
+            }
+
+            // C++: 设置下一波间隔
+            let a_state_counter_min = crate::sexy_tod_lib::tod_common::tod_animate_curve(1, 12, the_board.mCurrentWave, 100, 30, crate::const_enums::TodCurves::CURVE_LINEAR);
+            let a_state_counter_max = crate::sexy_tod_lib::tod_common::tod_animate_curve(1, 12, the_board.mCurrentWave, 200, 60, crate::const_enums::TodCurves::CURVE_LINEAR);
+            self.mChallengeStateCounter = crate::sexy_tod_lib::tod_common::rand_range_int(a_state_counter_min, a_state_counter_max);
+            if a_is_final_wave {
+                the_board.mZombieCountDown = 0;
+                self.mChallengeStateCounter = 0;
+            }
+        }
+    }
+
+    /// C++ Challenge::WhackAZombieUpdate (Challenge.cpp:5146) — 打地鼠更新
     pub unsafe fn WhackAZombieUpdate(&mut self) {
-        // [TODO]: WhackAZombie 系列
+        let the_board = &mut *self.mBoard;
+        // C++: 教程状态机
+        if the_board.mSunMoney > 0 && the_board.mTutorialState == TutorialState::TUTORIAL_OFF as i32 {
+            the_board.SetTutorialState(TutorialState::TUTORIAL_WHACK_A_ZOMBIE_BEFORE_PICK_SEED as i32);
+            the_board.mTutorialTimer = 1500;
+        }
+        if the_board.mTutorialState == TutorialState::TUTORIAL_WHACK_A_ZOMBIE_BEFORE_PICK_SEED as i32
+            && the_board.mTutorialTimer == 0
+        {
+            the_board.SetTutorialState(TutorialState::TUTORIAL_WHACK_A_ZOMBIE_PICK_SEED as i32);
+            the_board.mTutorialTimer = 400;
+        }
+        if the_board.mTutorialState == TutorialState::TUTORIAL_WHACK_A_ZOMBIE_PICK_SEED as i32
+            && the_board.mTutorialTimer == 0
+        {
+            the_board.SetTutorialState(TutorialState::TUTORIAL_WHACK_A_ZOMBIE_COMPLETED as i32);
+        }
     }
 
     /// C++ Challenge::IZombieUpdate — IZombie 更新

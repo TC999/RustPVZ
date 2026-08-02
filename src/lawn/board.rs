@@ -2770,6 +2770,11 @@ impl Board {
 
         a_killed_zombies
     }
+    /// Board::SetTutorialState — 设置教程状态
+    pub unsafe fn SetTutorialState(&mut self, the_state: i32) {
+        self.mTutorialState = the_state;
+        // [TODO]: 教程提示 DisplayAdvice（按状态显示对应提示）
+    }
     /// Board::GetBossZombie (from Board.cpp:9466)
     pub unsafe fn GetBossZombie(&self) -> *mut Zombie {
         let mut a_zombie: *mut Zombie = std::ptr::null_mut();

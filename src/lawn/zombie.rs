@@ -1533,6 +1533,22 @@ impl Zombie {
             && !underground
     }
 
+    /// C++ Zombie::RiseFromGrave (Zombie.cpp:8154) — 从墓碑中出土
+    pub unsafe fn RiseFromGrave(&mut self, the_col: i32, the_row: i32) {
+        // C++: TOD_ASSERT(mZombiePhase == PHASE_ZOMBIE_NORMAL);
+        let the_board = self.base.m_board as *mut crate::lawn::board::Board;
+        // C++: mPosX = mBoard->GridToPixelX(theCol, mRow) - 25;
+        self.m_pos_x = (*the_board).GridToPixelX(the_col, the_row) as f32 - 25.0;
+        // C++: mPosY = GetPosYBasedOnRow(theRow);
+        self.m_pos_y = self.GetPosYBasedOnRow(the_row);
+        // C++: SetRow(theRow);
+        self.base.m_row = the_row;
+        self.base.m_x = self.m_pos_x as i32;
+        self.base.m_y = self.m_pos_y as i32;
+        // [TODO]: Reanimation 出土动画 + 泥土粒子
+        self.m_zombie_phase = ZombiePhase::PHASE_RISING_FROM_GRAVE;
+        self.m_phase_counter = 0;
+    }
     /// C++ Zombie::IsTangleKelpTarget (Zombie.cpp:8393)
     pub unsafe fn IsTangleKelpTarget(&self) -> bool {
         if self.m_zombie_height == ZombieHeight::HEIGHT_DRAGGED_UNDER {
