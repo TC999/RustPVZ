@@ -744,12 +744,106 @@ impl Projectile {
         self.m_hit_torchwood_grid_x = the_grid_x;
         // [TODO]: mApp->PlayFoley(FOLEY_THROW)
     }
-    pub unsafe fn DoImpact(&mut self, _the_zombie: *mut super::zombie::Zombie) {
-        // C++: 根据投射物类型处理伤害和效果
-        // [TODO]: 播放命中音效
-        // [TODO]: 造成伤害
-        // [TODO]: 减速/黄油/溅射等特殊效果
-        // [TODO]: 粒子效果
+    pub unsafe fn DoImpact(&mut self, the_zombie: *mut super::zombie::Zombie) {
+        // C++ Projectile.cpp:819 — PlayImpactSound → 伤害结算 → 粒子 → Die
+        self.PlayImpactSound(the_zombie);
+
+        if self.IsSplashDamage(if the_zombie.is_null() { None } else { Some(&*the_zombie) }) {
+            // C++: if (mProjectileType == PROJECTILE_FIREBALL && theZombie) theZombie->RemoveColdEffects();
+            if self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL && !the_zombie.is_null() {
+                (*the_zombie).RemoveColdEffects();
+            }
+            self.DoSplashDamage(the_zombie);
+        } else if !the_zombie.is_null() {
+            // C++: unsigned int aDamageFlags = GetDamageFlags(theZombie);
+            // C++: theZombie->TakeDamage(GetProjectileDef().mDamage, aDamageFlags);
+            let a_damage_flags = self.GetDamageFlags(Some(&*the_zombie));
+            let a_damage = Self::GetProjectileDef(self.m_projectile_type).m_damage;
+            (*the_zombie).TakeDamage(a_damage, a_damage_flags);
+        }
+
+        // C++: float aLastPosX = mPosX - mVelX; float aLastPosY = mPosY + mPosZ - mVelY - mVelZ;
+        let a_last_pos_x = self.m_pos_x - self.m_vel_x;
+        let a_last_pos_y = self.m_pos_y + self.m_pos_z - self.m_vel_y - self.m_vel_z;
+        let mut a_effect = ParticleEffect::PARTICLE_NONE;
+        let mut a_splat_pos_x = self.m_pos_x + 12.0;
+        let mut a_splat_pos_y = self.m_pos_y + 12.0;
+        match self.m_projectile_type {
+            ProjectileType::PROJECTILE_MELON => {
+                // [TODO]: mApp->AddTodParticle(aLastPosX + 30, aLastPosY + 30, mRenderOrder + 1, PARTICLE_MELONSPLASH)
+            }
+            ProjectileType::PROJECTILE_WINTERMELON => {
+                // [TODO]: mApp->AddTodParticle(aLastPosX + 30, aLastPosY + 30, mRenderOrder + 1, PARTICLE_WINTERMELON)
+            }
+            ProjectileType::PROJECTILE_COBBIG => {
+                // C++: PARTICLE_BLASTMARK + PARTICLE_POPCORNSPLASH + PlaySample(SOUND_DOOMSHROOM) + mBoard->ShakeBoard(3, -4)
+                // [TODO]: 粒子/音效/震屏
+            }
+            ProjectileType::PROJECTILE_PEA => {
+                a_splat_pos_x -= 15.0;
+                a_effect = ParticleEffect::PARTICLE_PEA_SPLAT;
+            }
+            ProjectileType::PROJECTILE_SNOWPEA => {
+                a_splat_pos_x -= 15.0;
+                a_effect = ParticleEffect::PARTICLE_SNOWPEA_SPLAT;
+            }
+            ProjectileType::PROJECTILE_FIREBALL => {
+                // C++: 溅射时 AddReanimation(REANIM_JALAPENO_FIRE) + OverrideScale(0.7, 0.4)
+                // [TODO]: Reanimation 火焰
+            }
+            ProjectileType::PROJECTILE_STAR => {
+                a_effect = ParticleEffect::PARTICLE_STAR_SPLAT;
+            }
+            ProjectileType::PROJECTILE_PUFF => {
+                a_splat_pos_x -= 20.0;
+                a_effect = ParticleEffect::PARTICLE_PUFF_SPLAT;
+            }
+            ProjectileType::PROJECTILE_CABBAGE => {
+                a_splat_pos_x = a_last_pos_x - 38.0;
+                a_splat_pos_y = a_last_pos_y + 23.0;
+                a_effect = ParticleEffect::PARTICLE_CABBAGE_SPLAT;
+            }
+            ProjectileType::PROJECTILE_BUTTER => {
+                a_splat_pos_x = a_last_pos_x - 20.0;
+                a_splat_pos_y = a_last_pos_y + 63.0;
+                a_effect = ParticleEffect::PARTICLE_BUTTER_SPLAT;
+
+                // C++: if (theZombie) theZombie->ApplyButter();
+                if !the_zombie.is_null() {
+                    (*the_zombie).ApplyButter();
+                }
+            }
+            _ => {}
+        }
+
+        // C++: if (aEffect != PARTICLE_NONE)
+        if a_effect != ParticleEffect::PARTICLE_NONE {
+            if !the_zombie.is_null() {
+                // C++: 计算溅射粒子相对僵尸的坐标
+                let mut a_pos_x = a_splat_pos_x + 52.0 - (*the_zombie).base.m_x as f32;
+                let mut a_pos_y = a_splat_pos_y - (*the_zombie).base.m_y as f32;
+                if (*the_zombie).m_zombie_phase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL
+                    || (*the_zombie).m_zombie_phase == ZombiePhase::PHASE_DOLPHIN_WALKING_IN_POOL
+                {
+                    a_pos_y += 60.0;
+                }
+                if self.m_motion_type == MOTION_BACKWARDS {
+                    a_pos_x -= 80.0;
+                } else if self.m_pos_x > (*the_zombie).base.m_x as f32 + 40.0
+                    && self.m_motion_type != MOTION_LOBBED
+                {
+                    a_pos_x -= 60.0;
+                }
+
+                // C++: aPosY = ClampFloat(aPosY, 20.0f, 100.0f);
+                a_pos_y = crate::sexy_tod_lib::tod_common::clamp_float(a_pos_y, 20.0, 100.0);
+                (*the_zombie).AddAttachedParticle(a_pos_x as i32, a_pos_y as i32, a_effect);
+            } else {
+                // [TODO]: mApp->AddTodParticle(aSplatPosX, aSplatPosY, mRenderOrder + 1, aEffect)
+            }
+        }
+
+        // C++: Die();
         self.Die();
     }
 

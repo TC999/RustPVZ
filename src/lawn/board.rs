@@ -2558,6 +2558,101 @@ impl Board {
             PlantPriority::TOPPLANT_ONLY_UNDER_PLANT => return a_under,
         }
     }
+    /// Board::PlantingRequirementsMet (from Board.cpp:9566) — 进阶植物前置需求
+    pub unsafe fn PlantingRequirementsMet(&self, the_seed_type: SeedType) -> bool {
+        match the_seed_type {
+            SeedType::SEED_GATLINGPEA => self.CountPlantByType(SeedType::SEED_REPEATER) > 0,
+            SeedType::SEED_TWINSUNFLOWER => self.CountPlantByType(SeedType::SEED_SUNFLOWER) > 0,
+            SeedType::SEED_GLOOMSHROOM => self.CountPlantByType(SeedType::SEED_FUMESHROOM) > 0,
+            SeedType::SEED_CATTAIL => {
+                // C++: CountEmptyPotsOrLilies(SEED_LILYPAD) — 空荷叶数量
+                // [TODO]: CountEmptyPotsOrLilies 完整翻译
+                true
+            }
+            SeedType::SEED_WINTERMELON => self.CountPlantByType(SeedType::SEED_MELONPULT) > 0,
+            SeedType::SEED_GOLD_MAGNET => self.CountPlantByType(SeedType::SEED_MAGNETSHROOM) > 0,
+            SeedType::SEED_SPIKEROCK => self.CountPlantByType(SeedType::SEED_SPIKEWEED) > 0,
+            SeedType::SEED_COBCANNON => {
+                // C++: HasValidCobCannonSpot() — 存在有效玉米炮位置
+                // [TODO]: HasValidCobCannonSpot 完整翻译
+                true
+            }
+            _ => true,
+        }
+    }
+
+    /// Board::PlantUsesAcceleratedPricing (from Board.cpp:9659)
+    pub unsafe fn PlantUsesAcceleratedPricing(&self, the_seed_type: SeedType) -> bool {
+        // C++: Plant::IsUpgrade(theSeedType) && mApp->IsSurvivalEndless(mApp->mGameMode)
+        Plant::is_upgrade(the_seed_type)
+            && (*self.mApp).mGameMode as i32 >= GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_1 as i32
+            && (*self.mApp).mGameMode as i32 <= GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_5 as i32
+    }
+
+    /// Board::GetCurrentPlantCost (from Board.cpp:9664) — 当前植物价格（加速定价）
+    pub unsafe fn GetCurrentPlantCost(&self, the_seed_type: SeedType, the_imitater_type: SeedType) -> i32 {
+        let mut a_cost = Plant::GetCost(the_seed_type, the_imitater_type);
+        if self.PlantUsesAcceleratedPricing(the_seed_type) {
+            // C++: aCost += CountPlantByType(theSeedType) * 50;
+            a_cost += self.CountPlantByType(the_seed_type) * 50;
+        }
+        a_cost
+    }
+
+    /// C++ 全局函数 GetCircleRectOverlap (Board.cpp:9129) — 圆与矩形相交
+    pub fn get_circle_rect_overlap(the_circle_x: i32, the_circle_y: i32, the_radius: i32, the_rect: crate::sexy_app_framework::misc::rect::Rect) -> bool {
+        // C++: int aNearX = std::clamp(theCircleX, theRect.mX, theRect.mX + theRect.mWidth);
+        let a_near_x = the_circle_x.clamp(the_rect.m_x, the_rect.m_x + the_rect.m_width);
+        let a_near_y = the_circle_y.clamp(the_rect.m_y, the_rect.m_y + the_rect.m_height);
+        let dx = the_circle_x - a_near_x;
+        let dy = the_circle_y - a_near_y;
+        dx * dx + dy * dy <= the_radius * the_radius
+    }
+
+    /// Board::KillAllZombiesInRadius (from Board.cpp:9583) — 半径内击杀僵尸
+    pub unsafe fn KillAllZombiesInRadius(&mut self, the_row: i32, the_x: i32, the_y: i32, the_radius: i32, the_row_range: i32, the_burn: bool, the_damage_range_flags: u32) -> i32 {
+        let mut a_killed_zombies = 0;
+        let mut a_zombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut a_zombie) {
+            if (*a_zombie).EffectedByDamage(the_damage_range_flags) {
+                let a_zombie_rect = (*a_zombie).GetZombieRect();
+                let mut a_row_dist = (*a_zombie).base.m_row - the_row;
+                if (*a_zombie).m_zombie_type == ZombieType::ZOMBIE_BOSS {
+                    a_row_dist = 0;
+                }
+
+                if a_row_dist <= the_row_range
+                    && a_row_dist >= -the_row_range
+                    && Self::get_circle_rect_overlap(the_x, the_y, the_radius, a_zombie_rect)
+                {
+                    if the_burn {
+                        (*a_zombie).ApplyBurn();
+                    } else {
+                        // C++: theZombie->TakeDamage(1800, 18U);
+                        (*a_zombie).TakeDamage(1800, 18);
+                    }
+
+                    a_killed_zombies += 1;
+                }
+            }
+        }
+
+        // C++: 摧毁范围内梯子
+        let a_grid_x = self.PixelToGridXKeepOnBoard(the_x, the_y);
+        let a_grid_y = self.PixelToGridYKeepOnBoard(the_x, the_y);
+        let mut a_grid_item: *mut GridItem = std::ptr::null_mut();
+        while self.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_LADDER {
+                if crate::lawn::lawn_common::GridInRange(
+                    (*a_grid_item).mGridX, (*a_grid_item).mGridY, a_grid_x, a_grid_y, the_row_range, the_row_range,
+                ) {
+                    (*a_grid_item).GridItemDie();
+                }
+            }
+        }
+
+        a_killed_zombies
+    }
     /// Board::GetBossZombie (from Board.cpp:9466)
     pub unsafe fn GetBossZombie(&self) -> *mut Zombie {
         let mut a_zombie: *mut Zombie = std::ptr::null_mut();
