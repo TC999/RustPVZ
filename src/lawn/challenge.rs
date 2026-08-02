@@ -17,6 +17,26 @@ pub const MAX_SCARY_POTS: i32 = 54;
 pub const STORM_FLASH_TIME: i32 = 150;
 pub const MAX_PICK_GRID_SIZE: i32 = 50;
 
+pub const NUM_BEGHOULED_UPGRADES: i32 = 3;
+
+
+/// C++: struct BeghouledBoardState — 宝石迷阵棋盘状态
+pub struct BeghouledBoardState {
+    pub m_seed_type: [[SeedType; 6]; 9],
+}
+
+impl BeghouledBoardState {
+    pub fn new() -> Self {
+        BeghouledBoardState {
+            m_seed_type: [[SeedType::SEED_NONE; 6]; 9],
+        }
+    }
+}
+
+/// C++: enum BeghouledUpgrade
+pub const BEGHOULED_UPGRADE_REPEATER: i32 = 0;
+pub const BEGHOULED_UPGRADE_FUMESHROOM: i32 = 1;
+pub const BEGHOULED_UPGRADE_TALLNUT: i32 = 2;
 pub struct Challenge {
     pub mApp: *mut crate::lawn_app::LawnApp,
     pub mBoard: *mut crate::lawn::board::Board,
@@ -29,6 +49,13 @@ pub struct Challenge {
     pub mReanimChallenge: ReanimationID,
     pub mChallengeGridX: i32,
     pub mChallengeGridY: i32,
+    // C++ Challenge.h — Beghouled 相关字段
+    pub m_beghouled_eated: [[i32; 6]; 9],
+    pub m_beghouled_purcased_upgrade: [i32; 3],
+    pub m_beghouled_mouse_capture: bool,
+    pub m_beghouled_mouse_down_x: i32,
+    pub m_beghouled_mouse_down_y: i32,
+    pub m_beghouled_matches_this_move: i32,
 }
 
 impl Challenge {
@@ -45,6 +72,12 @@ impl Challenge {
             mReanimChallenge: ReanimationID::REANIMATIONID_NULL,
             mChallengeGridX: -1,
             mChallengeGridY: -1,
+            m_beghouled_eated: [[0i32; 6]; 9],
+            m_beghouled_purcased_upgrade: [0i32; 3],
+            m_beghouled_mouse_capture: false,
+            m_beghouled_mouse_down_x: 0,
+            m_beghouled_mouse_down_y: 0,
+            m_beghouled_matches_this_move: 0,
         }
     }
 
@@ -56,6 +89,334 @@ impl Challenge {
         &mut *(self.mApp)
     }
 
+    // =========================================================================
+    // ★ Beghouled（宝石迷阵）棋盘逻辑 — C++ Challenge.cpp 保真翻译
+    // =========================================================================
+
+    /// C++: Challenge::LoadBeghouledBoardState (Challenge.cpp:349)
+    pub unsafe fn LoadBeghouledBoardState(&self, the_board_state: &mut BeghouledBoardState) {
+        // C++: 清空棋盘
+        for i in 0..crate::lawn::board_consts::MAX_GRID_SIZE_X {
+            for j in 0..crate::lawn::board_consts::MAX_GRID_SIZE_Y {
+                the_board_state.m_seed_type[i as usize][j as usize] = SeedType::SEED_NONE;
+            }
+        }
+
+        // C++: 从 Board 现有植物填充棋盘
+        let the_board = &mut *self.mBoard;
+        let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+        while the_board.IteratePlants(&mut a_plant) {
+            the_board_state.m_seed_type[(*a_plant).m_plant_col as usize][(*a_plant).base.m_row as usize] = (*a_plant).m_seed_type;
+        }
+    }
+
+    /// C++: Challenge::BeghouledGetPlantAt (Challenge.cpp:746)
+    pub unsafe fn BeghouledGetPlantAt(&self, the_grid_x: i32, the_grid_y: i32, the_board_state: &BeghouledBoardState) -> SeedType {
+        if the_grid_x < 0 || the_grid_x > BEGHOULED_MAX_GRIDSIZEX || the_grid_y < 0 || the_grid_y > BEGHOULED_MAX_GRIDSIZEY {
+            return SeedType::SEED_NONE;
+        }
+        the_board_state.m_seed_type[the_grid_x as usize][the_grid_y as usize]
+    }
+
+    /// C++: Challenge::BeghouledRemoveHorizontalMatch (Challenge.cpp:754)
+    pub unsafe fn BeghouledRemoveHorizontalMatch(&mut self, mut the_grid_x: i32, the_grid_y: i32, the_board_state: &mut BeghouledBoardState) {
+        let a_seed_type = self.BeghouledGetPlantAt(the_grid_x, the_grid_y, the_board_state);
+        loop {
+            let the_board = &mut *self.mBoard;
+            let a_plant = the_board.GetTopPlantAt(the_grid_x, the_grid_y, PlantPriority::TOPPLANT_ANY);
+            if !a_plant.is_null() {
+                (*a_plant).Die();
+            }
+            the_grid_x += 1;
+            if self.BeghouledGetPlantAt(the_grid_x, the_grid_y, the_board_state) != a_seed_type {
+                break;
+            }
+        }
+    }
+
+    /// C++: Challenge::BeghouledRemoveVerticalMatch (Challenge.cpp:769)
+    pub unsafe fn BeghouledRemoveVerticalMatch(&mut self, the_grid_x: i32, mut the_grid_y: i32, the_board_state: &mut BeghouledBoardState) {
+        let a_seed_type = self.BeghouledGetPlantAt(the_grid_x, the_grid_y, the_board_state);
+        loop {
+            let the_board = &mut *self.mBoard;
+            let a_plant = the_board.GetTopPlantAt(the_grid_x, the_grid_y, PlantPriority::TOPPLANT_ANY);
+            if !a_plant.is_null() {
+                (*a_plant).Die();
+            }
+            the_grid_y += 1;
+            if self.BeghouledGetPlantAt(the_grid_x, the_grid_y, the_board_state) != a_seed_type {
+                break;
+            }
+        }
+    }
+
+    /// C++: Challenge::BeghouledFallIntoSquare (Challenge.cpp:783)
+    pub unsafe fn BeghouledFallIntoSquare(&mut self, the_grid_x: i32, the_grid_y: i32, the_board_state: &mut BeghouledBoardState) {
+        if self.m_beghouled_eated[the_grid_x as usize][the_grid_y as usize] != 0 {
+            return;
+        }
+
+        let mut a_grid_y = the_grid_y - 1;
+        while a_grid_y >= 0 {
+            let the_board = &mut *self.mBoard;
+            let a_plant = the_board.GetTopPlantAt(the_grid_x, a_grid_y, PlantPriority::TOPPLANT_ANY);
+            if !a_plant.is_null() {
+                // C++: aPlant->mRow = theGridY; aPlant->mRenderOrder = aPlant->CalcRenderOrder();
+                (*a_plant).base.m_row = the_grid_y;
+                // [TODO]: CalcRenderOrder
+                the_board_state.m_seed_type[the_grid_x as usize][the_grid_y as usize] = (*a_plant).m_seed_type;
+                the_board_state.m_seed_type[the_grid_x as usize][a_grid_y as usize] = SeedType::SEED_NONE;
+                self.BeghouledStartFalling(ChallengeState::STATECHALLENGE_BEGHOULED_FALLING);
+                break;
+            }
+            a_grid_y -= 1;
+        }
+    }
+
+    /// C++: Challenge::BeghouledMakePlantsFall (Challenge.cpp:803)
+    pub unsafe fn BeghouledMakePlantsFall(&mut self, the_board_state: &mut BeghouledBoardState) {
+        let mut a_grid_y = BEGHOULED_MAX_GRIDSIZEY - 1;
+        while a_grid_y >= 0 {
+            let mut a_grid_x = 0;
+            while a_grid_x < BEGHOULED_MAX_GRIDSIZEX {
+                if self.BeghouledGetPlantAt(a_grid_x, a_grid_y, the_board_state) == SeedType::SEED_NONE {
+                    self.BeghouledFallIntoSquare(a_grid_x, a_grid_y, the_board_state);
+                }
+                a_grid_x += 1;
+            }
+            a_grid_y -= 1;
+        }
+    }
+
+    /// C++: Challenge::BeghouledHorizontalMatchLength (Challenge.cpp:941)
+    pub unsafe fn BeghouledHorizontalMatchLength(&self, the_grid_x: i32, the_grid_y: i32, the_board_state: &BeghouledBoardState) -> i32 {
+        let a_seed_type = self.BeghouledGetPlantAt(the_grid_x, the_grid_y, the_board_state);
+        if a_seed_type == SeedType::SEED_NONE
+            || self.BeghouledGetPlantAt(the_grid_x - 1, the_grid_y, the_board_state) == a_seed_type
+        {
+            return 0;
+        }
+
+        let mut a_length = 1;
+        while self.BeghouledGetPlantAt(the_grid_x + a_length, the_grid_y, the_board_state) == a_seed_type {
+            a_length += 1;
+        }
+        a_length
+    }
+
+    /// C++: Challenge::BeghouledVerticalMatchLength (Challenge.cpp:953)
+    pub unsafe fn BeghouledVerticalMatchLength(&self, the_grid_x: i32, the_grid_y: i32, the_board_state: &BeghouledBoardState) -> i32 {
+        let a_seed_type = self.BeghouledGetPlantAt(the_grid_x, the_grid_y, the_board_state);
+        if a_seed_type == SeedType::SEED_NONE
+            || self.BeghouledGetPlantAt(the_grid_x, the_grid_y - 1, the_board_state) == a_seed_type
+        {
+            return 0;
+        }
+
+        let mut a_length = 1;
+        while self.BeghouledGetPlantAt(the_grid_x, the_grid_y + a_length, the_board_state) == a_seed_type {
+            a_length += 1;
+        }
+        a_length
+    }
+
+    /// C++: Challenge::BeghouledBoardHasMatch (Challenge.cpp:965)
+    pub unsafe fn BeghouledBoardHasMatch(&self, the_board_state: &BeghouledBoardState) -> bool {
+        let mut a_col = 0;
+        while a_col < 8 {
+            let mut a_row = 0;
+            while a_row < 5 {
+                if self.BeghouledHorizontalMatchLength(a_col, a_row, the_board_state) >= 3
+                    || self.BeghouledVerticalMatchLength(a_col, a_row, the_board_state) >= 3
+                {
+                    return true;
+                }
+                a_row += 1;
+            }
+            a_col += 1;
+        }
+        false
+    }
+
+    /// C++: Challenge::BeghouledPickSeed (Challenge.cpp:979)
+    pub unsafe fn BeghouledPickSeed(&mut self, the_grid_x: i32, the_grid_y: i32, the_board_state: &mut BeghouledBoardState, the_allow_matches: bool) -> SeedType {
+        let mut a_count = 0;
+        let mut a_pick_array: [SeedType; 6] = [SeedType::SEED_NONE; 6];
+
+        let mut i = 0;
+        while i < 6 {
+            let mut a_seed_type = match i {
+                0 => SeedType::SEED_PUFFSHROOM,
+                1 => SeedType::SEED_STARFRUIT,
+                2 => SeedType::SEED_MAGNETSHROOM,
+                3 => SeedType::SEED_SNOWPEA,
+                4 => SeedType::SEED_WALLNUT,
+                5 => SeedType::SEED_PEASHOOTER,
+                _ => SeedType::SEED_NONE,
+            };
+
+            // C++: 购买升级替换种子
+            if self.m_beghouled_purcased_upgrade[BEGHOULED_UPGRADE_REPEATER as usize] != 0 && a_seed_type == SeedType::SEED_PEASHOOTER {
+                a_seed_type = SeedType::SEED_REPEATER;
+            }
+            if self.m_beghouled_purcased_upgrade[BEGHOULED_UPGRADE_FUMESHROOM as usize] != 0 && a_seed_type == SeedType::SEED_PUFFSHROOM {
+                a_seed_type = SeedType::SEED_FUMESHROOM;
+            }
+            if self.m_beghouled_purcased_upgrade[BEGHOULED_UPGRADE_TALLNUT as usize] != 0 && a_seed_type == SeedType::SEED_WALLNUT {
+                a_seed_type = SeedType::SEED_TALLNUT;
+            }
+
+            the_board_state.m_seed_type[the_grid_x as usize][the_grid_y as usize] = a_seed_type;
+
+            if the_allow_matches || !self.BeghouledBoardHasMatch(the_board_state) {
+                a_pick_array[a_count as usize] = a_seed_type;
+                a_count += 1;
+            }
+            i += 1;
+        }
+
+        the_board_state.m_seed_type[the_grid_x as usize][the_grid_y as usize] = SeedType::SEED_NONE;
+        // C++: return TodPickFromArray(aPickArray, aCount);
+        crate::sexy_tod_lib::tod_common::tod_pick_from_array(&a_pick_array[..a_count as usize])
+    }
+
+    /// C++: Challenge::BeghouledFillHoles (Challenge.cpp:1026)
+    pub unsafe fn BeghouledFillHoles(&mut self, the_board_state: &mut BeghouledBoardState, the_allow_matches: bool) {
+        let mut a_col = 0;
+        while a_col < BEGHOULED_MAX_GRIDSIZEX {
+            let mut a_row = 0;
+            while a_row < BEGHOULED_MAX_GRIDSIZEY {
+                if the_board_state.m_seed_type[a_col as usize][a_row as usize] == SeedType::SEED_NONE
+                    && self.m_beghouled_eated[a_col as usize][a_row as usize] == 0
+                {
+                    let a_seed = self.BeghouledPickSeed(a_col, a_row, the_board_state, the_allow_matches);
+                    the_board_state.m_seed_type[a_col as usize][a_row as usize] = a_seed;
+                }
+                a_row += 1;
+            }
+            a_col += 1;
+        }
+    }
+
+    /// C++: Challenge::BeghouledCreatePlants (Challenge.cpp:1040)
+    pub unsafe fn BeghouledCreatePlants(&mut self, the_old_board_state: &BeghouledBoardState, the_new_board_state: &BeghouledBoardState) {
+        let mut a_col = 0;
+        while a_col < BEGHOULED_MAX_GRIDSIZEX {
+            let mut a_fall_y = 80;
+            let mut a_row = BEGHOULED_MAX_GRIDSIZEY - 1;
+            while a_row >= 0 {
+                let a_seed_type = the_new_board_state.m_seed_type[a_col as usize][a_row as usize];
+                if the_old_board_state.m_seed_type[a_col as usize][a_row as usize] == SeedType::SEED_NONE && a_seed_type != SeedType::SEED_NONE {
+                    a_fall_y -= 100;
+                    let the_board = &mut *self.mBoard;
+                    let a_plant = the_board.NewPlant(a_col, a_row, a_seed_type as i32, SeedType::SEED_NONE as i32);
+                    if !a_plant.is_null() {
+                        (*a_plant).base.m_y = a_fall_y;
+                    }
+                    self.BeghouledStartFalling(ChallengeState::STATECHALLENGE_BEGHOULED_FALLING);
+                }
+                a_row -= 1;
+            }
+            a_col += 1;
+        }
+    }
+
+    /// C++: Challenge::BeghouledMakeStartBoard (Challenge.cpp:1058)
+    pub unsafe fn BeghouledMakeStartBoard(&mut self) {
+        let mut a_empty_board_state = BeghouledBoardState::new();
+        self.LoadBeghouledBoardState(&mut a_empty_board_state);
+        let mut a_board_state = BeghouledBoardState::new();
+        self.LoadBeghouledBoardState(&mut a_board_state);
+
+        self.BeghouledFillHoles(&mut a_board_state, false);
+        if !self.BeghouledBoardHasMatch(&a_board_state) {
+            self.BeghouledCreatePlants(&a_empty_board_state, &a_board_state);
+        }
+    }
+
+    /// C++: Challenge::BeghouledPopulateBoard (Challenge.cpp:1074)
+    pub unsafe fn BeghouledPopulateBoard(&mut self) {
+        let mut a_empty_board_state = BeghouledBoardState::new();
+        self.LoadBeghouledBoardState(&mut a_empty_board_state);
+        let a_allow_generated_cascades = self.BeghouledBoardHasMatch(&a_empty_board_state);
+
+        let mut a_board_state = BeghouledBoardState::new();
+        let mut i = 0;
+        while i < 2 {
+            self.LoadBeghouledBoardState(&mut a_board_state);
+            self.BeghouledFillHoles(&mut a_board_state, a_allow_generated_cascades);
+            // C++: 填充后若存在可消除的移动则跳出
+            if self.BeghouledCheckForPossibleMoves(&mut a_board_state) {
+                break;
+            }
+            i += 1;
+        }
+
+        self.BeghouledCreatePlants(&a_empty_board_state, &a_board_state);
+    }
+
+    /// C++: Challenge::BeghouledCheckForPossibleMoves (Challenge.cpp:1093)
+    pub unsafe fn BeghouledCheckForPossibleMoves(&mut self, the_board_state: &mut BeghouledBoardState) -> bool {
+        let a_game_mode = (*self.mApp).mGameMode;
+
+        let mut a_row = 0;
+        while a_row < BEGHOULED_MAX_GRIDSIZEY {
+            let mut a_col = 0;
+            while a_col < BEGHOULED_MAX_GRIDSIZEX {
+                if a_game_mode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED {
+                    if self.BeghouledIsValidMove(a_col, a_row, a_col + 1, a_row, the_board_state)
+                        || self.BeghouledIsValidMove(a_col, a_row, a_col, a_row + 1, the_board_state)
+                    {
+                        return true;
+                    }
+                } else if a_game_mode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST {
+                    // [TODO]: BeghouledTwistMoveCausesMatch
+                    return true;
+                } else {
+                    return false;
+                }
+                a_col += 1;
+            }
+            a_row += 1;
+        }
+
+        false
+    }
+
+    /// C++: Challenge::BeghouledIsValidMove (Challenge.cpp:662)
+    pub unsafe fn BeghouledIsValidMove(&mut self, the_from_x: i32, the_from_y: i32, the_to_x: i32, the_to_y: i32, the_board_state: &mut BeghouledBoardState) -> bool {
+        if the_from_x < 0 || the_from_x > BEGHOULED_MAX_GRIDSIZEX || the_to_x < 0 || the_to_x > BEGHOULED_MAX_GRIDSIZEX
+            || the_from_y < 0 || the_from_y > BEGHOULED_MAX_GRIDSIZEY || the_to_y < 0 || the_to_y > BEGHOULED_MAX_GRIDSIZEY
+            || self.m_beghouled_eated[the_from_x as usize][the_from_y as usize] != 0
+            || self.m_beghouled_eated[the_to_x as usize][the_to_y as usize] != 0
+        {
+            return false;
+        }
+
+        let a_seed_from = the_board_state.m_seed_type[the_from_x as usize][the_from_y as usize];
+        let a_seed_to = the_board_state.m_seed_type[the_to_x as usize][the_to_y as usize];
+        if a_seed_from == SeedType::SEED_NONE {
+            return false;
+        }
+
+        // C++: 交换后检查是否产生匹配，然后恢复
+        the_board_state.m_seed_type[the_from_x as usize][the_from_y as usize] = a_seed_to;
+        the_board_state.m_seed_type[the_to_x as usize][the_to_y as usize] = a_seed_from;
+
+        let a_valid = self.BeghouledBoardHasMatch(the_board_state);
+
+        the_board_state.m_seed_type[the_from_x as usize][the_from_y as usize] = a_seed_from;
+        the_board_state.m_seed_type[the_to_x as usize][the_to_y as usize] = a_seed_to;
+
+        a_valid
+    }
+
+    /// C++: Challenge::BeghouledStartFalling (Challenge.cpp:655)
+    pub unsafe fn BeghouledStartFalling(&mut self, _the_state: ChallengeState) {
+        // C++: 状态切换 + 掉落动画
+        self.mChallengeState = ChallengeState::STATECHALLENGE_BEGHOULED_FALLING;
+        // [TODO]: mChallengeStateCounter / 掉落动画
+    }
     /// C++ Challenge::InitLevel() (from Challenge.cpp:360)
     pub unsafe fn InitLevel(&mut self) {
         let app = self.app();
