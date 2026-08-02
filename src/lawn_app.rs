@@ -428,6 +428,16 @@ impl LawnApp {
         self.mGameMode == GameMode::GAMEMODE_ADVENTURE
     }
 
+    /// C++ LawnApp::HasPurchasedStinky — 是否购买了小蜗牛
+    pub fn HasPurchasedStinky(&self) -> bool {
+        // C++: mPlayerInfo->mPurchases[STORE_ITEM_STINKY_THE_SNAIL] != 0
+        if self.m_player_info.is_null() {
+            return false;
+        }
+        unsafe {
+            (*(self.m_player_info)).mPurchases[StoreItem::STORE_ITEM_STINKY_THE_SNAIL as usize] != 0
+        }
+    }
     pub fn is_survival_mode(&self) -> bool {
         let mode = self.mGameMode as i32;
         mode >= GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1 as i32 

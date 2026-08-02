@@ -8,7 +8,7 @@ use crate::lawn_app::LawnApp;
 use crate::lawn::board::Board;
 use crate::lawn::plant::Plant;
 use crate::lawn::grid_item::GridItem;
-use crate::lawn::system::player_info::{PottedPlant, PottedPlantNeed};
+use crate::lawn::system::player_info::{PottedPlant, PottedPlantAge, PottedPlantNeed};
 use crate::sexy_app_framework::graphics::graphics::Graphics;
 
 pub const ZEN_MAX_GRIDSIZE_X: i32 = 8;
@@ -40,12 +40,190 @@ impl ZenGarden {
         }
     }
 
-    pub fn ZenGardenInitLevel(&mut self) {}
+        /// C++ ZenGarden::PottedPlantFromIndex (ZenGarden.cpp:278)
+    pub fn PottedPlantFromIndex(&self, the_potted_plant_index: i32) -> *mut PottedPlant {
+        unsafe {
+            if self.mApp.is_null() || (*self.mApp).m_player_info.is_null() {
+                return std::ptr::null_mut();
+            }
+            let the_player_info = &mut *(*self.mApp).m_player_info;
+            if (the_potted_plant_index as usize) < the_player_info.mPottedPlant.len() {
+                the_player_info.mPottedPlant.as_mut_ptr().add(the_potted_plant_index as usize)
+            } else {
+                std::ptr::null_mut()
+            }
+        }
+    }
+
+    /// C++ ZenGarden::PlantGetMinutesSinceHappy — 植物快乐分钟数
+    pub fn PlantGetMinutesSinceHappy(&self, the_plant: *mut Plant) -> i32 {
+        // [TODO]: 基于 mLastWateredTime/当前时间的完整计算
+        let _ = the_plant;
+        0
+    }
+
+    /// C++ ZenGarden::WasPlantNeedFulfilledToday — 今天是否满足需求
+    pub fn WasPlantNeedFulfilledToday(&self, the_potted_plant: *mut PottedPlant) -> bool {
+        // [TODO]: mLastNeedFulfilledTime 与当日时间比较
+        let _ = the_potted_plant;
+        true
+    }
+
+    /// C++ ZenGarden::PlantHighOnChocolate — 植物是否处于巧克力亢奋
+    pub fn PlantHighOnChocolate(&self, the_potted_plant: *mut PottedPlant) -> bool {
+        // [TODO]: mLastChocolateTime 检查
+        let _ = the_potted_plant;
+        false
+    }
+
+    /// C++ ZenGarden::PlantSetLaunchCounter (ZenGarden.cpp:192)
+    pub fn PlantSetLaunchCounter(&self, the_plant: *mut Plant) {
+        // C++: int aTime = PlantGetMinutesSinceHappy(thePlant);
+        let a_time = self.PlantGetMinutesSinceHappy(the_plant);
+        // C++: aCounterMax = TodAnimateCurve(5, 30, aTime, 3000, 15000, CURVE_LINEAR)
+        let a_counter_max = crate::sexy_tod_lib::tod_common::tod_animate_curve(5, 30, a_time, 3000, 15000, crate::const_enums::TodCurves::CURVE_LINEAR);
+        // C++: thePlant->mLaunchCounter = RandRangeInt(1800, aCounterMax)
+        unsafe {
+            if !the_plant.is_null() {
+                (*the_plant).m_launch_counter = crate::sexy_tod_lib::tod_common::rand_range_int(1800, a_counter_max);
+            }
+        }
+    }
+
+    /// C++ ZenGarden::PlantCanHaveChocolate (ZenGarden.cpp:308)
+    pub fn PlantCanHaveChocolate(&self, the_plant: *mut Plant) -> bool {
+        unsafe {
+            if the_plant.is_null() {
+                return false;
+            }
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return false;
+            }
+            (*a_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_FULL
+                && self.WasPlantNeedFulfilledToday(a_potted_plant)
+                && !self.PlantHighOnChocolate(a_potted_plant)
+        }
+    }
+
+    /// C++ ZenGarden::CanDropChocolate (ZenGarden.cpp:314)
+    pub fn CanDropChocolate(&self) -> bool {
+        // C++: HasPurchasedStinky() && mPurchases[STORE_ITEM_CHOCOLATE] < PURCHASE_COUNT_OFFSET + 10
+        unsafe {
+            if self.mApp.is_null() {
+                return false;
+            }
+            (*self.mApp).HasPurchasedStinky()
+                && if (*self.mApp).m_player_info.is_null() {
+                    false
+                } else {
+                    (*(*self.mApp).m_player_info).mPurchases[StoreItem::STORE_ITEM_CHOCOLATE as usize]
+                        < (crate::lawn::system::player_info::PURCHASE_COUNT_OFFSET + 10) as u32
+                }
+        }
+    }
+
+    /// C++ ZenGarden::CanDropPottedPlantLoot (ZenGarden.cpp:341)
+    pub fn CanDropPottedPlantLoot(&self) -> bool {
+        unsafe {
+            !self.mApp.is_null()
+                && (*self.mApp).HasFinishedAdventure()
+                && !self.IsZenGardenFull(true)
+        }
+    }
+pub fn ZenGardenInitLevel(&mut self) {}
     pub fn DrawPottedPlantIcon(&self, _g: &mut Graphics, _x: f32, _y: f32, _thePottedPlant: *mut PottedPlant) {}
     pub fn DrawPottedPlant(&self, _g: &mut Graphics, _x: f32, _y: f32, _thePottedPlant: *mut PottedPlant, _theScale: f32, _theDrawPot: bool) {}
-    pub fn IsZenGardenFull(&self, _theIncludeDroppedPresents: bool) -> bool { false }
-    pub fn FindOpenZenGardenSpot(&self, _theSpotX: &mut i32, _theSpotY: &mut i32) {}
-    pub fn AddPottedPlant(&mut self, _thePottedPlant: *mut PottedPlant) {}
+    pub fn IsZenGardenFull(&self, the_include_dropped_presents: bool) -> bool {
+    // C++: 掉落礼物数量
+    let mut a_num_dropped_presents = 0;
+    if !self.mBoard.is_null() && the_include_dropped_presents {
+        unsafe {
+            let the_board = &*self.mBoard;
+            a_num_dropped_presents += the_board.CountCoinByType(CoinType::COIN_AWARD_PRESENT);
+            a_num_dropped_presents += the_board.CountCoinByType(CoinType::COIN_PRESENT_PLANT);
+        }
+    }
+
+    // C++: 花园中盆栽数量
+    let mut a_num_potted_plants_in_garden = 0;
+    unsafe {
+        if !self.mApp.is_null() && !(*self.mApp).m_player_info.is_null() {
+            let the_player_info = &*(*self.mApp).m_player_info;
+            for a_potted_plant in &the_player_info.mPottedPlant {
+                if a_potted_plant.mWhichZenGarden == GardenType::GARDEN_MAIN {
+                    a_num_potted_plants_in_garden += 1;
+                }
+            }
+        }
+    }
+
+    a_num_dropped_presents + a_num_potted_plants_in_garden >= ZEN_MAX_GRIDSIZE_X * ZEN_MAX_GRIDSIZE_Y
+}
+    pub fn FindOpenZenGardenSpot(&self, the_spot_x: &mut i32, the_spot_y: &mut i32) {
+    let mut a_picks: [crate::sexy_tod_lib::tod_common::TodWeightedGridArray; 32] = [crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }; 32];
+    let mut a_pick_count = 0;
+
+    unsafe {
+        let mut x = 0;
+        while x < ZEN_MAX_GRIDSIZE_X {
+            let mut y = 0;
+            while y < ZEN_MAX_GRIDSIZE_Y {
+                // C++: 戴夫遮挡区域（mCrazyDaveMessageIndex != -1 时 x<2 或 y<1）
+                if (*self.mApp).m_crazy_dave_message_index != -1 && (x < 2 || y < 1) {
+                    y += 1;
+                    continue;
+                }
+
+                // C++: 格子已被盆栽占用则跳过
+                let mut a_occupied = false;
+                if !(*self.mApp).m_player_info.is_null() {
+                    let the_player_info = &*(*self.mApp).m_player_info;
+                    for a_potted_plant in &the_player_info.mPottedPlant {
+                        if a_potted_plant.mWhichZenGarden == GardenType::GARDEN_MAIN
+                            && a_potted_plant.mX == x
+                            && a_potted_plant.mY == y
+                        {
+                            a_occupied = true;
+                            break;
+                        }
+                    }
+                }
+                if !a_occupied {
+                    a_picks[a_pick_count as usize].m_x = x;
+                    a_picks[a_pick_count as usize].m_y = y;
+                    a_picks[a_pick_count as usize].m_weight = 1;
+                    a_pick_count += 1;
+                }
+                y += 1;
+            }
+            x += 1;
+        }
+    }
+
+    let a_spot: *mut crate::sexy_tod_lib::tod_common::TodWeightedGridArray = match crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_grid_array(&mut a_picks) {
+        Some(g) => g,
+        None => return,
+    };
+    unsafe {
+        *the_spot_x = (*a_spot).m_x;
+        *the_spot_y = (*a_spot).m_y;
+    }
+}
+    pub fn AddPottedPlant(&mut self, the_potted_plant: *mut PottedPlant) {
+    // C++: mPottedPlant[mNumPottedPlants] = *thePottedPlant; mNumPottedPlants++;
+    unsafe {
+        if the_potted_plant.is_null() || (*self.mApp).m_player_info.is_null() {
+            return;
+        }
+        let the_player_info = &mut *(*self.mApp).m_player_info;
+        let a_num = the_player_info.mNumPottedPlants as usize;
+        if a_num < the_player_info.mPottedPlant.len() {
+            the_player_info.mPottedPlant[a_num] = (*the_potted_plant).clone();
+            the_player_info.mNumPottedPlants += 1;
+        }
+    }
+}
     pub fn MouseDownWithTool(&mut self, _x: i32, _y: i32, _theCursorType: i32) {}
     pub fn MovePlant(&mut self, _thePlant: *mut Plant, _theGridX: i32, _theGridY: i32) {}
     pub fn MouseDownWithMoneySign(&mut self, _thePlant: *mut Plant) {}
@@ -71,13 +249,10 @@ impl ZenGarden {
     pub fn GetPlantsNeed(&self, _thePottedPlant: *mut PottedPlant) -> PottedPlantNeed { PottedPlantNeed::PLANTNEED_NONE }
     pub fn MouseDownWithFeedingTool(&mut self, _x: i32, _y: i32, _theCursorType: i32) {}
     pub fn DrawPlantOverlay(&self, _g: &mut Graphics, _thePlant: *mut Plant) {}
-    pub fn PottedPlantFromIndex(&self, _thePottedPlantIndex: isize) -> *mut PottedPlant { std::ptr::null_mut() }
-    pub fn WasPlantNeedFulfilledToday(&self, _thePottedPlant: *mut PottedPlant) -> bool { false }
     pub fn PottedPlantUpdate(&mut self, _thePlant: *mut Plant) {}
     pub fn AddHappyEffect(&mut self, _thePlant: *mut Plant) {}
     pub fn RemoveHappyEffect(&mut self, _thePlant: *mut Plant) {}
     pub fn PlantUpdateProduction(&mut self, _thePlant: *mut Plant) {}
-    pub fn CanDropPottedPlantLoot(&self) -> bool { false }
     pub fn ShowTutorialArrowOnWateringCan(&self) {}
     pub fn PlantsNeedWater(&self) -> bool { false }
     pub fn ZenGardenStart(&mut self) {}
@@ -106,8 +281,5 @@ impl ZenGarden {
     pub fn StinkyFinishFallingAsleep(&mut self, _theStinky: *mut GridItem, _theBlendTime: i32) {}
     pub fn AdvanceCrazyDaveDialog(&mut self) {}
     pub fn LeaveGarden(&mut self) {}
-    pub fn CanDropChocolate(&self) -> bool { false }
     pub fn FeedChocolateToPlant(&mut self, _thePlant: *mut Plant) {}
-    pub fn PlantHighOnChocolate(&self, _thePottedPlant: *mut PottedPlant) -> bool { false }
-    pub fn PlantCanHaveChocolate(&self, _thePlant: *mut Plant) -> bool { false }
 }

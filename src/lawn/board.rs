@@ -2787,6 +2787,17 @@ impl Board {
         self.mTutorialState = the_state;
         // [TODO]: 教程提示 DisplayAdvice（按状态显示对应提示）
     }
+    /// Board::CountCoinByType — 统计指定类型金币数量
+    pub unsafe fn CountCoinByType(&self, the_coin_type: CoinType) -> i32 {
+        let mut a_count = 0;
+        let mut a_coin: *mut Coin = std::ptr::null_mut();
+        while self.IterateCoins(&mut a_coin) {
+            if (*a_coin).m_type == the_coin_type {
+                a_count += 1;
+            }
+        }
+        a_count
+    }
     /// Board::CountZombieByType — 统计指定类型僵尸数量
     pub unsafe fn CountZombieByType(&self, the_zombie_type: ZombieType) -> i32 {
         let mut a_count = 0;
