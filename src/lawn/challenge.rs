@@ -58,6 +58,7 @@ pub struct Challenge {
     pub m_beghouled_matches_this_move: i32,
     pub m_scary_potter_pots: i32,
     pub m_rain_counter: i32,
+    pub m_tree_of_wisdom_talk_index: i32,
 }
 
 impl Challenge {
@@ -82,6 +83,7 @@ impl Challenge {
             m_beghouled_matches_this_move: 0,
             m_scary_potter_pots: 0,
             m_rain_counter: 0,
+            m_tree_of_wisdom_talk_index: 0,
         }
     }
 
@@ -1918,9 +1920,172 @@ impl Challenge {
         }
     }
 
-    /// C++ Challenge::TreeOfWisdomUpdate — 智慧树更新
+    /// C++ Challenge::TreeOfWisdomMouseOn (Challenge.cpp:5164)
+    pub unsafe fn TreeOfWisdomMouseOn(&self, the_x: i32, the_y: i32) -> i32 {
+        // C++: mBoard->MouseHitTest + 物体类型判断（OBJECT_TYPE_TREE_OF_WISDOM + CURSOR_TYPE_TREE_FOOD）
+        // [TODO]: MouseHitTest 完整翻译
+        let _ = the_x;
+        let _ = the_y;
+        0
+    }
+
+    /// C++ Challenge::TreeOfWisdomGetSize (Challenge.cpp:5171)
+    pub unsafe fn TreeOfWisdomGetSize(&self) -> i32 {
+        let the_app = self.app();
+        if (*the_app).m_player_info.is_null() {
+            return 0;
+        }
+        let a_index = (*the_app).GetCurrentChallengeIndex();
+        (*(*the_app).m_player_info).mChallengeRecords[a_index as usize] as i32
+    }
+
+    /// C++ Challenge::TreeOfWisdomDraw (Challenge.cpp:5176) — 智慧树绘制
+    pub unsafe fn TreeOfWisdomDraw(&mut self, g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // [TODO]: Reanimation 渲染（树干/土地/根部/云朵/智慧气泡）
+        let _ = g;
+        let a_height = self.TreeOfWisdomGetSize();
+        let _ = a_height;
+    }
+
+    /// C++ Challenge::TreeOfWisdomInit (Challenge.cpp:5261)
+    pub unsafe fn TreeOfWisdomInit(&mut self) {
+        // [TODO]: Reanimation 树/云朵创建（REANIM_TREEOFWISDOM + 6 朵云）
+
+        // C++: mChallengeState = STATECHALLENGE_TREE_WAITING_TO_BABBLE;
+        self.mChallengeState = ChallengeState::STATECHALLENGE_TREE_WAITING_TO_BABBLE;
+        self.mChallengeStateCounter = crate::sexy_tod_lib::tod_common::rand_range_int(700, 1500);
+    }
+
+    /// C++ Challenge::TreeOfWisdomGrow (Challenge.cpp:5312) — 树木成长
+    pub unsafe fn TreeOfWisdomGrow(&mut self) {
+        let the_app = self.app();
+        let a_index = (*the_app).GetCurrentChallengeIndex();
+        if !(*the_app).m_player_info.is_null() {
+            (*(*the_app).m_player_info).mChallengeRecords[a_index as usize] += 1;
+        }
+        let a_tree_size = self.TreeOfWisdomGetSize();
+        // [TODO]: Reanimation PlayReanim("anim_grow{size}") + PlayFoley(FOLEY_PLANTGROW)
+
+        if a_tree_size > 1 {
+            self.mChallengeState = ChallengeState::STATECHALLENGE_TREE_JUST_GREW;
+            self.mChallengeStateCounter = 120;
+        } else {
+            self.mChallengeState = ChallengeState::STATECHALLENGE_NORMAL;
+        }
+
+        // [TODO]: aTreeSize == 100 成就 ToweringWisdom
+    }
+
+    /// C++ Challenge::TreeOfWisdomFertilize (Challenge.cpp:5333) — 施肥
+    pub unsafe fn TreeOfWisdomFertilize(&mut self) {
+        let the_board = &mut *self.mBoard;
+        // C++: 创建树肥工具 GridItem
+        let a_tree_food = the_board.mGridItems.data_array_alloc();
+        if a_tree_food.is_null() {
+            return;
+        }
+        (*a_tree_food).mPosX = 340.0;
+        (*a_tree_food).mPosY = 300.0;
+        (*a_tree_food).mGridItemType = GridItemType::GRIDITEM_ZEN_TOOL;
+        (*a_tree_food).mGridX = 0;
+        (*a_tree_food).mGridY = 0;
+        (*a_tree_food).mRenderOrder = crate::lawn::board::Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_ABOVE_UI, 0, 0);
+        // [TODO]: Reanimation(REANIM_TREEOFWISDOM_TREEFOOD)
+        (*a_tree_food).mGridItemState = 15; /* GRIDITEM_STATE_ZEN_TOOL_FERTILIZER */
+
+        // [TODO]: mApp->PlayFoley(FOLEY_FERTILIZER)
+        let the_app = self.app();
+        if !(*the_app).m_player_info.is_null() {
+            (*(*the_app).m_player_info).mPurchases[StoreItem::STORE_ITEM_TREE_FOOD as usize] -= 1;
+        }
+        self.mChallengeState = ChallengeState::STATECHALLENGE_NORMAL;
+        // [TODO]: mBoard->ClearCursor()
+    }
+
+    /// C++ Challenge::TreeOfWisdomBabble (Challenge.cpp:5353) — 絮语
+    pub unsafe fn TreeOfWisdomBabble(&mut self) {
+        self.mChallengeState = ChallengeState::STATECHALLENGE_TREE_BABBLING;
+        self.mChallengeStateCounter = 400;
+
+        let a_tree_size = self.TreeOfWisdomGetSize();
+        let a_babble_hit = crate::sexy_tod_lib::tod_common::rand_range_int(0, 2);
+        if a_tree_size <= 1 {
+            self.m_tree_of_wisdom_talk_index = 600;
+        } else if a_babble_hit == 0 && a_tree_size >= 5 {
+            self.m_tree_of_wisdom_talk_index = 500;
+        } else if a_babble_hit == 1 {
+            self.m_tree_of_wisdom_talk_index = crate::sexy_tod_lib::tod_common::rand_range_int(101, 110);
+        } else {
+            self.m_tree_of_wisdom_talk_index =
+                crate::sexy_app_framework::common::rand_int() % 4 + if a_tree_size < 12 { 201 } else if a_tree_size < 50 { 301 } else { 401 };
+        }
+    }
+
+    /// C++ Challenge::TreeOfWisdomGiveWisdom (Challenge.cpp:5378) — 授予智慧
+    pub unsafe fn TreeOfWisdomGiveWisdom(&mut self) {
+        self.mChallengeState = ChallengeState::STATECHALLENGE_TREE_GIVE_WISDOM;
+        self.mChallengeStateCounter = 1000;
+
+        let a_tree_size = self.TreeOfWisdomGetSize();
+        if a_tree_size == 100 {
+            self.m_tree_of_wisdom_talk_index = 800;
+        } else if a_tree_size == 500 {
+            self.m_tree_of_wisdom_talk_index = 900;
+        } else if a_tree_size == 1000 {
+            self.m_tree_of_wisdom_talk_index = 1000;
+        } else if a_tree_size > 1000 {
+            self.m_tree_of_wisdom_talk_index = 1100;
+        } else {
+            self.m_tree_of_wisdom_talk_index = crate::sexy_tod_lib::tod_common::clamp_int(a_tree_size - 1, 1, 49);
+        }
+    }
+
+    /// C++ Challenge::TreeOfWisdomSayRepeat (Challenge.cpp:5406)
+    pub unsafe fn TreeOfWisdomSayRepeat(&mut self) {
+        let a_tree_size = self.TreeOfWisdomGetSize();
+        if a_tree_size >= 100 && crate::sexy_app_framework::common::rand_int() % 47 == 0 {
+            self.m_tree_of_wisdom_talk_index = 800;
+        } else if a_tree_size >= 500 && crate::sexy_app_framework::common::rand_int() % 47 == 0 {
+            self.m_tree_of_wisdom_talk_index = 900;
+        } else if a_tree_size >= 1000 && crate::sexy_app_framework::common::rand_int() % 47 == 0 {
+            self.m_tree_of_wisdom_talk_index = 1000;
+        }
+    }
+
+    /// C++ Challenge::TreeOfWisdomToolUpdate — 树肥工具更新
+    pub unsafe fn TreeOfWisdomToolUpdate(&mut self, _the_zen_tool: *mut crate::lawn::grid_item::GridItem) {
+        // [TODO]: 工具交互（拖拽施肥）
+    }
+
+    /// C++ Challenge::TreeOfWisdomUpdate (Challenge.cpp:5439) — 智慧树更新
     pub unsafe fn TreeOfWisdomUpdate(&mut self) {
-        // [TODO]: TreeOfWisdom 系列
+        // C++: 更新所有树肥工具
+        let the_board = &mut *self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            self.TreeOfWisdomToolUpdate(a_grid_item);
+        }
+
+        // C++: 游玩中倒计时
+        if (*self.mApp).mGameScene == GameScenes::SCENE_PLAYING && self.mChallengeStateCounter > 0 {
+            self.mChallengeStateCounter -= 1;
+        }
+        if self.mChallengeStateCounter == 0 {
+            if self.mChallengeState == ChallengeState::STATECHALLENGE_TREE_JUST_GREW {
+                self.TreeOfWisdomGiveWisdom();
+            } else if self.mChallengeState == ChallengeState::STATECHALLENGE_TREE_WAITING_TO_BABBLE {
+                self.TreeOfWisdomBabble();
+            } else if self.mChallengeState == ChallengeState::STATECHALLENGE_TREE_BABBLING
+                || self.mChallengeState == ChallengeState::STATECHALLENGE_TREE_GIVE_WISDOM
+            {
+                if self.m_tree_of_wisdom_talk_index == 500 {
+                    self.TreeOfWisdomSayRepeat();
+                } else {
+                    self.mChallengeState = ChallengeState::STATECHALLENGE_TREE_WAITING_TO_BABBLE;
+                    self.mChallengeStateCounter = crate::sexy_tod_lib::tod_common::rand_range_int(700, 1000);
+                }
+            }
+        }
     }
 
     /// C++ Challenge::LastStandUpdate (Challenge.cpp:5097) — 最后一战更新
