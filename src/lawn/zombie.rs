@@ -1533,6 +1533,15 @@ impl Zombie {
             && !underground
     }
 
+    /// C++ Zombie::IsTangleKelpTarget (Zombie.cpp:8393)
+    pub unsafe fn IsTangleKelpTarget(&self) -> bool {
+        if self.m_zombie_height == ZombieHeight::HEIGHT_DRAGGED_UNDER {
+            return true;
+        }
+
+        // [TODO]: 遍历植物检查 SEED_TANGLEKELP 且 mTargetZombieID == ZombieGetID(this)
+        false
+    }
     /// C++ Zombie::RemoveColdEffects (Zombie.cpp:8614)
     pub unsafe fn RemoveColdEffects(&mut self) {
         if self.m_ice_trap_counter > 0 {

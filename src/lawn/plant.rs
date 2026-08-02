@@ -634,6 +634,319 @@ impl Plant {
             }
         }
     }
+    /// C++ Plant::GetDamageRangeFlags (Plant.cpp:603) — 植物伤害范围标志
+    pub fn GetDamageRangeFlags(&self, the_plant_weapon: PlantWeapon) -> u32 {
+        // C++: switch (mSeedType) — 位标志对应 DamageRangeFlags 枚举
+        match self.m_seed_type {
+            SeedType::SEED_CACTUS => {
+                // C++: return thePlantWeapon == WEAPON_SECONDARY ? 1 : 2;
+                if the_plant_weapon == PlantWeapon::WEAPON_SECONDARY {
+                    1 << DamageRangeFlags::DAMAGES_GROUND as i32
+                } else {
+                    1 << DamageRangeFlags::DAMAGES_FLYING as i32
+                }
+            }
+            SeedType::SEED_CHERRYBOMB | SeedType::SEED_JALAPENO | SeedType::SEED_COBCANNON
+            | SeedType::SEED_DOOMSHROOM => {
+                // C++: return 127; (除 MINDCONTROLLED 外的全部位)
+                (1 << DamageRangeFlags::DAMAGES_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_FLYING as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_SUBMERGED as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_DOG as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_OFF_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_DYING as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_UNDERGROUND as i32)
+            }
+            SeedType::SEED_MELONPULT | SeedType::SEED_CABBAGEPULT | SeedType::SEED_KERNELPULT
+            | SeedType::SEED_WINTERMELON | SeedType::SEED_SQUASH => {
+                // C++: return 13; (GROUND|SUBMERGED|DOG)
+                (1 << DamageRangeFlags::DAMAGES_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_SUBMERGED as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_DOG as i32)
+            }
+            SeedType::SEED_POTATOMINE => {
+                // C++: return 77; (GROUND|SUBMERGED|DOG|UNDERGROUND)
+                (1 << DamageRangeFlags::DAMAGES_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_SUBMERGED as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_DOG as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_UNDERGROUND as i32)
+            }
+            SeedType::SEED_PUFFSHROOM | SeedType::SEED_SEASHROOM | SeedType::SEED_FUMESHROOM
+            | SeedType::SEED_GLOOMSHROOM | SeedType::SEED_CHOMPER => {
+                // C++: return 9; (GROUND|DOG)
+                (1 << DamageRangeFlags::DAMAGES_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_DOG as i32)
+            }
+            SeedType::SEED_CATTAIL => {
+                // C++: return 11; (GROUND|FLYING|DOG)
+                (1 << DamageRangeFlags::DAMAGES_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_FLYING as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_DOG as i32)
+            }
+            SeedType::SEED_TANGLEKELP => {
+                // C++: return 5; (GROUND|SUBMERGED)
+                (1 << DamageRangeFlags::DAMAGES_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_SUBMERGED as i32)
+            }
+            SeedType::SEED_GIANT_WALLNUT => {
+                // C++: return 17; (GROUND|OFF_GROUND)
+                (1 << DamageRangeFlags::DAMAGES_GROUND as i32)
+                    | (1 << DamageRangeFlags::DAMAGES_OFF_GROUND as i32)
+            }
+            _ => {
+                // C++: default: return 1; (GROUND)
+                1 << DamageRangeFlags::DAMAGES_GROUND as i32
+            }
+        }
+    }
+
+    /// C++ Plant::PlayBodyReanim (Plant.cpp:1129) — 播放主体动画
+    pub unsafe fn PlayBodyReanim(&mut self, _the_track_name: &str, _the_loop_type: crate::sexy_tod_lib::reanimator::ReanimLoopType, _the_blend_time: i32, _the_anim_rate: f32) {
+        // [TODO]: Reanimation 播放（StartBlend/mAnimRate/mLoopType/SetFramesForLayer）
+    }
+
+    /// C++ Plant::UpdatePotato (Plant.cpp:1143) — 土豆雷更新
+    pub unsafe fn UpdatePotato(&mut self) {
+        if self.m_state == PlantState::STATE_NOTREADY {
+            if self.m_state_countdown == 0 {
+                // [TODO]: AddTodParticle(PARTICLE_POTATO_MINE_RISE); PlayBodyReanim("anim_rise", ...)
+                self.m_state = PlantState::STATE_POTATO_RISING;
+                // [TODO]: mApp->PlayFoley(FOLEY_DIRT_RISE)
+            }
+        } else if self.m_state == PlantState::STATE_POTATO_RISING {
+            // C++: if (aBodyReanim->mLoopCount > 0)
+            // [TODO]: Reanimation mLoopCount 检查
+            {
+                // C++: float aRate = RandRangeFloat(12.0f, 15.0f);
+                // [TODO]: PlayBodyReanim("anim_armed", ...); 发光动画创建
+                self.m_state = PlantState::STATE_POTATO_ARMED;
+                self.m_blink_countdown = 400 + crate::sexy_app_framework::common::rand_int() % 4000;
+            }
+        } else if self.m_state == PlantState::STATE_POTATO_ARMED {
+            if !self.FindTargetZombie(self.base.m_row, PlantWeapon::WEAPON_PRIMARY).is_null() {
+                self.DoSpecial();
+            } else {
+                // [TODO]: 发光动画帧数随僵尸距离变化（TodAnimateCurve）
+            }
+        }
+    }
+
+    /// C++ Plant::UpdateSunShroom (Plant.cpp:1073) — 阳光菇更新
+    pub unsafe fn UpdateSunShroom(&mut self) {
+        if self.m_state == PlantState::STATE_SUNSHROOM_SMALL {
+            if self.m_state_countdown == 0 {
+                // [TODO]: PlayBodyReanim("anim_grow", ...)
+                self.m_state = PlantState::STATE_SUNSHROOM_GROWING;
+                // [TODO]: mApp->PlayFoley(FOLEY_PLANTGROW)
+            }
+
+            self.UpdateProductionPlant();
+        } else if self.m_state == PlantState::STATE_SUNSHROOM_GROWING {
+            // C++: if (aBodyReanim->mLoopCount > 0)
+            // [TODO]: Reanimation mLoopCount 检查
+            {
+                // [TODO]: PlayBodyReanim("anim_bigidle", ...)
+                self.m_state = PlantState::STATE_SUNSHROOM_BIG;
+            }
+        } else {
+            self.UpdateProductionPlant();
+        }
+    }
+
+    /// C++ Plant::UpdateGraveBuster (Plant.cpp:1101) — 墓碑吞噬者更新
+    pub unsafe fn UpdateGraveBuster(&mut self) {
+        if self.m_state == PlantState::STATE_GRAVEBUSTER_LANDING {
+            // C++: if (mApp->ReanimationGet(mBodyReanimID)->mLoopCount > 0)
+            // [TODO]: Reanimation mLoopCount 检查
+            {
+                // [TODO]: PlayBodyReanim("anim_idle", ...)
+                self.m_state_countdown = 400;
+                self.m_state = PlantState::STATE_GRAVEBUSTER_EATING;
+                // [TODO]: AddAttachedParticle(mX + 40, mY + 40, PARTICLE_GRAVE_BUSTER)
+            }
+        } else if self.m_state == PlantState::STATE_GRAVEBUSTER_EATING && self.m_state_countdown == 0 {
+            // C++: GridItem* aGraveStone = mBoard->GetGraveStoneAt(mPlantCol, mRow);
+            let the_board = self.board();
+            let a_grave_stone = the_board.GetGraveStoneAt(self.m_plant_col, self.base.m_row);
+            if !a_grave_stone.is_null() {
+                (*a_grave_stone).GridItemDie();
+                the_board.mGravesCleared += 1;
+            }
+
+            // [TODO]: AddTodParticle(PARTICLE_GRAVE_BUSTER_DIE)
+            self.Die();
+            // [TODO]: mBoard->DropLootPiece(mX + 40, mY, 12)
+        }
+    }
+
+    /// C++ Plant::FindTargetZombie (Plant.cpp:4769) — 寻找攻击目标
+    pub unsafe fn FindTargetZombie(&self, the_row: i32, the_plant_weapon: PlantWeapon) -> *mut super::zombie::Zombie {
+        let a_damage_range_flags = self.GetDamageRangeFlags(the_plant_weapon);
+        let mut a_attack_rect = self.GetPlantAttackRect(the_plant_weapon);
+        let mut a_highest_weight = 0;
+        let mut a_best_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+
+        let the_board = self.board();
+        let mut a_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+        while the_board.IterateZombies(&mut a_zombie) {
+            let mut a_row_deviation = (*a_zombie).base.m_row - the_row;
+            if (*a_zombie).m_zombie_type == ZombieType::ZOMBIE_BOSS {
+                a_row_deviation = 0;
+            }
+
+            if !(*a_zombie).m_has_head || (*a_zombie).IsTangleKelpTarget() {
+                if self.m_seed_type == SeedType::SEED_POTATOMINE
+                    || self.m_seed_type == SeedType::SEED_CHOMPER
+                    || self.m_seed_type == SeedType::SEED_TANGLEKELP
+                {
+                    continue;
+                }
+            }
+
+            // [TODO]: PORTAL_COMBAT 模式下 needPortalCheck（PEASHOOTER/CACTUS/REPEATER）
+            let need_portal_check = false;
+
+            if self.m_seed_type != SeedType::SEED_CATTAIL {
+                if self.m_seed_type == SeedType::SEED_GLOOMSHROOM {
+                    if a_row_deviation < -1 || a_row_deviation > 1 {
+                        continue;
+                    }
+                } else if need_portal_check {
+                    // [TODO]: mBoard->mChallenge->CanTargetZombieWithPortals(this, aZombie)
+                } else if a_row_deviation != 0 {
+                    continue;
+                }
+            }
+
+            if (*a_zombie).EffectedByDamage(a_damage_range_flags) {
+                let mut a_extra_range = 0;
+
+                if self.m_seed_type == SeedType::SEED_CHOMPER {
+                    if (*a_zombie).m_zombie_phase == ZombiePhase::PHASE_DIGGER_WALKING {
+                        a_attack_rect.m_x += 20;
+                        a_attack_rect.m_width -= 20;
+                    }
+
+                    if (*a_zombie).m_zombie_phase == ZombiePhase::PHASE_POGO_BOUNCING
+                        || ((*a_zombie).m_zombie_type == ZombieType::ZOMBIE_BUNGEE
+                            && (*a_zombie).m_target_col == self.m_plant_col)
+                    {
+                        continue;
+                    }
+
+                    if (*a_zombie).m_is_eating || self.m_state == PlantState::STATE_CHOMPER_BITING {
+                        a_extra_range = 60;
+                    }
+                }
+
+                if self.m_seed_type == SeedType::SEED_POTATOMINE {
+                    if ((*a_zombie).m_zombie_type == ZombieType::ZOMBIE_POGO && (*a_zombie).m_has_object)
+                        || (*a_zombie).m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT
+                        || (*a_zombie).m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_PRE_VAULT
+                    {
+                        continue;
+                    }
+
+                    if (*a_zombie).m_zombie_type == ZombieType::ZOMBIE_POLEVAULTER {
+                        a_attack_rect.m_x += 40;
+                        a_attack_rect.m_width -= 40;
+                    }
+
+                    if (*a_zombie).m_zombie_type == ZombieType::ZOMBIE_BUNGEE
+                        && (*a_zombie).m_target_col != self.m_plant_col
+                    {
+                        continue;
+                    }
+
+                    if (*a_zombie).m_is_eating {
+                        a_extra_range = 30;
+                    }
+                }
+
+                if (self.m_seed_type == SeedType::SEED_EXPLODE_O_NUT
+                    && (*a_zombie).m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT)
+                    || (self.m_seed_type == SeedType::SEED_TANGLEKELP && !(*a_zombie).m_in_pool)
+                {
+                    continue;
+                }
+
+                let a_zombie_rect = (*a_zombie).GetZombieRect();
+                if !need_portal_check && self.GetRectOverlapRect(a_attack_rect, a_zombie_rect) < -a_extra_range {
+                    continue;
+                }
+
+                let mut a_weight = -a_zombie_rect.m_x;
+                if self.m_seed_type == SeedType::SEED_CATTAIL {
+                    a_weight = -crate::sexy_tod_lib::tod_common::distance_2d(
+                        self.base.m_x as f32 + 40.0,
+                        self.base.m_y as f32 + 40.0,
+                        (a_zombie_rect.m_x + a_zombie_rect.m_width / 2) as f32,
+                        (a_zombie_rect.m_y + a_zombie_rect.m_height / 2) as f32,
+                    ) as i32;
+                    if (*a_zombie).IsFlying() {
+                        a_weight += 10000;
+                    }
+                }
+
+                if a_best_zombie.is_null() || a_weight > a_highest_weight {
+                    a_highest_weight = a_weight;
+                    a_best_zombie = a_zombie;
+                }
+            }
+        }
+
+        a_best_zombie
+    }
+
+    /// C++ Plant::BurnRow (Plant.cpp:4226) — 烧毁整行僵尸
+    pub unsafe fn BurnRow(&mut self, the_row: i32) {
+        let a_damage_range_flags = self.GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
+
+        let the_board = self.board();
+        let mut a_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+        while the_board.IterateZombies(&mut a_zombie) {
+            // C++: if ((aZombie->mZombieType == ZOMBIE_BOSS || aZombie->mRow == theRow) && aZombie->EffectedByDamage(...))
+            if ((*a_zombie).m_zombie_type == ZombieType::ZOMBIE_BOSS || (*a_zombie).base.m_row == the_row)
+                && (*a_zombie).EffectedByDamage(a_damage_range_flags)
+            {
+                (*a_zombie).RemoveColdEffects();
+                (*a_zombie).ApplyBurn();
+            }
+        }
+
+        // C++: 烧毁该行梯子
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridY == the_row && (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_LADDER {
+                (*a_grid_item).GridItemDie();
+            }
+        }
+
+        // C++: Boss 冰球摧毁（若冰球在该行）
+        let a_boss_zombie = the_board.GetBossZombie();
+        if !a_boss_zombie.is_null() {
+            // [TODO]: aBossZombie->mFireballRow == theRow 时 BossDestroyIceballInRow()
+        }
+    }
+
+    /// C++ Plant::IceZombies (Plant.cpp:4204) — 冰冻全场僵尸
+    pub unsafe fn IceZombies(&mut self) {
+        let the_board = self.board();
+        let mut a_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+        while the_board.IterateZombies(&mut a_zombie) {
+            (*a_zombie).HitIceTrap();
+        }
+
+        // C++: mBoard->mIceTrapCounter = 300;
+        the_board.mIceTrapCounter = 300;
+        // [TODO]: 池面闪光粒子恢复（mPoolSparklyParticleID）
+
+        // C++: Boss 火焰球摧毁
+        let a_boss_zombie = the_board.GetBossZombie();
+        if !a_boss_zombie.is_null() {
+            // [TODO]: aBossZombie->BossDestroyFireball()
+        }
+    }
     pub unsafe fn Update(&mut self) {
         let mut do_update = false;
         let board = self.board();
