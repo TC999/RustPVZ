@@ -1254,9 +1254,61 @@ impl Challenge {
         // [TODO]: IZombie 系列
     }
 
-    /// C++ Challenge::UpdateRainingSeeds — 种子雨更新
+    /// C++ Challenge::UpdateRainingSeeds (Challenge.cpp:1919) — 种子雨更新
     pub unsafe fn UpdateRainingSeeds(&mut self) {
-        // [TODO]: RainingSeeds 系列
+        let the_board = &mut *self.mBoard;
+        if the_board.mLevelAwardSpawned {
+            return;
+        }
+        self.mChallengeStateCounter -= 1;
+        if self.mChallengeStateCounter != 0 {
+            return;
+        }
+
+        self.mChallengeStateCounter = crate::sexy_tod_lib::tod_common::rand_range_int(500, 999);
+
+        // C++: AddCoin(..., COIN_USABLE_SEED_PACKET, COIN_MOTION_FROM_SKY_SLOW)
+        let a_coin = the_board.AddCoin(
+            crate::sexy_tod_lib::tod_common::rand_range_int(100, 649),
+            60,
+            CoinType::COIN_USABLE_SEED_PACKET,
+            CoinMotion::COIN_MOTION_FROM_SKY_SLOW,
+        );
+
+        // C++: 随机选种子，排除升级/向日葵/咖啡/荷叶等
+        let the_app = self.app();
+        let mut a_seed_type;
+        loop {
+            a_seed_type = std::mem::transmute::<i32, SeedType>(crate::sexy_app_framework::common::rand_int() % (*the_app).GetSeedsAvailable());
+            let a_not_recommended = {
+                // [TODO]: SeedNotRecommendedForLevel 完整翻译
+                false
+            };
+            if a_not_recommended
+                || !(*the_app).HasSeedType(a_seed_type)
+                || crate::lawn::plant::Plant::is_upgrade(a_seed_type)
+                || a_seed_type == SeedType::SEED_SUNFLOWER
+                || a_seed_type == SeedType::SEED_TWINSUNFLOWER
+                || a_seed_type == SeedType::SEED_INSTANT_COFFEE
+                || a_seed_type == SeedType::SEED_UMBRELLA
+                || a_seed_type == SeedType::SEED_SUNSHROOM
+                || a_seed_type == SeedType::SEED_IMITATER
+            {
+                continue;
+            }
+            break;
+        }
+
+        // C++: 荷叶数量越多，掉落荷叶概率越高
+        if crate::sexy_app_framework::common::rand_int() % 100
+            < crate::sexy_tod_lib::tod_common::tod_animate_curve(0, 18, the_board.CountPlantByType(SeedType::SEED_LILYPAD), 30, 1, crate::const_enums::TodCurves::CURVE_LINEAR)
+        {
+            a_seed_type = SeedType::SEED_LILYPAD;
+        }
+
+        if !a_coin.is_null() {
+            (*a_coin).m_usable_seed_type = a_seed_type;
+        }
     }
 
     /// C++ Challenge::UpdatePortalCombat — 传送门更新
@@ -1274,9 +1326,66 @@ impl Challenge {
         // [TODO]: TreeOfWisdom 系列
     }
 
-    /// C++ Challenge::LastStandUpdate — 最后一战更新
+    /// C++ Challenge::LastStandUpdate (Challenge.cpp:5097) — 最后一战更新
     pub unsafe fn LastStandUpdate(&mut self) {
-        // [TODO]: LastStand 系列
+        let the_board = &mut *self.mBoard;
+        // C++: 显示开始/继续猛攻按钮
+        if the_board.mNextSurvivalStageCounter == 0
+            && self.mChallengeState == ChallengeState::STATECHALLENGE_NORMAL
+            && !the_board.mStoreButton.is_null()
+            && (*the_board.mStoreButton).mBtnNoDraw
+        {
+            let a_button = the_board.mStoreButton;
+            (*a_button).mBtnNoDraw = false;
+            (*a_button).mDisabled = false;
+
+            if self.mSurvivalStage == 0 {
+                (*a_button).SetLabel("[START_ONSLAUGHT]");
+                (*a_button).Resize(300, 559, 210, 46);
+            } else {
+                (*a_button).SetLabel("[CONTINUE_ONSLAUGHT]");
+                (*a_button).Resize(270, 559, 257, 46);
+            }
+        }
+
+        // C++: 猛攻状态下累计计数
+        if self.mChallengeState == ChallengeState::STATECHALLENGE_LAST_STAND_ONSLAUGHT
+            && (*self.mApp).mGameScene == GameScenes::SCENE_PLAYING
+        {
+            self.mChallengeStateCounter += 1;
+        }
+    }
+
+    /// C++ Challenge::LastStandCompletedStage (Challenge.cpp:5121) — 阶段完成
+    pub unsafe fn LastStandCompletedStage(&mut self) {
+        let the_app = self.app();
+        // [TODO]: mApp->PlaySample(SOUND_HUGE_WAVE)
+        self.mChallengeState = ChallengeState::STATECHALLENGE_NORMAL;
+        let the_board = &mut *self.mBoard;
+        if !the_board.mSeedBank.is_null() {
+            (*(*the_board).mSeedBank).RefreshAllPackets();
+        }
+
+        // C++: 消化/装填/充磁植物状态压缩
+        let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+        while the_board.IteratePlants(&mut a_plant) {
+            if (*a_plant).m_state == crate::lawn::plant::PlantState::STATE_CHOMPER_DIGESTING
+                || (*a_plant).m_state == crate::lawn::plant::PlantState::STATE_COBCANNON_ARMING
+                || (*a_plant).m_state == crate::lawn::plant::PlantState::STATE_MAGNETSHROOM_SUCKING
+                || (*a_plant).m_state == crate::lawn::plant::PlantState::STATE_MAGNETSHROOM_CHARGING
+            {
+                (*a_plant).m_state_countdown = (*a_plant).m_state_countdown.min(200);
+            }
+        }
+
+        // C++: 提示成功防守 + 下一阶段
+        let a_flag_str = crate::lawn_app::LawnApp::Pluralize(the_board.GetSurvivalFlagsCompleted(), "[ONE_FLAG]", "[COUNT_FLAGS]");
+        let a_msg = crate::sexy_tod_lib::tod_common::tod_replace_string("[SUCCESSFULLY_DEFENDED]", "{FLAGS}", &a_flag_str);
+        the_board.DisplayAdvice(&a_msg, 0, AdviceType::ADVICE_NONE as i32);
+
+        self.mSurvivalStage += 1;
+        the_board.mLevelComplete = false;
+        the_board.InitZombieWavesForLevel(the_board.mLevel);
     }
 
     /// C++ Challenge::UpdateConveyorBelt() (from Challenge.cpp:1616)

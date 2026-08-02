@@ -20,6 +20,19 @@ pub struct GameButton {
 }
 
 impl GameButton {
+    pub fn SetLabel(&mut self, the_label: &str) {
+        self.mLabel = the_label.to_string();
+    }
+
+    pub fn Resize(&mut self, the_x: i32, the_y: i32, the_width: i32, the_height: i32) {
+        self.mX = the_x;
+        self.mY = the_y;
+        self.mWidth = the_width;
+        self.mHeight = the_height;
+    }
+}
+
+impl GameButton {
     pub fn new() -> Self {
         GameButton {
             mId: 0, mX: 0, mY: 0,
