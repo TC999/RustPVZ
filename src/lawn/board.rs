@@ -2287,15 +2287,9 @@ impl Board {
 
     /// Board::AddZombie (from Board.cpp:2729)
     /// C++: return AddZombieInRow(theZombieType, PickRowForNewZombie(theZombieType), theFromWave);
-    /// [TRANSLATION_NOTE]: PickRowForNewZombie（带行权重选择的版本）尚未翻译，
-    /// 此处用随机行选择替代，逻辑由 AddZombieInRow 完成僵尸初始化。
     pub unsafe fn AddZombie(&mut self, theZombieType: ZombieType, theFromWave: i32) -> *mut Zombie {
-        let aRow = if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RESODDED as i32 {
-            crate::sexy_tod_lib::tod_common::rand_range_int(0, 4)
-        } else {
-            crate::sexy_tod_lib::tod_common::rand_range_int(0, MAX_GRID_SIZE_Y - 1)
-        };
-        self.AddZombieInRow(theZombieType, aRow, theFromWave)
+        let a_row = self.PickRowForNewZombie(theZombieType);
+        self.AddZombieInRow(theZombieType, a_row, theFromWave)
     }
 
     /// Board::AddZombieInRow (from Board.cpp:2702)
@@ -2557,6 +2551,129 @@ impl Board {
             PlantPriority::TOPPLANT_ONLY_PUMPKIN => return a_pumpkin,
             PlantPriority::TOPPLANT_ONLY_UNDER_PLANT => return a_under,
         }
+    }
+    /// Board::IsZombieTypePoolOnly (from Board.cpp:2566)
+    pub unsafe fn IsZombieTypePoolOnly(&self, the_zombie_type: ZombieType) -> bool {
+        // C++: ZOMBIE_SNORKEL || ZOMBIE_DOLPHIN_RIDER
+        the_zombie_type == ZombieType::ZOMBIE_SNORKEL || the_zombie_type == ZombieType::ZOMBIE_DOLPHIN_RIDER
+    }
+
+    /// Board::RowCanHaveZombieType (from Board.cpp:2571) — 指定行能否刷出该僵尸
+    pub unsafe fn RowCanHaveZombieType(&self, the_row: i32, the_zombie_type: ZombieType) -> bool {
+        if !self.RowCanHaveZombies(the_row) {
+            return false;
+        }
+
+        // C++: RESODDED 无草皮行前 5 波不刷怪
+        if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RESODDED as i32
+            && self.mPlantRow[the_row as usize] == PlantRowType::PLANTROW_DIRT as i32
+            && self.mCurrentWave < 5
+        {
+            return false;
+        }
+        // C++: 水路不刷不能入水的僵尸（气球除外）
+        if self.mPlantRow[the_row as usize] == PlantRowType::PLANTROW_POOL as i32
+            && !Zombie::ZombieTypeCanGoInPool(the_zombie_type)
+            && the_zombie_type != ZombieType::ZOMBIE_BALLOON
+        {
+            return false;
+        }
+        // C++: 高地不刷不能上高地的僵尸
+        if self.mPlantRow[the_row as usize] == PlantRowType::PLANTROW_HIGH_GROUND as i32
+            && !Zombie::ZombieTypeCanGoOnHighGround(the_zombie_type)
+        {
+            return false;
+        }
+
+        // C++: int aCurrentWave = mCurrentWave; LAST_STAND 时加上生存阶段偏移
+        let mut a_current_wave = self.mCurrentWave;
+        if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32 {
+            if !self.mChallenge.is_null() {
+                // C++: aCurrentWave += mChallenge->mSurvivalStage * GetNumWavesPerSurvivalStage();
+                a_current_wave += (*self.mChallenge).mSurvivalStage * self.GetNumWavesPerSurvivalStage();
+            }
+        }
+        // C++: 非水路不能刷水路僵尸；前 5 小波水面仅潜水/海豚
+        if self.mPlantRow[the_row as usize] == PlantRowType::PLANTROW_POOL as i32 {
+            if a_current_wave < 5 && !self.IsZombieTypePoolOnly(the_zombie_type) {
+                return false;
+            }
+        } else if self.IsZombieTypePoolOnly(the_zombie_type) {
+            return false;
+        }
+        // C++: 雪橇僵尸仅在有冰道的行刷出
+        if the_zombie_type == ZombieType::ZOMBIE_BOBSLED && self.mIceTimer[the_row as usize] == 0 {
+            return false;
+        }
+        // C++: 第一行不出伽刚特尔（生存模式除外）
+        if the_row == 0 && !self.IsSurvivalMode() {
+            if the_zombie_type == ZombieType::ZOMBIE_GARGANTUAR
+                || the_zombie_type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR
+            {
+                return false;
+            }
+        }
+        // C++: 非舞王僵尸或当前为泳池关卡则允许
+        if the_zombie_type != ZombieType::ZOMBIE_DANCER || self.StageHasPool() {
+            return true;
+        }
+        // C++: 舞王僵尸（非泳池）仅中间三行（保证伴舞能出现）
+        self.RowCanHaveZombies(the_row - 1) && self.RowCanHaveZombies(the_row + 1)
+    }
+
+    /// Board::PickRowForNewZombie (from Board.cpp:2630) — 为新僵尸选择行（权重）
+    pub unsafe fn PickRowForNewZombie(&mut self, the_zombie_type: ZombieType) -> i32 {
+        // C++: 钉耙吸引状态 → 优先钉耙行
+        let a_rake = self.GetRake();
+        if !a_rake.is_null()
+            && (*a_rake).mGridItemState == 26 /* GRIDITEM_STATE_RAKE_ATTRACTING */
+            && self.RowCanHaveZombieType((*a_rake).mGridY, the_zombie_type)
+        {
+            // C++: aRake->mGridItemState = GRIDITEM_STATE_RAKE_WAITING;
+            (*a_rake).mGridItemState = 27; /* GRIDITEM_STATE_RAKE_WAITING */
+            crate::sexy_tod_lib::tod_common::tod_update_smooth_array_pick(
+                &mut self.mRowPickingArray,
+                MAX_GRID_SIZE_Y,
+                (*a_rake).mGridY,
+            );
+            return (*a_rake).mGridY;
+        }
+
+        // C++: 遍历每一行，按规则设置出怪权重
+        let mut a_row = 0;
+        while a_row < MAX_GRID_SIZE_Y {
+            if !self.RowCanHaveZombieType(a_row, the_zombie_type) {
+                self.mRowPickingArray[a_row as usize].m_weight = 0.0;
+            } else if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT as i32 {
+                // C++: mChallenge->PortalCombatRowSpawnWeight(aRow)
+                // [TODO]: 传送门关卡行权重
+                self.mRowPickingArray[a_row as usize].m_weight = 1.0;
+            } else if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL as i32
+                && self.mCurrentWave <= 3
+                && a_row == 5
+            {
+                // C++: 隐形食脑者前 3 波第六路不出怪
+                self.mRowPickingArray[a_row as usize].m_weight = 0.0;
+            } else {
+                // C++: 丢车保护 — 计算该行被割草机清理后的波数
+                let mut a_waves_mowered = self.mCurrentWave - self.mWaveRowGotLawnMowered[a_row as usize];
+                if (*self.mApp).IsContinuousChallenge() && self.mCurrentWave == self.mNumWaves - 1 {
+                    a_waves_mowered = 100;
+                }
+
+                if a_waves_mowered <= 1 {
+                    self.mRowPickingArray[a_row as usize].m_weight = 0.01;
+                } else if a_waves_mowered <= 2 {
+                    self.mRowPickingArray[a_row as usize].m_weight = 0.5;
+                } else {
+                    self.mRowPickingArray[a_row as usize].m_weight = 1.0;
+                }
+            }
+            a_row += 1;
+        }
+
+        // C++: return TodPickFromSmoothArray(mRowPickingArray, MAX_GRID_SIZE_Y);
+        crate::sexy_tod_lib::tod_common::tod_pick_from_smooth_array(&mut self.mRowPickingArray, MAX_GRID_SIZE_Y)
     }
     /// Board::PlantingRequirementsMet (from Board.cpp:9566) — 进阶植物前置需求
     pub unsafe fn PlantingRequirementsMet(&self, the_seed_type: SeedType) -> bool {
