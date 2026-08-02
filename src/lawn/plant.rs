@@ -1303,6 +1303,18 @@ impl Plant {
     }
 
     /// 获取植物攻击矩形 (C++ Plant::GetPlantAttackRect)
+    /// C++ Plant::GetPlantRect (Plant.cpp:5139)
+    pub fn GetPlantRect(&self) -> crate::sexy_app_framework::misc::rect::Rect {
+        if self.m_seed_type == SeedType::SEED_TALLNUT {
+            crate::sexy_app_framework::misc::rect::Rect::new(self.base.m_x + 10, self.base.m_y, self.base.m_width, self.base.m_height)
+        } else if self.m_seed_type == SeedType::SEED_PUMPKINSHELL {
+            crate::sexy_app_framework::misc::rect::Rect::new(self.base.m_x, self.base.m_y, self.base.m_width - 20, self.base.m_height)
+        } else if self.m_seed_type == SeedType::SEED_COBCANNON {
+            crate::sexy_app_framework::misc::rect::Rect::new(self.base.m_x, self.base.m_y, 140, 80)
+        } else {
+            crate::sexy_app_framework::misc::rect::Rect::new(self.base.m_x + 10, self.base.m_y, self.base.m_width - 20, self.base.m_height)
+        }
+    }
     pub unsafe fn GetPlantAttackRect(&self, _weapon: PlantWeapon) -> crate::sexy_app_framework::misc::rect::Rect {
         // [TODO]: 根据不同植物类型返回攻击范围矩形
         crate::sexy_app_framework::misc::rect::Rect {

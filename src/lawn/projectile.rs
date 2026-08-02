@@ -56,26 +56,42 @@ pub struct Projectile {
     pub m_def_image_row: i32,
 }
 
+// ProjectileMotion 常量 (C++ ConstEnums.h:790)
+pub const MOTION_STRAIGHT: i32 = 0;      // 水平向右
+pub const MOTION_LOBBED: i32 = 1;        // 抛物线
+pub const MOTION_THREEPEATER: i32 = 2;   // 偏转向右
+pub const MOTION_BEE: i32 = 3;
+pub const MOTION_BEE_BACKWARDS: i32 = 4;
+pub const MOTION_PUFF: i32 = 5;          // 水平向右（一段时间后消失）
+pub const MOTION_BACKWARDS: i32 = 6;     // 水平向左
+pub const MOTION_STAR: i32 = 7;          // 斜向运动
+pub const MOTION_FLOAT_OVER: i32 = 8;    // 缓慢漂浮向右（无碰撞）
+pub const MOTION_HOMING: i32 = 9;        // 追踪
 // 投射物定义表 (C++ Projectile::GetProjectileDef)
-pub const PROJECTILE_DEFS: [ProjectileDefinition; 18] = [
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_PEA,        m_image_row: 0, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_SNOWPEA,    m_image_row: 1, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_CABBAGE,    m_image_row: 2, m_damage: 40 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_MELON,      m_image_row: 3, m_damage: 60 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_WINTERMELON,m_image_row: 3, m_damage: 60 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_KERNEL,     m_image_row: 4, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_COB,        m_image_row: 5, m_damage: 40 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_PUFF,       m_image_row: 6, m_damage: 1 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_SPIKE,      m_image_row: 7, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_SPIKEROCK,  m_image_row: 8, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_FIREBALL,   m_image_row: 0, m_damage: 40 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_STAR,       m_image_row: 9, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_BUTTER,     m_image_row: 0, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_FUME,       m_image_row: 0, m_damage: 1 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_CACTUS,     m_image_row: 0, m_damage: 20 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_GARLIC,     m_image_row: 0, m_damage: 0 },
-    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_BOBSLED,    m_image_row: 0, m_damage: 0 },
+pub const PROJECTILE_DEFS: [ProjectileDefinition; 23] = [
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_PEA,         m_image_row: 0, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_SNOWPEA,     m_image_row: 1, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_CABBAGE,     m_image_row: 2, m_damage: 40 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_MELON,       m_image_row: 3, m_damage: 60 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_WINTERMELON, m_image_row: 3, m_damage: 60 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_COB,         m_image_row: 5, m_damage: 40 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_BUTTER,      m_image_row: 0, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_KERNEL,      m_image_row: 4, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_SPIKE,       m_image_row: 7, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_SPIKEROCK,   m_image_row: 8, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_PUFF,        m_image_row: 6, m_damage: 1 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_FUME,        m_image_row: 0, m_damage: 1 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_CACTUS,      m_image_row: 0, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_BLOVER,      m_image_row: 0, m_damage: 0 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_STAR,        m_image_row: 9, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_GARLIC,      m_image_row: 0, m_damage: 0 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_FIREBALL,    m_image_row: 0, m_damage: 40 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_ICE,         m_image_row: 0, m_damage: 0 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_FIRE,        m_image_row: 0, m_damage: 0 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_BOBSLED,     m_image_row: 0, m_damage: 0 },
     ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_FIREBALL_BOSS, m_image_row: 0, m_damage: 80 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_ZOMBIE_PEA,  m_image_row: 0, m_damage: 20 },
+    ProjectileDefinition { m_projectile_type: ProjectileType::PROJECTILE_COBBIG,      m_image_row: 0, m_damage: 120 },
 ];
 
 unsafe fn g_app() -> &'static mut crate::lawn_app::LawnApp {
@@ -286,6 +302,448 @@ impl Projectile {
     // =========================================================================
     // DoImpact — C++ 保真翻译 (Projectile.cpp:819)
     // =========================================================================
+    /// C++ Projectile::GetProjectileRect (Projectile.cpp:1163)
+    pub fn GetProjectileRect(&self) -> crate::sexy_app_framework::misc::rect::Rect {
+        if self.m_projectile_type == ProjectileType::PROJECTILE_PEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_SNOWPEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_ZOMBIE_PEA
+        {
+            return crate::sexy_app_framework::misc::rect::Rect::new(
+                self.base.m_x - 15, self.base.m_y, self.base.m_width + 15, self.base.m_height,
+            );
+        } else if self.m_projectile_type == ProjectileType::PROJECTILE_COBBIG {
+            return crate::sexy_app_framework::misc::rect::Rect::new(
+                self.base.m_x + self.base.m_width / 2 - 115,
+                self.base.m_y + self.base.m_height / 2 - 115,
+                230, 230,
+            );
+        } else if self.m_projectile_type == ProjectileType::PROJECTILE_MELON
+            || self.m_projectile_type == ProjectileType::PROJECTILE_WINTERMELON
+        {
+            return crate::sexy_app_framework::misc::rect::Rect::new(
+                self.base.m_x + 20, self.base.m_y, 60, self.base.m_height,
+            );
+        } else if self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL {
+            return crate::sexy_app_framework::misc::rect::Rect::new(
+                self.base.m_x, self.base.m_y, self.base.m_width - 10, self.base.m_height,
+            );
+        } else if self.m_projectile_type == ProjectileType::PROJECTILE_SPIKE {
+            return crate::sexy_app_framework::misc::rect::Rect::new(
+                self.base.m_x - 25, self.base.m_y, self.base.m_width + 25, self.base.m_height,
+            );
+        } else {
+            return crate::sexy_app_framework::misc::rect::Rect::new(
+                self.base.m_x, self.base.m_y, self.base.m_width, self.base.m_height,
+            );
+        }
+    }
+
+    /// C++ Projectile::FindCollisionTargetPlant (Projectile.cpp:156) — 僵尸豌豆命中植物
+    pub unsafe fn FindCollisionTargetPlant(&self) -> *mut super::plant::Plant {
+        let a_projectile_rect = self.GetProjectileRect();
+        let the_board = self.board();
+        let mut a_plant: *mut super::plant::Plant = std::ptr::null_mut();
+        while the_board.IteratePlants(&mut a_plant) {
+            if (*a_plant).base.m_row != self.base.m_row {
+                continue;
+            }
+
+            if self.m_projectile_type == ProjectileType::PROJECTILE_ZOMBIE_PEA {
+                // C++: 僵尸豌豆不能击中低矮植物
+                if (*a_plant).m_seed_type == SeedType::SEED_PUFFSHROOM
+                    || (*a_plant).m_seed_type == SeedType::SEED_SUNSHROOM
+                    || (*a_plant).m_seed_type == SeedType::SEED_POTATOMINE
+                    || (*a_plant).m_seed_type == SeedType::SEED_SPIKEWEED
+                    || (*a_plant).m_seed_type == SeedType::SEED_SPIKEROCK
+                    || (*a_plant).m_seed_type == SeedType::SEED_LILYPAD
+                {
+                    continue;
+                }
+            }
+
+            let a_plant_rect = (*a_plant).GetPlantRect();
+            if crate::lawn::board::Board::get_rect_overlap(a_projectile_rect, a_plant_rect) > 8 {
+                if self.m_projectile_type == ProjectileType::PROJECTILE_ZOMBIE_PEA {
+                    return the_board.GetTopPlantAt((*a_plant).m_plant_col, (*a_plant).base.m_row, PlantPriority::TOPPLANT_EATING_ORDER);
+                } else {
+                    return the_board.GetTopPlantAt((*a_plant).m_plant_col, (*a_plant).base.m_row, PlantPriority::TOPPLANT_CATAPULT_ORDER);
+                }
+            }
+        }
+
+        std::ptr::null_mut()
+    }
+
+    /// C++ Projectile::PeaAboutToHitTorchwood (Projectile.cpp:194) — “卡火炬”检测
+    pub unsafe fn PeaAboutToHitTorchwood(&self) -> bool {
+        if self.m_motion_type != MOTION_STRAIGHT {
+            return false;
+        }
+
+        if self.m_projectile_type != ProjectileType::PROJECTILE_PEA
+            && self.m_projectile_type != ProjectileType::PROJECTILE_SNOWPEA
+        {
+            return false;
+        }
+
+        let the_board = self.board();
+        let mut a_plant: *mut super::plant::Plant = std::ptr::null_mut();
+        while the_board.IteratePlants(&mut a_plant) {
+            if (*a_plant).m_seed_type == SeedType::SEED_TORCHWOOD
+                && (*a_plant).base.m_row == self.base.m_row
+                && !(*a_plant).NotOnGround()
+                && self.m_hit_torchwood_grid_x != (*a_plant).m_plant_col
+            {
+                let a_plant_attack_rect = (*a_plant).GetPlantAttackRect(super::plant::PlantWeapon::WEAPON_PRIMARY);
+                let mut a_projectile_rect = self.GetProjectileRect();
+                a_projectile_rect.m_x += 40;
+
+                if crate::lawn::board::Board::get_rect_overlap(a_plant_attack_rect, a_projectile_rect) > 10 {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// C++ Projectile::FindCollisionTarget (Projectile.cpp:221) — 寻找碰撞僵尸
+    pub unsafe fn FindCollisionTarget(&self) -> *mut super::zombie::Zombie {
+        if self.PeaAboutToHitTorchwood() {
+            return std::ptr::null_mut();
+        }
+
+        let a_projectile_rect = self.GetProjectileRect();
+        let mut a_best_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+        let mut a_min_x = 0;
+
+        let the_board = self.board();
+        let mut a_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+        while the_board.IterateZombies(&mut a_zombie) {
+            if ((*a_zombie).m_zombie_type == ZombieType::ZOMBIE_BOSS || (*a_zombie).base.m_row == self.base.m_row)
+                && (*a_zombie).EffectedByDamage(self.m_damage_range_flags as u32)
+            {
+                // C++: 潜泳中且豌豆飞得够高时跳过
+                if (*a_zombie).m_zombie_phase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL
+                    && self.m_pos_z >= 45.0
+                {
+                    continue;
+                }
+
+                // C++: 星星刚射出时不打挖地僵尸
+                if self.m_projectile_type == ProjectileType::PROJECTILE_STAR
+                    && self.m_projectile_age < 25
+                    && self.m_vel_x >= 0.0
+                    && (*a_zombie).m_zombie_type == ZombieType::ZOMBIE_DIGGER
+                {
+                    continue;
+                }
+
+                let a_zombie_rect = (*a_zombie).GetZombieRect();
+                if crate::lawn::board::Board::get_rect_overlap(a_projectile_rect, a_zombie_rect) > 0 {
+                    if a_best_zombie.is_null() || (*a_zombie).base.m_x < a_min_x {
+                        a_best_zombie = a_zombie;
+                        a_min_x = (*a_zombie).base.m_x;
+                    }
+                }
+            }
+        }
+
+        a_best_zombie
+    }
+
+    /// C++ Projectile::CheckForCollision (Projectile.cpp:260) — 碰撞检查
+    pub unsafe fn CheckForCollision(&mut self) {
+        if self.m_motion_type == MOTION_PUFF && self.m_projectile_age >= 75 {
+            self.Die();
+            return;
+        }
+
+        if self.m_pos_x > 800.0 /* WIDE_BOARD_WIDTH */ || (self.m_pos_x + self.base.m_width as f32) < 0.0 {
+            self.Die();
+            return;
+        }
+
+        if self.m_motion_type == MOTION_HOMING {
+            // C++: Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
+            // [TODO]: ZombieTryToGet(mTargetZombieID) 目标获取
+            let the_board = self.board();
+            let a_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+            if !a_zombie.is_null() && (*a_zombie).EffectedByDamage(self.m_damage_range_flags as u32) {
+                let a_projectile_rect = self.GetProjectileRect();
+                let a_zombie_rect = (*a_zombie).GetZombieRect();
+                if crate::lawn::board::Board::get_rect_overlap(a_projectile_rect, a_zombie_rect) >= 0
+                    && self.m_pos_y > a_zombie_rect.m_y as f32
+                    && self.m_pos_y < (a_zombie_rect.m_y + a_zombie_rect.m_height) as f32
+                {
+                    self.DoImpact(a_zombie);
+                }
+            }
+            return;
+        }
+
+        if self.m_projectile_type == ProjectileType::PROJECTILE_STAR
+            && (self.m_pos_y > 600.0 || self.m_pos_y < 0.0)
+        {
+            self.Die();
+            return;
+        }
+
+        if (self.m_projectile_type == ProjectileType::PROJECTILE_PEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_STAR)
+            && self.m_shadow_y - self.m_pos_y > 90.0
+        {
+            return;
+        }
+
+        if self.m_motion_type == MOTION_FLOAT_OVER {
+            return;
+        }
+
+        if self.m_projectile_type == ProjectileType::PROJECTILE_ZOMBIE_PEA {
+            let a_plant = self.FindCollisionTargetPlant();
+            if !a_plant.is_null() {
+                let a_projectile_def = Self::GetProjectileDef(self.m_projectile_type);
+                (*a_plant).m_plant_health -= a_projectile_def.m_damage;
+                (*a_plant).m_eaten_flash_countdown = (*a_plant).m_eaten_flash_countdown.max(25);
+                // [TODO]: mApp->PlayFoley(FOLEY_SPLAT); AddTodParticle(PARTICLE_PEA_SPLAT)
+                self.Die();
+            }
+            return;
+        }
+
+        let a_zombie = self.FindCollisionTarget();
+        if !a_zombie.is_null() {
+            if (*a_zombie).m_on_high_ground && self.CantHitHighGround() {
+                return;
+            }
+            self.DoImpact(a_zombie);
+        }
+    }
+
+    /// C++ Projectile::CantHitHighGround (Projectile.cpp:333)
+    pub fn CantHitHighGround(&self) -> bool {
+        if self.m_motion_type == MOTION_BACKWARDS || self.m_motion_type == MOTION_HOMING {
+            return false;
+        }
+
+        (self.m_projectile_type == ProjectileType::PROJECTILE_PEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_SNOWPEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_STAR
+            || self.m_projectile_type == ProjectileType::PROJECTILE_PUFF
+            || self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL)
+            && !self.m_on_high_ground
+    }
+
+    /// C++ Projectile::CheckForHighGround (Projectile.cpp:347)
+    pub unsafe fn CheckForHighGround(&mut self) {
+        let a_shadow_delta = self.m_shadow_y - self.m_pos_y;
+
+        if self.m_projectile_type == ProjectileType::PROJECTILE_PEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_SNOWPEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL
+            || self.m_projectile_type == ProjectileType::PROJECTILE_SPIKE
+            || self.m_projectile_type == ProjectileType::PROJECTILE_COBBIG
+        {
+            if a_shadow_delta < 28.0 {
+                self.DoImpact(std::ptr::null_mut());
+                return;
+            }
+        }
+
+        if self.m_projectile_type == ProjectileType::PROJECTILE_PUFF && a_shadow_delta < 0.0 {
+            self.DoImpact(std::ptr::null_mut());
+            return;
+        }
+
+        if self.m_projectile_type == ProjectileType::PROJECTILE_STAR && a_shadow_delta < 23.0 {
+            self.DoImpact(std::ptr::null_mut());
+            return;
+        }
+
+        if self.CantHitHighGround() {
+            let the_board = self.board();
+            let a_grid_x = the_board.PixelToGridXKeepOnBoard(self.m_pos_x as i32 + 30, self.m_pos_y as i32);
+            if the_board.mGridSquareType[a_grid_x as usize][self.base.m_row as usize]
+                == GridSquareType::GRIDSQUARE_HIGH_GROUND
+            {
+                self.DoImpact(std::ptr::null_mut());
+            }
+        }
+    }
+
+    /// C++ Projectile::IsSplashDamage (Projectile.cpp:386)
+    pub fn IsSplashDamage(&self, the_zombie: Option<&super::zombie::Zombie>) -> bool {
+        if self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL && the_zombie.is_some() {
+            if let Some(z) = the_zombie {
+                if unsafe { z.IsFireResistant() } {
+                    return false;
+                }
+            }
+        }
+
+        self.m_projectile_type == ProjectileType::PROJECTILE_MELON
+            || self.m_projectile_type == ProjectileType::PROJECTILE_WINTERMELON
+            || self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL
+    }
+
+    /// C++ Projectile::GetDamageFlags (Projectile.cpp:397)
+    pub fn GetDamageFlags(&self, the_zombie: Option<&super::zombie::Zombie>) -> u32 {
+        let mut a_damage_flags: u32 = 0;
+
+        if self.IsSplashDamage(the_zombie) {
+            a_damage_flags |= 1 << DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY as i32;
+        } else if self.m_motion_type == MOTION_LOBBED || self.m_motion_type == MOTION_BACKWARDS {
+            a_damage_flags |= 1 << DamageFlags::DAMAGE_BYPASSES_SHIELD as i32;
+        } else if self.m_motion_type == MOTION_STAR && self.m_vel_x < 0.0 {
+            a_damage_flags |= 1 << DamageFlags::DAMAGE_BYPASSES_SHIELD as i32;
+        }
+
+        // C++: if (mProjectileType == PROJECTILE_SNOWPEA || mProjectileType == PROJECTILE_WINTERMELON)
+        // C++:     SetBit(aDamageFlags, DAMAGE_FREEZE, true);
+        if self.m_projectile_type == ProjectileType::PROJECTILE_SNOWPEA
+            || self.m_projectile_type == ProjectileType::PROJECTILE_WINTERMELON
+        {
+            a_damage_flags |= 1 << DamageFlags::DAMAGE_FREEZE as i32;
+        }
+
+        a_damage_flags
+    }
+
+    /// C++ Projectile::IsZombieHitBySplash (Projectile.cpp:422)
+    pub unsafe fn IsZombieHitBySplash(&self, the_zombie: &super::zombie::Zombie) -> bool {
+        let mut a_projectile_rect = self.GetProjectileRect();
+        if self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL {
+            a_projectile_rect.m_width = 100;
+        }
+
+        let mut a_row_deviation = the_zombie.base.m_row - self.base.m_row;
+        let a_zombie_rect = the_zombie.GetZombieRect();
+        if the_zombie.IsFireResistant() && self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL {
+            return false;
+        }
+
+        if the_zombie.m_zombie_type == ZombieType::ZOMBIE_BOSS {
+            a_row_deviation = 0;
+        }
+        if self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL {
+            if a_row_deviation != 0 {
+                return false;
+            }
+        } else if a_row_deviation > 1 || a_row_deviation < -1 {
+            return false;
+        }
+
+        let the_board = self.board();
+        the_zombie.EffectedByDamage(self.m_damage_range_flags as u32)
+            && crate::lawn::board::Board::get_rect_overlap(a_projectile_rect, a_zombie_rect) >= 0
+    }
+
+    /// C++ Projectile::DoSplashDamage (Projectile.cpp:456) — 溅射伤害
+    pub unsafe fn DoSplashDamage(&mut self, the_zombie: *mut super::zombie::Zombie) {
+        let a_projectile_def = Self::GetProjectileDef(self.m_projectile_type);
+
+        let the_board = self.board();
+        let mut a_zombies_get_splashed = 0;
+        let mut a_zombie: *mut super::zombie::Zombie = std::ptr::null_mut();
+        while the_board.IterateZombies(&mut a_zombie) {
+            if a_zombie != the_zombie && self.IsZombieHitBySplash(&*a_zombie) {
+                a_zombies_get_splashed += 1;
+            }
+        }
+
+        let a_original_damage = a_projectile_def.m_damage;
+        let mut a_splash_damage = a_projectile_def.m_damage / 3;
+        let mut a_max_splash_damage_amount = a_original_damage * 7;
+        if self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL {
+            a_max_splash_damage_amount = a_original_damage;
+        }
+        let a_splash_damage_amount = a_splash_damage * a_zombies_get_splashed;
+        if a_splash_damage_amount > a_max_splash_damage_amount {
+            // C++: aSplashDamage = aOriginalDamage * aMaxSplashDamageAmount / (aSplashDamageAmount * 3);
+            a_splash_damage = a_original_damage * a_max_splash_damage_amount / (a_splash_damage_amount * 3);
+            a_splash_damage = a_splash_damage.max(1);
+        }
+
+        a_zombie = std::ptr::null_mut();
+        while the_board.IterateZombies(&mut a_zombie) {
+            if self.IsZombieHitBySplash(&*a_zombie) {
+                let a_damage_flags = self.GetDamageFlags(Some(&*a_zombie));
+                if a_zombie == the_zombie {
+                    (*a_zombie).TakeDamage(a_original_damage, a_damage_flags);
+                } else {
+                    (*a_zombie).TakeDamage(a_splash_damage, a_damage_flags);
+                }
+            }
+        }
+    }
+
+    /// C++ Projectile::PlayImpactSound (Projectile.cpp:773)
+    pub unsafe fn PlayImpactSound(&mut self, the_zombie: *mut super::zombie::Zombie) {
+        let mut a_play_helm_sound = true;
+        let mut a_play_splat_sound = true;
+        let app = self.app();
+        if self.m_projectile_type == ProjectileType::PROJECTILE_KERNEL {
+            // [TODO]: mApp->PlayFoley(FOLEY_KERNEL_SPLAT)
+            a_play_helm_sound = false;
+            a_play_splat_sound = false;
+        } else if self.m_projectile_type == ProjectileType::PROJECTILE_BUTTER {
+            // [TODO]: mApp->PlayFoley(FOLEY_BUTTER)
+            a_play_splat_sound = false;
+        } else if self.m_projectile_type == ProjectileType::PROJECTILE_FIREBALL
+            && self.IsSplashDamage(if the_zombie.is_null() { None } else { Some(&*the_zombie) })
+        {
+            // [TODO]: mApp->PlayFoley(FOLEY_IGNITE)
+            a_play_helm_sound = false;
+            a_play_splat_sound = false;
+        } else if self.m_projectile_type == ProjectileType::PROJECTILE_MELON
+            || self.m_projectile_type == ProjectileType::PROJECTILE_WINTERMELON
+        {
+            // [TODO]: mApp->PlayFoley(FOLEY_MELONIMPACT)
+            a_play_splat_sound = false;
+        }
+
+        if a_play_helm_sound && !the_zombie.is_null() {
+            if (*the_zombie).m_helm_type == 2 /* HELMTYPE_PAIL */ {
+                // [TODO]: mApp->PlayFoley(FOLEY_SHIELD_HIT)
+                a_play_splat_sound = false;
+            } else if (*the_zombie).m_helm_type == 1 /* HELMTYPE_TRAFFIC_CONE */
+                || (*the_zombie).m_helm_type == 3 /* HELMTYPE_DIGGER */
+                || (*the_zombie).m_helm_type == 4 /* HELMTYPE_FOOTBALL */
+            {
+                // [TODO]: mApp->PlayFoley(FOLEY_PLASTIC_HIT)
+            }
+        }
+
+        if a_play_splat_sound {
+            // [TODO]: mApp->PlayFoley(FOLEY_SPLAT)
+        }
+        let _ = app;
+    }
+
+    /// C++ Projectile::ConvertToFireball (Projectile.cpp:1193) — 豌豆穿过火炬木变火球
+    pub unsafe fn ConvertToFireball(&mut self, the_grid_x: i32) {
+        if self.m_hit_torchwood_grid_x == the_grid_x {
+            return;
+        }
+
+        self.m_projectile_type = ProjectileType::PROJECTILE_FIREBALL;
+        self.m_hit_torchwood_grid_x = the_grid_x;
+        // [TODO]: mApp->PlayFoley(FOLEY_FIREPEA)
+        // [TODO]: AddReanimation(REANIM_FIRE_PEA) + AttachReanim
+    }
+
+    /// C++ Projectile::ConvertToPea (Projectile.cpp:1217) — 火球变回豌豆
+    pub unsafe fn ConvertToPea(&mut self, the_grid_x: i32) {
+        if self.m_hit_torchwood_grid_x == the_grid_x {
+            return;
+        }
+
+        // C++: AttachmentDie(mAttachmentID);
+        self.m_projectile_type = ProjectileType::PROJECTILE_PEA;
+        self.m_hit_torchwood_grid_x = the_grid_x;
+        // [TODO]: mApp->PlayFoley(FOLEY_THROW)
+    }
     pub unsafe fn DoImpact(&mut self, _the_zombie: *mut super::zombie::Zombie) {
         // C++: 根据投射物类型处理伤害和效果
         // [TODO]: 播放命中音效

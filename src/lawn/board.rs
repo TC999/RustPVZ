@@ -2489,6 +2489,75 @@ impl Board {
     }
 
 
+    /// C++ 全局函数 GetRectOverlap (Board.cpp:9123) — X 轴重叠量
+    /// [TRANSLATION_NOTE]: C++ 为全局函数，此处作为 Board 关联函数提供。
+    pub fn get_rect_overlap(rect1: crate::sexy_app_framework::misc::rect::Rect, rect2: crate::sexy_app_framework::misc::rect::Rect) -> i32 {
+        // C++: return std::min(rect1.mX + rect1.mWidth, rect2.mX + rect2.mWidth) - std::max(rect1.mX, rect2.mX);
+        (rect1.m_x + rect1.m_width).min(rect2.m_x + rect2.m_width) - rect1.m_x.max(rect2.m_x)
+    }
+
+    /// Board::GetTopPlantAt (from Board.cpp:2286) — 获取格子上指定优先级的顶层植物
+    /// [TRANSLATION_NOTE]: PlantsOnLawn 分类（GetPlantsOnLawn）后续翻译；
+    /// 此处按 seed type 简化分类（pumpkin/flying/under/normal）实现同等优先级语义。
+    pub unsafe fn GetTopPlantAt(&self, the_grid_x: i32, the_grid_y: i32, the_priority: PlantPriority) -> *mut Plant {
+        if the_grid_x < 0 || the_grid_x >= MAX_GRID_SIZE_X || the_grid_y < 0 || the_grid_y >= MAX_GRID_SIZE_Y {
+            return std::ptr::null_mut();
+        }
+
+        // C++: mApp->IsWallnutBowlingLevel() && !mCutScene->IsInShovelTutorial() 时返回 nullptr
+        // [TODO]: 保龄球关卡检查
+
+        let mut a_pumpkin: *mut Plant = std::ptr::null_mut();
+        let mut a_flying: *mut Plant = std::ptr::null_mut();
+        let mut a_normal: *mut Plant = std::ptr::null_mut();
+        let mut a_under: *mut Plant = std::ptr::null_mut();
+
+        let mut a_plant: *mut Plant = std::ptr::null_mut();
+        while self.IteratePlants(&mut a_plant) {
+            if (*a_plant).m_plant_col != the_grid_x || (*a_plant).base.m_row != the_grid_y {
+                continue;
+            }
+            let a_seed = (*a_plant).m_seed_type;
+            if a_seed == SeedType::SEED_PUMPKINSHELL {
+                if a_pumpkin.is_null() { a_pumpkin = a_plant; }
+            } else if Plant::is_flying(a_seed) {
+                if a_flying.is_null() { a_flying = a_plant; }
+            } else if a_seed == SeedType::SEED_LILYPAD {
+                if a_under.is_null() { a_under = a_plant; }
+            } else {
+                if a_normal.is_null() { a_normal = a_plant; }
+            }
+        }
+
+        match the_priority {
+            PlantPriority::TOPPLANT_EATING_ORDER => {
+                if !a_pumpkin.is_null() { return a_pumpkin; }
+                else if !a_normal.is_null() { return a_normal; }
+                else { return a_under; }
+            }
+            PlantPriority::TOPPLANT_DIGGING_ORDER => {
+                if !a_normal.is_null() { return a_normal; }
+                else { return a_under; }
+            }
+            PlantPriority::TOPPLANT_BUNGEE_ORDER | PlantPriority::TOPPLANT_CATAPULT_ORDER
+            | PlantPriority::TOPPLANT_ANY => {
+                if !a_flying.is_null() { return a_flying; }
+                else if !a_normal.is_null() { return a_normal; }
+                else if !a_pumpkin.is_null() { return a_pumpkin; }
+                else { return a_under; }
+            }
+            PlantPriority::TOPPLANT_ZEN_TOOL_ORDER => {
+                if !a_flying.is_null() { return a_flying; }
+                else if !a_pumpkin.is_null() { return a_pumpkin; }
+                else if !a_normal.is_null() { return a_normal; }
+                else { return a_under; }
+            }
+            PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION => return a_normal,
+            PlantPriority::TOPPLANT_ONLY_FLYING => return a_flying,
+            PlantPriority::TOPPLANT_ONLY_PUMPKIN => return a_pumpkin,
+            PlantPriority::TOPPLANT_ONLY_UNDER_PLANT => return a_under,
+        }
+    }
     /// Board::GetBossZombie (from Board.cpp:9466)
     pub unsafe fn GetBossZombie(&self) -> *mut Zombie {
         let mut a_zombie: *mut Zombie = std::ptr::null_mut();

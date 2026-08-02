@@ -5,6 +5,20 @@
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
+pub enum PlantPriority {
+    TOPPLANT_EATING_ORDER,
+    TOPPLANT_DIGGING_ORDER,
+    TOPPLANT_BUNGEE_ORDER,
+    TOPPLANT_CATAPULT_ORDER,
+    TOPPLANT_ZEN_TOOL_ORDER,
+    TOPPLANT_ANY,
+    TOPPLANT_ONLY_NORMAL_POSITION,
+    TOPPLANT_ONLY_FLYING,
+    TOPPLANT_ONLY_PUMPKIN,
+    TOPPLANT_ONLY_UNDER_PLANT,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
 pub enum AdviceType {
     ADVICE_NONE = -1,
     ADVICE_CLICK_ON_SUN = 0,
@@ -767,6 +781,11 @@ pub enum ProjectileType {
     PROJECTILE_FIRE = 18,
     PROJECTILE_BOBSLED = 19,
     PROJECTILE_FIREBALL_BOSS = 20,
+    // [TRANSLATION_NOTE]: 以下两个变体对应 C++ ProjectileType 中的
+    // PROJECTILE_COBBIG / PROJECTILE_ZOMBIE_PEA（本枚举为 Rust 移植的顺序，
+    // 数值与 C++ 不同，但内部自洽）
+    PROJECTILE_ZOMBIE_PEA,
+    PROJECTILE_COBBIG,
     NUM_PROJECTILE_TYPES,
 }
 
