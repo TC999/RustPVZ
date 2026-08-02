@@ -75,6 +75,7 @@ impl GraphicsState {
 }
 
 // Image struct - mapping of Sexy::Image
+#[repr(C)]
 pub struct Image {
     pub m_drawn: bool,
     pub m_file_path: String,
@@ -114,6 +115,16 @@ impl Image {
     }
     pub fn get_anim_cel_rect(&self, _the_time: i32) -> Rect {
         self.get_cel_rect(0)
+    }
+
+    /// 获取该图像（若为 MemoryImage/GLImage）的像素缓冲指针。
+    /// [TRANSLATION_NOTE]: Image 是 MemoryImage 的第一个字段（#[repr(C)] 保证偏移 0），
+    /// 此方法用于 Graphics 绘制时取源图像像素；非 MemoryImage 返回 null。
+    pub fn pixel_bits(&self) -> *mut u32 {
+        unsafe {
+            let mem = self as *const Image as *const MemoryImage;
+            (*mem).m_bits
+        }
     }
 }
 
@@ -321,29 +332,210 @@ impl Graphics {
         self.set_scale(sx, sy, ox, oy);
     }
 
+    /// 私有辅助：将图像 blt 到屏幕（对应 C++ mDestImage->Blt）
+    fn blt_to_screen(&self, the_image: &Image, dest_x: i32, dest_y: i32, src_rect: &Rect, mirror: bool) {
+        let src_bits = the_image.pixel_bits();
+        let a_color = if self.state.m_colorize_images {
+            self.state.m_color
+        } else {
+            crate::sexy_app_framework::graphics::color::Color::from_components(255, 255, 255)
+        };
+        let a_dest_rect = Rect::new(dest_x, dest_y, src_rect.m_width, src_rect.m_height);
+        crate::sexy_app_framework::graphics::renderer::blt_image(
+            src_bits,
+            the_image.m_width,
+            the_image.m_height,
+            src_rect,
+            &a_dest_rect,
+            &a_color,
+            self.state.m_draw_mode,
+            mirror,
+        );
+    }
+
+    /// 私有辅助：拉伸 blt（对应 C++ mDestImage->StretchBlt）
+    fn stretch_blt_to_screen(&self, the_image: &Image, dest_rect: &Rect, src_rect: &Rect, mirror: bool) {
+        let src_bits = the_image.pixel_bits();
+        let a_color = if self.state.m_colorize_images {
+            self.state.m_color
+        } else {
+            crate::sexy_app_framework::graphics::color::Color::from_components(255, 255, 255)
+        };
+        crate::sexy_app_framework::graphics::renderer::blt_image(
+            src_bits,
+            the_image.m_width,
+            the_image.m_height,
+            src_rect,
+            dest_rect,
+            &a_color,
+            self.state.m_draw_mode,
+            mirror,
+        );
+    }
+
+    /// 私有辅助：带源矩形与缩放处理的 DrawImage（对应 C++ Graphics::DrawImage(Image*, int, int, const Rect&)）
+    fn draw_image_src(&self, the_image: &Image, the_x: i32, the_y: i32, the_src_rect: &Rect) {
+        // C++: DBG_ASSERTE + 越界检查
+        if (the_src_rect.m_x + the_src_rect.m_width > the_image.get_width())
+            || (the_src_rect.m_y + the_src_rect.m_height > the_image.get_height())
+        {
+            return;
+        }
+
+        let x = the_x + self.state.m_trans_x as i32;
+        let y = the_y + self.state.m_trans_y as i32;
+
+        if self.state.m_scale_x != 1.0 || self.state.m_scale_y != 1.0 {
+            // C++: Rect aDestRect(mScaleOrigX+floor((theX-mScaleOrigX)*mScaleX), ...);
+            let a_dest_rect = Rect::new(
+                self.state.m_scale_orig_x as i32
+                    + ((the_x as f32 - self.state.m_scale_orig_x) * self.state.m_scale_x).floor() as i32,
+                self.state.m_scale_orig_y as i32
+                    + ((the_y as f32 - self.state.m_scale_orig_y) * self.state.m_scale_y).floor() as i32,
+                (the_src_rect.m_width as f32 * self.state.m_scale_x).ceil() as i32,
+                (the_src_rect.m_height as f32 * self.state.m_scale_y).ceil() as i32,
+            );
+            self.stretch_blt_to_screen(the_image, &a_dest_rect, the_src_rect, false);
+            return;
+        }
+
+        let a_dest_rect = Rect::new(x, y, the_src_rect.m_width, the_src_rect.m_height)
+            .intersection(&self.state.m_clip_rect);
+        let a_src_rect = Rect::new(
+            the_src_rect.m_x + a_dest_rect.m_x - x,
+            the_src_rect.m_y + a_dest_rect.m_y - y,
+            a_dest_rect.m_width,
+            a_dest_rect.m_height,
+        );
+
+        if (a_src_rect.m_width > 0) && (a_src_rect.m_height > 0) {
+            self.blt_to_screen(the_image, a_dest_rect.m_x, a_dest_rect.m_y, &a_src_rect, false);
+        }
+    }
+
     /// C++ Graphics::DrawImage (Image*, int x, int y)
-    pub fn DrawImage(&self, _theImage: &Image, _theX: i32, _theY: i32) {
-        // [TODO]: Draw image at (x + mTransX, y + mTransY) with current clip/scale
+    pub fn DrawImage(&self, theImage: &Image, theX: i32, theY: i32) {
+        // C++: if (mScaleX != 1 || mScaleY != 1) { DrawImage(theImage, theX, theY, Rect(0,0,w,h)); return; }
+        if self.state.m_scale_x != 1.0 || self.state.m_scale_y != 1.0 {
+            self.draw_image_src(theImage, theX, theY, &Rect::new(0, 0, theImage.m_width, theImage.m_height));
+            return;
+        }
+
+        let x = theX + self.state.m_trans_x as i32;
+        let y = theY + self.state.m_trans_y as i32;
+
+        let a_dest_rect = Rect::new(x, y, theImage.get_width(), theImage.get_height())
+            .intersection(&self.state.m_clip_rect);
+        let a_src_rect = Rect::new(
+            a_dest_rect.m_x - x,
+            a_dest_rect.m_y - y,
+            a_dest_rect.m_width,
+            a_dest_rect.m_height,
+        );
+
+        if (a_src_rect.m_width > 0) && (a_src_rect.m_height > 0) {
+            self.blt_to_screen(theImage, a_dest_rect.m_x, a_dest_rect.m_y, &a_src_rect, false);
+        }
+    }
+
+    /// C++ Graphics::DrawImage(Image*, int x, int y, const Rect& theSrcRect)
+    pub fn DrawImageSrcRect(&self, theImage: &Image, theX: i32, theY: i32, theSrcRect: &Rect) {
+        self.draw_image_src(theImage, theX, theY, theSrcRect);
+    }
+
+    /// C++ Graphics::DrawImage(Image*, int x, int y, int stretchedWidth, int stretchedHeight)
+    pub fn DrawImageStretched(&self, theImage: &Image, theX: i32, theY: i32, theStretchedWidth: i32, theStretchedHeight: i32) {
+        let a_dest_rect = Rect::new(theX + self.state.m_trans_x as i32, theY + self.state.m_trans_y as i32, theStretchedWidth, theStretchedHeight);
+        let a_src_rect = Rect::new(0, 0, theImage.m_width, theImage.m_height);
+        self.stretch_blt_to_screen(theImage, &a_dest_rect, &a_src_rect, false);
+    }
+
+    /// C++ Graphics::DrawImage(Image*, const Rect& theDestRect, const Rect& theSrcRect)
+    pub fn DrawImageDestSrc(&self, theImage: &Image, theDestRect: &Rect, theSrcRect: &Rect) {
+        let a_dest_rect = Rect::new(
+            theDestRect.m_x + self.state.m_trans_x as i32,
+            theDestRect.m_y + self.state.m_trans_y as i32,
+            theDestRect.m_width,
+            theDestRect.m_height,
+        );
+        self.stretch_blt_to_screen(theImage, &a_dest_rect, theSrcRect, false);
     }
 
     /// C++ Graphics::DrawImageF (Image*, float x, float y)
-    pub fn DrawImageF(&self, _theImage: &Image, _theX: f32, _theY: f32) {
-        // [TODO]: Float position draw
+    pub fn DrawImageF(&self, theImage: &Image, theX: f32, theY: f32) {
+        let x = theX + self.state.m_trans_x;
+        let y = theY + self.state.m_trans_y;
+        let a_src_rect = Rect::new(0, 0, theImage.m_width, theImage.m_height);
+        self.blt_to_screen(theImage, x.floor() as i32, y.floor() as i32, &a_src_rect, false);
+    }
+
+    /// C++ Graphics::DrawImageF (Image*, float x, float y, const Rect& theSrcRect)
+    pub fn DrawImageFSrcRect(&self, theImage: &Image, theX: f32, theY: f32, theSrcRect: &Rect) {
+        let x = theX + self.state.m_trans_x;
+        let y = theY + self.state.m_trans_y;
+        self.blt_to_screen(theImage, x.floor() as i32, y.floor() as i32, theSrcRect, false);
     }
 
     /// C++ Graphics::DrawImageCel (ImageStrip, x, y, cel)
-    pub fn DrawImageCel(&self, _theImageStrip: &Image, _theX: i32, _theY: i32, _theCel: i32) {
-        // [TODO]: Calculate cel rect and draw
+    pub fn DrawImageCel(&self, theImageStrip: &Image, theX: i32, theY: i32, theCel: i32) {
+        let a_src_rect = theImageStrip.get_cel_rect(theCel);
+        self.draw_image_src(theImageStrip, theX, theY, &a_src_rect);
     }
 
     /// C++ Graphics::DrawImageCel (ImageStrip, x, y, celCol, celRow)
-    pub fn DrawImageCelRow(&self, _theImageStrip: &Image, _theX: i32, _theY: i32, _theCelCol: i32, _theCelRow: i32) {
-        // [TODO]: Draw specific cel by column and row
+    pub fn DrawImageCelRow(&self, theImageStrip: &Image, theX: i32, theY: i32, theCelCol: i32, theCelRow: i32) {
+        let a_src_rect = theImageStrip.get_cel_rect_rc(theCelCol, theCelRow);
+        self.draw_image_src(theImageStrip, theX, theY, &a_src_rect);
     }
 
-    /// C++ Graphics::DrawImageMirror
-    pub fn DrawImageMirror(&self, _theImage: &Image, _theX: i32, _theY: i32, _mirror: bool) {
-        // [TODO]: Horizontally mirrored draw
+    /// C++ Graphics::DrawImageMirror(Image*, int x, int y, bool mirror)
+    pub fn DrawImageMirror(&self, theImage: &Image, theX: i32, theY: i32, mirror: bool) {
+        let a_src_rect = Rect::new(0, 0, theImage.m_width, theImage.m_height);
+        self.draw_image_mirror_src(theImage, theX, theY, &a_src_rect, mirror);
+    }
+
+    /// C++ Graphics::DrawImageMirror(Image*, int x, int y, const Rect& theSrcRect, bool mirror)
+    pub fn DrawImageMirrorSrcRect(&self, theImage: &Image, theX: i32, theY: i32, theSrcRect: &Rect, mirror: bool) {
+        self.draw_image_mirror_src(theImage, theX, theY, theSrcRect, mirror);
+    }
+
+    /// 私有辅助：镜像绘制（对应 C++ Graphics::DrawImageMirror 的 mirror 分支）
+    fn draw_image_mirror_src(&self, the_image: &Image, the_x: i32, the_y: i32, the_src_rect: &Rect, mirror: bool) {
+        // C++: if (!mirror) { DrawImage(theImage, theX, theY, theSrcRect); return; }
+        if !mirror {
+            self.draw_image_src(the_image, the_x, the_y, the_src_rect);
+            return;
+        }
+
+        let x = the_x + self.state.m_trans_x as i32;
+        let y = the_y + self.state.m_trans_y as i32;
+
+        // C++: 越界检查
+        if (the_src_rect.m_x + the_src_rect.m_width > the_image.get_width())
+            || (the_src_rect.m_y + the_src_rect.m_height > the_image.get_height())
+        {
+            return;
+        }
+
+        // C++: aDestRect = Rect(theX, theY, srcW, srcH).Intersection(mClipRect)
+        let a_dest_rect = Rect::new(x, y, the_src_rect.m_width, the_src_rect.m_height)
+            .intersection(&self.state.m_clip_rect);
+
+        // C++: aTotalClip / aLeftClip / aRightClip — 镜像裁剪计算
+        let a_total_clip = the_src_rect.m_width - a_dest_rect.m_width;
+        let a_left_clip = a_dest_rect.m_x - x;
+        let a_right_clip = a_total_clip - a_left_clip;
+
+        let a_src_rect = Rect::new(
+            the_src_rect.m_x + a_right_clip,
+            the_src_rect.m_y + a_dest_rect.m_y - y,
+            a_dest_rect.m_width,
+            a_dest_rect.m_height,
+        );
+
+        if (a_src_rect.m_width > 0) && (a_src_rect.m_height > 0) {
+            self.blt_to_screen(the_image, a_dest_rect.m_x, a_dest_rect.m_y, &a_src_rect, true);
+        }
     }
 
     /// C++ Graphics::mTransX/Y — 平移变换直接访问
@@ -404,6 +596,7 @@ impl crate::sexy_app_framework::widget::widget_traits::GraphicsTrait for Graphic
 pub const MEMORYCHECK_ID: u32 = 0x4BEEFADE;
 pub static mut G_OPTIMIZE_SOFTWARE_DRAWING: bool = true;
 
+#[repr(C)]
 pub struct MemoryImage {
     pub base: Image,
     pub m_bits: *mut u32,
@@ -452,27 +645,185 @@ impl MemoryImage {
     pub fn get_bits(&self) -> *mut u32 { self.m_bits }
     pub fn bits_changed(&mut self) { self.m_bits_changed = true; self.m_bits_changed_count += 1; }
     pub fn commit_bits(&mut self) { self.m_bits_changed = false; }
-    pub fn clear(&mut self) { /* placeholder */ }
-    pub fn create(&mut self, _width: i32, _height: i32) { /* placeholder */ }
-    pub fn set_bits(&mut self, _the_bits: *mut u32, _the_width: i32, _the_height: i32, _commit_bits: bool) { /* placeholder */ }
-    pub fn set_image_mode(&mut self, _has_trans: bool, _has_alpha: bool) {
-        self.m_has_trans = _has_trans;
-        self.m_has_alpha = _has_alpha;
+
+    /// C++: MemoryImage::GetBits() — 惰性分配像素缓冲并清零
+    /// [TRANSLATION_NOTE]: C++ 中 GetBits 为 const 方法（mBits 可变成员），
+    /// Rust 中需要 &mut self；已有调用点使用 get_bits()（&self 只读），此内部方法供绘制使用。
+    fn ensure_bits(&mut self) -> *mut u32 {
+        if self.m_bits.is_null() {
+            let a_size = (self.base.m_width * self.base.m_height) as usize;
+            let mut a_bits = vec![0u32; a_size + 1];
+            a_bits[a_size] = MEMORYCHECK_ID;
+            let ptr = a_bits.as_mut_ptr();
+            std::mem::forget(a_bits);
+            self.m_bits = ptr;
+        }
+        self.m_bits
+    }
+
+    /// C++: MemoryImage::Clear() — 释放像素缓冲
+    pub fn clear(&mut self) {
+        // C++: delete [] mBits; mBits = nullptr;
+        if !self.m_bits.is_null() {
+            unsafe {
+                let a_size = (self.base.m_width * self.base.m_height) as usize + 1;
+                let _ = Vec::from_raw_parts(self.m_bits, a_size, a_size);
+            }
+            self.m_bits = std::ptr::null_mut();
+        }
+        self.delete_3d_buffers();
+        self.bits_changed();
+    }
+
+    /// C++: MemoryImage::Create(int theWidth, int theHeight)
+    pub fn create(&mut self, the_width: i32, the_height: i32) {
+        // C++: delete [] mBits; mBits = nullptr;
+        if !self.m_bits.is_null() {
+            unsafe {
+                let a_size = (self.base.m_width * self.base.m_height) as usize + 1;
+                let _ = Vec::from_raw_parts(self.m_bits, a_size, a_size);
+            }
+            self.m_bits = std::ptr::null_mut();
+        }
+
+        self.base.m_width = the_width;
+        self.base.m_height = the_height;
+
+        // C++: // All zeros --> trans + alpha
+        // C++: mHasTrans = true; mHasAlpha = true;
+        self.m_has_trans = true;
+        self.m_has_alpha = true;
+
+        self.bits_changed();
+    }
+
+    /// C++: MemoryImage::SetBits(uint32_t* theBits, int theWidth, int theHeight, bool commitBits)
+    /// [TRANSLATION_NOTE]: 像素缓冲所有权由调用方管理（C++ 中 delete 旧缓冲并接管新指针，
+    /// Rust 移植保持指针语义，由调用方负责释放）。
+    pub fn set_bits(&mut self, the_bits: *mut u32, the_width: i32, the_height: i32, commit_bits: bool) {
+        self.m_bits = the_bits;
+        self.base.m_width = the_width;
+        self.base.m_height = the_height;
+        if commit_bits {
+            self.bits_changed();
+        }
+    }
+
+    pub fn set_image_mode(&mut self, has_trans: bool, has_alpha: bool) {
+        self.m_has_trans = has_trans;
+        self.m_has_alpha = has_alpha;
     }
     pub fn set_volatile(&mut self, _is_volatile: bool) { self.m_is_volatile = _is_volatile; }
-    pub fn purge_bits(&mut self) { /* placeholder */ }
-    pub fn delete_sw_buffers(&mut self) { /* placeholder */ }
-    pub fn delete_3d_buffers(&mut self) { /* placeholder */ }
-    pub fn re_init(&mut self) { /* placeholder */ }
-    pub fn delete_native_data(&mut self) { /* placeholder */ }
 
-    pub fn fill_rect(&mut self, _rect: &Rect, _color: &Color, _draw_mode: i32) { /* MemoryImage stub */ }
-    pub fn clear_rect(&mut self, _rect: &Rect) { /* MemoryImage stub */ }
-    pub fn draw_line(&mut self, _start_x: f64, _start_y: f64, _end_x: f64, _end_y: f64, _color: &Color, _draw_mode: i32) { /* MemoryImage stub */ }
-    pub fn blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color, _draw_mode: i32, _linear_filter: bool) { /* MemoryImage stub */ }
-    pub fn stretch_blt(&mut self, _image: &Image, _dest_rect: &Rect, _src_rect: &Rect, _clip_rect: &Rect, _color: &Color, _draw_mode: i32, _fast_stretch: bool) { /* MemoryImage stub */ }
-    pub fn normal_blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color) { /* MemoryImage stub */ }
-    pub fn additive_blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color) { /* MemoryImage stub */ }
+    /// C++: MemoryImage::PurgeBits — 释放可回收缓冲
+    pub fn purge_bits(&mut self) {
+        if self.m_purge_bits {
+            self.delete_sw_buffers();
+        }
+    }
+
+    /// C++: MemoryImage::DeleteSwBuffers() — 释放软件像素缓冲
+    pub fn delete_sw_buffers(&mut self) {
+        if !self.m_bits.is_null() {
+            unsafe {
+                let a_size = (self.base.m_width * self.base.m_height) as usize + 1;
+                let _ = Vec::from_raw_parts(self.m_bits, a_size, a_size);
+            }
+            self.m_bits = std::ptr::null_mut();
+        }
+    }
+
+    pub fn delete_3d_buffers(&mut self) {
+        // [TODO]: 3D 缓冲（GL 纹理）释放，后续 GL 子系统翻译时实现
+    }
+
+    pub fn re_init(&mut self) {
+        // [TODO]: 重新初始化（对应 C++ ReInit）
+    }
+
+    pub fn delete_native_data(&mut self) {
+        self.delete_sw_buffers();
+        self.delete_3d_buffers();
+    }
+
+    /// C++: MemoryImage::FillRect — 填充矩形（含 alpha 混合）
+    pub fn fill_rect(&mut self, the_rect: &Rect, the_color: &Color, _the_draw_mode: i32) {
+        let src = the_color.to_int();
+
+        let a_bits = self.ensure_bits();
+
+        let old_alpha = (src >> 24) as i32;
+
+        if old_alpha == 0xFF {
+            let mut a_row = the_rect.m_y;
+            while a_row < the_rect.m_y + the_rect.m_height {
+                unsafe {
+                    let mut a_dest_pixels = a_bits.add((a_row * self.base.m_width + the_rect.m_x) as usize);
+                    let mut i = 0;
+                    while i < the_rect.m_width {
+                        *a_dest_pixels = src;
+                        a_dest_pixels = a_dest_pixels.add(1);
+                        i += 1;
+                    }
+                }
+                a_row += 1;
+            }
+        } else {
+            let mut a_row = the_rect.m_y;
+            while a_row < the_rect.m_y + the_rect.m_height {
+                unsafe {
+                    let mut a_dest_pixels = a_bits.add((a_row * self.base.m_width + the_rect.m_x) as usize);
+                    let mut i = 0;
+                    while i < the_rect.m_width {
+                        let dest = *a_dest_pixels;
+
+                        let a_dest_alpha = (dest >> 24) as i32;
+                        let a_new_dest_alpha = a_dest_alpha + ((255 - a_dest_alpha) * old_alpha) / 255;
+
+                        let new_alpha = 255 * old_alpha / a_new_dest_alpha;
+
+                        let oma = 256 - new_alpha;
+
+                        *a_dest_pixels = ((a_new_dest_alpha as u32) << 24)
+                            | ((((dest & 0x00FF00FFu32).wrapping_mul(oma as u32) + (src & 0x00FF00FFu32).wrapping_mul(new_alpha as u32)) >> 8) & 0x00FF00FFu32)
+                            | ((((dest & 0x0000FF00u32).wrapping_mul(oma as u32) + (src & 0x0000FF00u32).wrapping_mul(new_alpha as u32)) >> 8) & 0x0000FF00u32);
+                        a_dest_pixels = a_dest_pixels.add(1);
+                        i += 1;
+                    }
+                }
+                a_row += 1;
+            }
+        }
+
+        self.bits_changed();
+    }
+
+    /// C++: MemoryImage::ClearRect — 将矩形区域清零（含 alpha）
+    pub fn clear_rect(&mut self, the_rect: &Rect) {
+        let a_bits = self.ensure_bits();
+
+        let mut a_row = the_rect.m_y;
+        while a_row < the_rect.m_y + the_rect.m_height {
+            unsafe {
+                let mut a_dest_pixels = a_bits.add((a_row * self.base.m_width + the_rect.m_x) as usize);
+                let mut i = 0;
+                while i < the_rect.m_width {
+                    *a_dest_pixels = 0;
+                    a_dest_pixels = a_dest_pixels.add(1);
+                    i += 1;
+                }
+            }
+            a_row += 1;
+        }
+
+        self.bits_changed();
+    }
+
+    pub fn draw_line(&mut self, _start_x: f64, _start_y: f64, _end_x: f64, _end_y: f64, _color: &Color, _draw_mode: i32) { /* [TODO]: DrawLine 后续翻译 */ }
+    pub fn blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color, _draw_mode: i32, _linear_filter: bool) { /* [TODO]: Blt 后续翻译 */ }
+    pub fn stretch_blt(&mut self, _image: &Image, _dest_rect: &Rect, _src_rect: &Rect, _clip_rect: &Rect, _color: &Color, _draw_mode: i32, _fast_stretch: bool) { /* [TODO]: StretchBlt 后续翻译 */ }
+    pub fn normal_blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color) { /* [TODO]: NormalBlt 后续翻译 */ }
+    pub fn additive_blt(&mut self, _image: &Image, _x: i32, _y: i32, _src_rect: &Rect, _color: &Color) { /* [TODO]: AdditiveBlt 后续翻译 */ }
 }
 
 // ============================================================

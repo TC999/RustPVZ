@@ -1189,35 +1189,279 @@ impl Zombie {
     }
 
     pub unsafe fn TakeBodyDamage(&mut self, the_damage: i32, the_damage_flags: u32) {
+        // C++: if (!TestBit(flags, DAMAGE_DOESNT_CAUSE_FLASH)) mJustGotShotCounter = 25;
         if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0 {
             self.m_just_got_shot_counter = 25;
         }
+
+        // C++: if (TestBit(flags, DAMAGE_FREEZE)) ApplyChill(false);
         if (the_damage_flags & (1 << DamageFlags::DAMAGE_FREEZE as i32)) != 0 {
-            // [TODO]: ApplyChill(false)
+            self.ApplyChill(false);
         }
-        let a_damage_index_before = self.GetBodyDamageIndex();
+
+        // C++: int aBodyHealthOrigin = mBodyHealth;
+        let a_body_health_origin = self.m_body_health;
+        // C++: int aDamageIndexBeforeDamage = GetBodyDamageIndex();
+        let a_damage_index_before_damage = self.GetBodyDamageIndex();
         self.m_body_health -= the_damage;
-        let a_damage_index_after = self.GetBodyDamageIndex();
+        let a_damage_index_after_damage = self.GetBodyDamageIndex();
+
+        if self.m_zombie_type == ZombieType::ZOMBIE_ZAMBONI {
+            // C++: Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
+            // C++: if (!TestBit(flags, DAMAGE_DOESNT_CAUSE_FLASH)) mApp->PlayFoley(FOLEY_SHIELD_HIT);
+            if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0 {
+                // [TODO]: mApp->PlayFoley(FOLEY_SHIELD_HIT)
+            }
+            if (the_damage_flags & (1 << DamageFlags::DAMAGE_SPIKE as i32)) != 0 {
+                // [TODO]: SetImageOverride("Zombie_zamboni_1/2", DAMAGE2)
+                self.ZamboniDeath(the_damage_flags);
+            } else if self.m_body_health <= 0 {
+                self.ZamboniDeath(the_damage_flags);
+            } else if a_damage_index_before_damage != a_damage_index_after_damage {
+                if a_damage_index_after_damage == 1 {
+                    // [TODO]: SetImageOverride("Zombie_zamboni_1/2", DAMAGE1)
+                } else if a_damage_index_after_damage == 2 {
+                    // [TODO]: SetImageOverride(...DAMAGE2); AddAttachedParticle(27, 72, PARTICLE_ZAMBONI_SMOKE)
+                }
+            }
+        } else if self.m_zombie_type == ZombieType::ZOMBIE_CATAPULT {
+            if (the_damage_flags & (1 << DamageFlags::DAMAGE_SPIKE as i32)) != 0 || self.m_body_health <= 0 {
+                // [TODO]: SetImageOverride("Zombie_catapult_siding", DAMAGE)
+                self.CatapultDeath(the_damage_flags);
+            } else if a_damage_index_before_damage != a_damage_index_after_damage {
+                if a_damage_index_after_damage == 1 {
+                    // [TODO]: SetImageOverride("Zombie_catapult_siding", DAMAGE)
+                } else if a_damage_index_after_damage == 2 {
+                    // [TODO]: AddAttachedParticle(47, 77, PARTICLE_ZAMBONI_SMOKE)
+                }
+            }
+        } else if self.m_zombie_type == ZombieType::ZOMBIE_GARGANTUAR
+            || self.m_zombie_type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR
+        {
+            if a_damage_index_before_damage != a_damage_index_after_damage {
+                if a_damage_index_after_damage == 1 {
+                    // [TODO]: SetImageOverride 伽刚特尔身体/手臂损伤贴图
+                } else if a_damage_index_after_damage == 2 {
+                    // [TODO]: SetImageOverride 伽刚特尔身体/腿/手臂/头损伤贴图（红眼特殊头）
+                }
+            }
+        } else if self.m_zombie_type == ZombieType::ZOMBIE_BOSS {
+            if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0 {
+                // [TODO]: mApp->PlayFoley(FOLEY_SHIELD_HIT)
+            }
+            if a_damage_index_before_damage != a_damage_index_after_damage {
+                if a_damage_index_after_damage == 1 {
+                    // [TODO]: SetImageOverride Boss 损伤贴图 1
+                } else if a_damage_index_after_damage == 2 {
+                    // [TODO]: SetImageOverride Boss 损伤贴图 2; ApplyBossSmokeParticles(true)
+                }
+            }
+            // C++: BOSS_FLASH_HEALTH_FRACTION 血量阈值触发爆炸粒子
+            if a_body_health_origin >= self.m_body_max_health / 5 && self.m_body_health < self.m_body_max_health / 5 {
+                // [TODO]: AddTodParticle(770, 260, PARTICLE_BOSS_EXPLOSION); PlayFoley(FOLEY_BOSS_EXPLOSION_SMALL); ApplyBossSmokeParticles(true)
+            }
+            // C++: if (mBodyHealth <= 0) mBodyHealth = 1; (Boss 不会因常规伤害死亡)
+            if self.m_body_health <= 0 {
+                self.m_body_health = 1;
+            }
+        } else {
+            // C++: UpdateDamageStates(theDamageFlags);
+            self.UpdateDamageStates(the_damage_flags);
+        }
+
+        // C++: if (mBodyHealth <= 0) { mBodyHealth = 0; PlayDeathAnim(theDamageFlags); DropLoot(); }
         if self.m_body_health <= 0 {
-            // [TODO]: DieWithLoot() or other death
-        } else if a_damage_index_before != a_damage_index_after {
-            // [TODO]: Update damage overlay images
+            self.m_body_health = 0;
+            self.PlayDeathAnim(the_damage_flags);
+            self.DropLoot();
         }
     }
 
-    pub unsafe fn TakeFlyingDamage(&mut self, the_damage: i32, _flags: u32) -> i32 {
-        self.m_flying_health -= the_damage;
-        if self.m_flying_health <= 0 { 0 } else { the_damage }
+    /// C++ Zombie::TakeFlyingDamage (Zombie.cpp:7773) — 飞行僵尸伤害（气球/飞行器）
+    pub unsafe fn TakeFlyingDamage(&mut self, the_damage: i32, the_damage_flags: u32) -> i32 {
+        // C++: if (!TestBit(flags, DAMAGE_DOESNT_CAUSE_FLASH)) mJustGotShotCounter = 25;
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0 {
+            self.m_just_got_shot_counter = 25;
+        }
+
+        // C++: int aDamageActual = std::min(mFlyingHealth, theDamage);
+        let a_damage_actual = self.m_flying_health.min(the_damage);
+        // C++: int aDamageRemaining = theDamage - aDamageActual;
+        let a_damage_remaining = the_damage - a_damage_actual;
+        self.m_flying_health -= a_damage_actual;
+        // C++: if (mFlyingHealth == 0) LandFlyer(theDamageFlags);
+        if self.m_flying_health == 0 {
+            self.LandFlyer(the_damage_flags);
+        }
+
+        a_damage_remaining
     }
 
-    pub unsafe fn TakeShieldDamage(&mut self, the_damage: i32, _flags: u32) -> i32 {
-        self.m_shield_health -= the_damage;
-        if self.m_shield_health <= 0 { 0 } else { 0 }
+    /// C++ Zombie::TakeShieldDamage (Zombie.cpp:7570)
+    pub unsafe fn TakeShieldDamage(&mut self, the_damage: i32, the_damage_flags: u32) -> i32 {
+        // C++: if (!TestBit(flags, DAMAGE_DOESNT_CAUSE_FLASH)) { mShieldJustGotShotCounter = 25; mJustGotShotCounter = std::max(mJustGotShotCounter, 0); }
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0 {
+            self.m_shield_just_got_shot_counter = 25;
+            self.m_just_got_shot_counter = self.m_just_got_shot_counter.max(0);
+        }
+
+        // C++: if (!TestBit(flags, DAMAGE_DOESNT_CAUSE_FLASH) && !TestBit(flags, DAMAGE_HITS_SHIELD_AND_BODY)) { mShieldRecoilCounter = 12; ... }
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0
+            && (the_damage_flags & (1 << DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY as i32)) == 0
+        {
+            self.m_shield_recoil_counter = 12;
+            if self.m_shield_type == ShieldType::SHIELDTYPE_DOOR
+                || self.m_shield_type == ShieldType::SHIELDTYPE_LADDER
+            {
+                // [TODO]: mApp->PlayFoley(FOLEY_SHIELD_HIT)
+            }
+        }
+
+        // C++: int aDamageIndexBeforeDamage = GetShieldDamageIndex();
+        let a_damage_index_before_damage = self.GetShieldDamageIndex();
+        // C++: int aDamageActual = std::min(mShieldHealth, theDamage);
+        let a_damage_actual = self.m_shield_health.min(the_damage);
+        // C++: int aDamageRemaining = theDamage - aDamageActual;
+        let a_damage_remaining = the_damage - a_damage_actual;
+        self.m_shield_health -= a_damage_actual;
+        // C++: if (mShieldHealth == 0) { DropShield(theDamageFlags); return aDamageRemaining; }
+        if self.m_shield_health == 0 {
+            self.DropShield(the_damage_flags);
+            return a_damage_remaining;
+        }
+
+        // C++: int aDamageIndexAfterDamage = GetShieldDamageIndex();
+        let a_damage_index_after_damage = self.GetShieldDamageIndex();
+        if a_damage_index_after_damage != a_damage_index_before_damage {
+            if self.m_shield_type == ShieldType::SHIELDTYPE_DOOR && a_damage_index_after_damage == 1 {
+                // [TODO]: SetImageOverride("anim_screendoor", IMAGE_REANIM_ZOMBIE_SCREENDOOR2)
+            } else if self.m_shield_type == ShieldType::SHIELDTYPE_DOOR && a_damage_index_after_damage == 2 {
+                // [TODO]: SetImageOverride("anim_screendoor", IMAGE_REANIM_ZOMBIE_SCREENDOOR3)
+            } else if self.m_shield_type == ShieldType::SHIELDTYPE_NEWSPAPER && a_damage_index_after_damage == 1 {
+                // [TODO]: SetImageOverride("Zombie_paper_paper", IMAGE_REANIM_ZOMBIE_PAPER_PAPER2)
+            } else if self.m_shield_type == ShieldType::SHIELDTYPE_NEWSPAPER && a_damage_index_after_damage == 2 {
+                // [TODO]: SetImageOverride("Zombie_paper_paper", IMAGE_REANIM_ZOMBIE_PAPER_PAPER3)
+            } else if self.m_shield_type == ShieldType::SHIELDTYPE_LADDER && a_damage_index_after_damage == 1 {
+                // [TODO]: SetImageOverride("Zombie_ladder_1", IMAGE_REANIM_ZOMBIE_LADDER_1_DAMAGE1)
+            } else if self.m_shield_type == ShieldType::SHIELDTYPE_LADDER && a_damage_index_after_damage == 2 {
+                // [TODO]: SetImageOverride("Zombie_ladder_1", IMAGE_REANIM_ZOMBIE_LADDER_1_DAMAGE2)
+            }
+        }
+
+        a_damage_remaining
     }
 
-    pub unsafe fn TakeHelmDamage(&mut self, the_damage: i32, _flags: u32) -> i32 {
-        // [TODO]: helmet health field
-        0
+    pub unsafe fn TakeHelmDamage(&mut self, the_damage: i32, the_damage_flags: u32) -> i32 {
+        // C++: if (!TestBit(flags, DAMAGE_DOESNT_CAUSE_FLASH)) mJustGotShotCounter = 25;
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH as i32)) == 0 {
+            self.m_just_got_shot_counter = 25;
+        }
+
+        // C++: int aDamageIndexBeforeDamage = GetHelmDamageIndex();
+        let a_damage_index_before_damage = self.GetHelmDamageIndex();
+        // C++: int aDamageActual = std::min(mHelmHealth, theDamage);
+        let a_damage_actual = self.m_helm_health.min(the_damage);
+        // C++: int aDamageRemaining = theDamage - aDamageActual;
+        let a_damage_remaining = the_damage - a_damage_actual;
+        self.m_helm_health -= a_damage_actual;
+        // C++: if (TestBit(flags, DAMAGE_FREEZE)) ApplyChill(false);
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_FREEZE as i32)) != 0 {
+            self.ApplyChill(false);
+        }
+        // C++: if (mHelmHealth == 0) { DropHelm(theDamageFlags); return aDamageRemaining; }
+        if self.m_helm_health == 0 {
+            self.DropHelm(the_damage_flags);
+            return a_damage_remaining;
+        }
+
+        // C++: int aDamageIndexAfterDamage = GetHelmDamageIndex();
+        let a_damage_index_after_damage = self.GetHelmDamageIndex();
+        if a_damage_index_before_damage != a_damage_index_after_damage {
+            // C++: 各种头盔类型的损伤贴图切换（SetImageOverride）
+            // [TODO]: TRAFFIC_CONE / PAIL / DIGGER / FOOTBALL / WALLNUT / TALLNUT 的损伤贴图覆盖
+            let _ = self.m_helm_type;
+            let _ = a_damage_index_after_damage;
+        }
+
+        a_damage_remaining
+    }
+
+    /// C++ Zombie::UpdateDamageStates (Zombie.cpp:3871) — 普通僵尸伤害状态（断臂/断头）
+    pub unsafe fn UpdateDamageStates(&mut self, the_damage_flags: u32) {
+        // C++: if (!CanLoseBodyParts()) return;
+        if !self.CanLoseBodyParts() {
+            return;
+        }
+
+        // C++: if (mHasArm && mBodyHealth < 2 * mBodyMaxHealth / 3 && mBodyHealth > 0) DropArm(theDamageFlags);
+        if self.m_has_arm && self.m_body_health < 2 * self.m_body_max_health / 3 && self.m_body_health > 0 {
+            self.DropArm(the_damage_flags);
+        }
+
+        // C++: if (mHasHead && mBodyHealth < mBodyMaxHealth / 3)
+        if self.m_has_head && self.m_body_health < self.m_body_max_health / 3 {
+            self.DropHead(the_damage_flags);
+            self.DropLoot();
+            self.StopZombieSound();
+
+            // C++: if (mBoard->HasLevelAwardDropped()) PlayDeathAnim(theDamageFlags);
+            // [TRANSLATION_NOTE]: 游戏内 mBoard 恒非空；加 null 保护以容忍测试/未挂载场景
+            let the_board = self.base.m_board as *mut crate::lawn::board::Board;
+            if !the_board.is_null() && (*the_board).mLevelAwardSpawned {
+                self.PlayDeathAnim(the_damage_flags);
+            }
+
+            // C++: if (mZombiePhase == PHASE_SNORKEL_WALKING_IN_POOL) DieNoLoot();
+            if self.m_zombie_phase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL {
+                self.DieNoLoot();
+            }
+        }
+    }
+
+    /// C++ Zombie::ZamboniDeath (Zombie.cpp:6469) — 冰车僵尸死亡
+    pub unsafe fn ZamboniDeath(&mut self, the_damage_flags: u32) {
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_SPIKE as i32)) != 0 {
+            // C++: mFlatTires = true; mApp->PlayFoley(FOLEY_TIRE_POP);
+            self.m_flat_tires = true;
+            // [TODO]: mApp->PlayFoley(FOLEY_TIRE_POP)
+            self.m_zombie_phase = ZombiePhase::PHASE_ZOMBIE_DYING;
+            // [TODO]: mApp->AddTodParticle(mPosX + 29, mPosY + 114, mRenderOrder + 1, PARTICLE_ZAMBONI_TIRE)
+            self.m_vel_x = 0.0;
+
+            // C++: if (Rand(4) == 0 && mPosX < 600.0f)
+            if crate::sexy_app_framework::common::rand_int() % 4 == 0 && self.m_pos_x < 600.0 {
+                // [TODO]: PlayZombieReanim("anim_wheelie2", REANIM_PLAY_ONCE_AND_HOLD, 10, 10.0f)
+                self.m_phase_counter = 280;
+            } else {
+                // [TODO]: Reanimation 获取 + AddTodParticle(PARTICLE_ZAMBONI_SMOKE) + AttachParticleToTrack
+                self.m_phase_counter = 280;
+                // [TODO]: PlayZombieReanim("anim_wheelie1", REANIM_PLAY_ONCE_AND_HOLD, 10, 12.0f)
+            }
+        } else {
+            // C++: mApp->AddTodParticle(mPosX + 80, mPosY + 60, mRenderOrder + 1, PARTICLE_ZAMBONI_EXPLOSION);
+            // [TODO]: AddTodParticle(PARTICLE_ZAMBONI_EXPLOSION)
+            self.DieWithLoot();
+            // [TODO]: mApp->PlayFoley(FOLEY_EXPLOSION)
+        }
+    }
+
+    /// C++ Zombie::CatapultDeath (Zombie.cpp:6505) — 投石车僵尸死亡
+    pub unsafe fn CatapultDeath(&mut self, the_damage_flags: u32) {
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_SPIKE as i32)) != 0 {
+            // [TODO]: mApp->PlayFoley(FOLEY_TIRE_POP)
+            self.m_zombie_phase = ZombiePhase::PHASE_ZOMBIE_DYING;
+            // [TODO]: mApp->AddTodParticle(mPosX + 29, mPosY + 114, mRenderOrder + 1, PARTICLE_ZAMBONI_TIRE)
+            self.m_vel_x = 0.0;
+
+            // [TODO]: AddAttachedParticle(47, 77, PARTICLE_ZAMBONI_SMOKE)
+            self.m_phase_counter = 280;
+            // [TODO]: PlayZombieReanim("anim_bounce", REANIM_PLAY_ONCE_AND_HOLD, 10, 12.0f)
+        } else {
+            // C++: mApp->AddTodParticle(mPosX + 80, mPosY + 60, mRenderOrder + 1, PARTICLE_CATAPULT_EXPLOSION);
+            // [TODO]: AddTodParticle(PARTICLE_CATAPULT_EXPLOSION)
+            self.DieWithLoot();
+            // [TODO]: mApp->PlayFoley(FOLEY_EXPLOSION)
+        }
     }
 
     pub fn GetBodyDamageIndex(&self) -> i32 {
@@ -1797,8 +2041,32 @@ impl Zombie {
     }
 
     /// C++ Zombie::PlayDeathAnim (Zombie.cpp:8869)
-    pub unsafe fn PlayDeathAnim(&mut self, _damage_flags: u32) {
-        // [TODO]: 根据伤害类型播放死亡动画
+    pub unsafe fn PlayDeathAnim(&mut self, the_damage_flags: u32) {
+        // C++: if (mZombiePhase == PHASE_ZOMBIE_DYING || PHASE_ZOMBIE_BURNED || PHASE_ZOMBIE_MOWERED) return;
+        if self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_DYING
+            || self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_BURNED
+            || self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_MOWERED
+        {
+            return;
+        }
+
+        // [TODO]: Reanimation 死亡动画轨道检查（aBodyReanim->TrackExists("anim_death")，
+        // 无轨道 / 海豚骑手 / 潜泳状态时 DieNoLoot + return）
+
+        // C++: if (TestBit(flags, DAMAGE_DOESNT_LEAVE_BODY)) { 非 Boss/伽刚特尔 → DieNoLoot + return }
+        if (the_damage_flags & (1 << DamageFlags::DAMAGE_DOESNT_LEAVE_BODY as i32)) != 0 {
+            if self.m_zombie_type != ZombieType::ZOMBIE_BOSS
+                && self.m_zombie_type != ZombieType::ZOMBIE_GARGANTUAR
+                && self.m_zombie_type != ZombieType::ZOMBIE_REDEYE_GARGANTUAR
+            {
+                self.DieNoLoot();
+                return;
+            }
+        }
+
+        // C++: mZombiePhase = PHASE_ZOMBIE_DYING; + 按类型播放死亡动画
+        self.m_zombie_phase = ZombiePhase::PHASE_ZOMBIE_DYING;
+        // [TODO]: 按僵尸类型播放死亡动画（anim_death / anim_die 等）
     }
 
     pub unsafe fn GetDrawPos(&self, the_draw_pos: &mut ZombieDrawPosition) {

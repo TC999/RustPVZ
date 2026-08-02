@@ -37,3 +37,6 @@ SDL2*
 
 # AI terminals
 .reasonix
+
+# game save data
+savedata/

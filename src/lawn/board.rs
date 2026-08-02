@@ -9,7 +9,6 @@ use crate::lawn_app::LawnApp;
 use crate::lawn::plant::Plant;
 use crate::lawn::plant::{PlantState, PlantOnBungeeState};
 use crate::lawn::zombie::Zombie;
-use crate::lawn::zombie::ZOMBIE_START_RANDOM_OFFSET;
 use crate::lawn::projectile::Projectile;
 use crate::lawn::coin::Coin;
 use crate::lawn::lawn_mower::LawnMower;
@@ -1874,23 +1873,30 @@ impl Board {
     pub unsafe fn UpdateSunSpawning(&mut self) {
         let app = self.mApp;
 
-        // 检查是否应该掉落自然阳光
-        if (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS as i32
+        // C++: 提前返回条件（Board.cpp:5287-5302）
+        if self.StageIsNight()
+            || self.mLevelAwardSpawned // C++: HasLevelAwardDropped()
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ICE as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_UPSELL as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_INTRO as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM as i32
             || (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN as i32
+            || (*app).mGameMode as i32 == GameMode::GAMEMODE_TREE_OF_WISDOM as i32
             || (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_LAST_STAND as i32
             || (*app).IsIZombieLevel()
             || (*app).IsScaryPotterLevel()
+            || (*app).IsSquirrelLevel()
+            || self.HasConveyorBeltSeedBank()
+            || self.mTutorialState as i32 == TutorialState::TUTORIAL_SLOT_MACHINE_PULL as i32
         {
             return;
         }
 
-        // 夜晚/特殊模式不掉落阳光
-        if self.StageIsNight() || self.mLevelAwardSpawned {
-            return;
-        }
-
-        // 教程模式未种植物时不掉落阳光
-        if self.mTutorialState as i32 == 0 || self.mTutorialState as i32 == 1 {
+        // C++: 教程模式未种植物时不掉落阳光
+        if self.mTutorialState as i32 == TutorialState::TUTORIAL_LEVEL_1_PICK_UP_PEASHOOTER as i32
+            || self.mTutorialState as i32 == TutorialState::TUTORIAL_LEVEL_1_PLANT_PEASHOOTER as i32
+        {
             if self.mPlants.m_size == 0 {
                 return;
             }
@@ -1902,10 +1908,24 @@ impl Board {
         }
 
         self.mNumSunsFallen += 1;
-        self.mSunCountDown = std::cmp::min(950, 425 + self.mNumSunsFallen * 10)
-            + crate::sexy_app_framework::common::rand_int() % 275;
-        let _aSunType = CoinType::COIN_SUN;
-        // [TODO]: AddCoin(RandRangeInt(100, 649), 60, aSunType, COIN_MOTION_FROM_SKY)
+        // C++: mSunCountDown = std::min(SUN_COUNTDOWN_MAX, SUN_COUNTDOWN + mNumSunsFallen * 10) + Rand(SUN_COUNTDOWN_RANGE);
+        self.mSunCountDown = std::cmp::min(
+            crate::lawn::board_consts::SUN_COUNTDOWN_MAX,
+            crate::lawn::board_consts::SUN_COUNTDOWN + self.mNumSunsFallen * 10,
+        ) + crate::sexy_app_framework::common::rand_int() % crate::lawn::board_consts::SUN_COUNTDOWN_RANGE;
+        // C++: CoinType aSunType = mGameMode == GAMEMODE_CHALLENGE_SUNNY_DAY ? COIN_LARGESUN : COIN_SUN;
+        let a_sun_type = if (*app).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_SUNNY_DAY as i32 {
+            CoinType::COIN_LARGESUN
+        } else {
+            CoinType::COIN_SUN
+        };
+        // C++: AddCoin(RandRangeInt(100, 649), 60, aSunType, CoinMotion::COIN_MOTION_FROM_SKY);
+        self.AddCoin(
+            crate::sexy_tod_lib::tod_common::rand_range_int(100, 649),
+            60,
+            a_sun_type,
+            CoinMotion::COIN_MOTION_FROM_SKY,
+        );
     }
 
     /// C++ Board::UpdateZombieSpawning (Board.cpp:5343)
@@ -2266,10 +2286,10 @@ impl Board {
     }
 
     /// Board::AddZombie (from Board.cpp:2729)
+    /// C++: return AddZombieInRow(theZombieType, PickRowForNewZombie(theZombieType), theFromWave);
+    /// [TRANSLATION_NOTE]: PickRowForNewZombie（带行权重选择的版本）尚未翻译，
+    /// 此处用随机行选择替代，逻辑由 AddZombieInRow 完成僵尸初始化。
     pub unsafe fn AddZombie(&mut self, theZombieType: ZombieType, theFromWave: i32) -> *mut Zombie {
-        let aZombie = self.mZombies.data_array_alloc();
-        if aZombie.is_null() { return std::ptr::null_mut(); }
-        // ZombieInitialize simplified
         let aRow = if (*self.mApp).mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RESODDED as i32 {
             crate::sexy_tod_lib::tod_common::rand_range_int(0, 4)
         } else {
@@ -2280,33 +2300,192 @@ impl Board {
 
     /// Board::AddZombieInRow (from Board.cpp:2702)
     pub unsafe fn AddZombieInRow(&mut self, theZombieType: ZombieType, theRow: i32, theFromWave: i32) -> *mut Zombie {
-        let aZombie = self.mZombies.data_array_alloc();
-        if aZombie.is_null() { return std::ptr::null_mut(); }
-        if theRow < 0 || theRow >= MAX_GRID_SIZE_Y || !self.RowCanHaveZombies(theRow) {
+        // C++: if (mZombies.mSize >= mZombies.mMaxSize - 1) { TodTrace("Too many zombies!!"); return nullptr; }
+        if self.mZombies.m_size >= self.mZombies.m_max_size - 1 {
             return std::ptr::null_mut();
         }
 
-        (*aZombie).m_zombie_type = theZombieType;
-        (*aZombie).base.m_row = theRow;
-        (*aZombie).m_from_wave = theFromWave;
-        (*aZombie).m_pos_x = 780.0 + crate::sexy_tod_lib::tod_common::rand_range_int(0, ZOMBIE_START_RANDOM_OFFSET - 1) as f32;
-        (*aZombie).m_pos_y = 0.0; // GetPosYBasedOnRow(theRow)
-        (*aZombie).m_body_health = 270; // default
-        (*aZombie).m_body_max_health = 270;
-        (*aZombie).m_zombie_phase = ZombiePhase::PHASE_ZOMBIE_NORMAL;
-        (*aZombie).m_anim_ticks_per_frame = 12;
-        (*aZombie).m_anim_frames = 12;
-        (*aZombie).m_dead = false;
-        (*aZombie).m_has_head = true;
-        (*aZombie).m_has_arm = true;
-        (*aZombie).m_dropped_loot = false;
-        (*aZombie).m_related_zombie_id = ZombieID::ZOMBIEID_NULL;
-        (*aZombie).base.m_render_order = crate::lawn::zombie::RENDER_GROUP_SHIELD;
-        (*aZombie).base.m_board = self as *mut Board as *mut std::ffi::c_void;
-        (*aZombie).m_zombie_rect = Rect::new(36, 0, 42, 115);
-        (*aZombie).m_zombie_attack_rect = Rect::new(50, 0, 20, 115);
+        // C++: if (theZombieType == ZombieType::ZOMBIE_YETI) {
+        // C++:     if (mApp->IsAdventureMode() && mLevel == 40 && theFromWave >= 0)
+        // C++:         ReportAchievement::GiveAchievement(mApp, Zombologist, true);
+        // [TODO]: ReportAchievement 系统尚未翻译
+        if theZombieType == ZombieType::ZOMBIE_YETI {
+            if (*self.mApp).is_adventure_mode() && self.mLevel == 40 && theFromWave >= 0 {
+                // ReportAchievement::GiveAchievement(...)
+            }
+        }
 
-        aZombie
+        // C++: bool aVariant = !Rand(5);
+        let a_variant = crate::sexy_app_framework::common::rand_int() % 5 == 0;
+        let a_zombie = self.mZombies.data_array_alloc();
+        if a_zombie.is_null() {
+            return std::ptr::null_mut();
+        }
+        // C++: aZombie->ZombieInitialize(theRow, theZombieType, aVariant, nullptr, theFromWave);
+        (*a_zombie).ZombieInitialize(theRow, theZombieType, a_variant, std::ptr::null_mut(), theFromWave);
+        // C++: if (theZombieType == ZombieType::ZOMBIE_BOBSLED && aZombie->IsOnBoard())
+        if theZombieType == ZombieType::ZOMBIE_BOBSLED && (*a_zombie).IsOnBoard() {
+            // C++: for (int _i = 0; _i < 3; _i++) { mZombies.DataArrayAlloc()->ZombieInitialize(theRow, ZOMBIE_BOBSLED, false, aZombie, theFromWave); }
+            for _i in 0..3 {
+                let a_sled_zombie = self.mZombies.data_array_alloc();
+                if !a_sled_zombie.is_null() {
+                    (*a_sled_zombie).ZombieInitialize(theRow, ZombieType::ZOMBIE_BOBSLED, false, a_zombie, theFromWave);
+                }
+            }
+        }
+        a_zombie
+    }
+
+    /// Board::AreEnemyZombiesOnScreen (from Board.cpp:286)
+    pub unsafe fn AreEnemyZombiesOnScreen(&self) -> bool {
+        let mut a_zombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut a_zombie) {
+            if (*a_zombie).m_has_head && !(*a_zombie).IsDeadOrDying() && !(*a_zombie).m_mind_controlled {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Board::CountZombiesOnScreen (from Board.cpp:300)
+    pub unsafe fn CountZombiesOnScreen(&self) -> i32 {
+        let mut a_count = 0;
+        let mut a_zombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut a_zombie) {
+            if (*a_zombie).m_has_head
+                && !(*a_zombie).IsDeadOrDying()
+                && !(*a_zombie).m_mind_controlled
+                && (*a_zombie).IsOnBoard()
+            {
+                a_count += 1;
+            }
+        }
+        a_count
+    }
+
+    /// Board::GetLiveGargantuarCount (from Board.cpp:315)
+    pub unsafe fn GetLiveGargantuarCount(&self) -> i32 {
+        let mut a_count = 0;
+        let mut a_zombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut a_zombie) {
+            if (*a_zombie).m_has_head
+                && !(*a_zombie).IsDeadOrDying()
+                && (*a_zombie).IsOnBoard()
+                && ((*a_zombie).m_zombie_type == ZombieType::ZOMBIE_GARGANTUAR
+                    || (*a_zombie).m_zombie_type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
+            {
+                a_count += 1;
+            }
+        }
+        a_count
+    }
+
+    /// Board::CountUntriggerLawnMowers (from Board.cpp:328)
+    pub unsafe fn CountUntriggerLawnMowers(&self) -> i32 {
+        let mut a_count = 0;
+        let mut a_lawn_mower: *mut LawnMower = std::ptr::null_mut();
+        while self.IterateLawnMowers(&mut a_lawn_mower) {
+            // C++: mMowerState != MOWER_TRIGGERED && mMowerState != MOWER_SQUISHED
+            if (*a_lawn_mower).mMowerState != MowerState::MOWER_TRIGGERED
+                && (*a_lawn_mower).mMowerState != MowerState::MOWER_TRIGGERED_SQUASHED
+            {
+                a_count += 1;
+            }
+        }
+        a_count
+    }
+
+    /// Board::CanAddGraveStoneAt (from Board.cpp:459)
+    pub unsafe fn CanAddGraveStoneAt(&self, the_grid_x: i32, the_grid_y: i32) -> bool {
+        if self.mGridSquareType[the_grid_x as usize][the_grid_y as usize] != GridSquareType::GRIDSQUARE_GRASS
+            && self.mGridSquareType[the_grid_x as usize][the_grid_y as usize] != GridSquareType::GRIDSQUARE_HIGH_GROUND
+        {
+            return false;
+        }
+
+        let mut a_grid_item: *mut GridItem = std::ptr::null_mut();
+        while self.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridX == the_grid_x && (*a_grid_item).mGridY == the_grid_y {
+                if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_GRAVESTONE
+                    || (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_CRATER
+                    || (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_LADDER
+                {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// Board::AddALadder (from Board.cpp:485)
+    pub unsafe fn AddALadder(&mut self, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        let a_ladder = self.mGridItems.data_array_alloc();
+        if a_ladder.is_null() { return std::ptr::null_mut(); }
+        (*a_ladder).mGridItemType = GridItemType::GRIDITEM_LADDER;
+        (*a_ladder).mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PLANT, the_grid_y, 800);
+        (*a_ladder).mGridX = the_grid_x;
+        (*a_ladder).mGridY = the_grid_y;
+        a_ladder
+    }
+
+    /// Board::AddACrater (from Board.cpp:495)
+    pub unsafe fn AddACrater(&mut self, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        let a_crater = self.mGridItems.data_array_alloc();
+        if a_crater.is_null() { return std::ptr::null_mut(); }
+        (*a_crater).mGridItemType = GridItemType::GRIDITEM_CRATER;
+        (*a_crater).mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_GROUND, the_grid_y, 1);
+        (*a_crater).mGridX = the_grid_x;
+        (*a_crater).mGridY = the_grid_y;
+        a_crater
+    }
+
+    /// Board::AddAGraveStone (from Board.cpp:505)
+    pub unsafe fn AddAGraveStone(&mut self, the_grid_x: i32, the_grid_y: i32) -> *mut GridItem {
+        let a_grave_stone = self.mGridItems.data_array_alloc();
+        if a_grave_stone.is_null() { return std::ptr::null_mut(); }
+        (*a_grave_stone).mGridItemType = GridItemType::GRIDITEM_GRAVESTONE;
+        // C++: aGraveStone->mGridItemCounter = -Rand(50);
+        (*a_grave_stone).mGridItemCounter = -(crate::sexy_app_framework::common::rand_int() % 50);
+        (*a_grave_stone).mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_GRAVE_STONE, the_grid_y, 3);
+        (*a_grave_stone).mGridX = the_grid_x;
+        (*a_grave_stone).mGridY = the_grid_y;
+        a_grave_stone
+    }
+
+    /// Board::AddGraveStones (from Board.cpp:516)
+    pub unsafe fn AddGraveStones(&mut self, the_grid_x: i32, the_count: i32, the_level_rng: &mut MTRand) {
+        // C++: TOD_ASSERT(theCount <= MAX_GRID_SIZE_Y);
+
+        // C++: 统计本列可放置墓碑的格子数，超出部分修正 theCount（避免卡死）
+        let mut a_grid_allow_grave_stones_count = 0;
+        for y in 0..MAX_GRID_SIZE_Y {
+            if self.CanAddGraveStoneAt(the_grid_x, y) {
+                a_grid_allow_grave_stones_count += 1;
+            }
+        }
+        let the_count = cmp::min(the_count, a_grid_allow_grave_stones_count);
+
+        let mut i = 0;
+        while i < the_count {
+            // C++: int aGridY = theLevelRNG.Next((unsigned long)MAX_GRID_SIZE_Y);
+            let a_grid_y = (the_level_rng.next() % MAX_GRID_SIZE_Y as u32) as i32;
+            if self.CanAddGraveStoneAt(the_grid_x, a_grid_y) {
+                self.AddAGraveStone(the_grid_x, a_grid_y);
+                i += 1;
+            }
+        }
+    }
+
+    /// Board::GetGraveStonesCount (from Board.cpp:4789)
+    pub unsafe fn GetGraveStonesCount(&self) -> i32 {
+        let mut a_count = 0;
+        let mut a_grid_item: *mut GridItem = std::ptr::null_mut();
+        while self.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_GRAVESTONE {
+                a_count += 1;
+            }
+        }
+        a_count
     }
 
     /// Board::CanPlantAt (from Board.cpp:2779)

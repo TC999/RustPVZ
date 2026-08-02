@@ -7,3 +7,7 @@ pub const MAX_GRAVE_STONES: i32 = MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y;
 pub const MAX_POOL_GRID_SIZE: i32 = 10;
 pub const MAX_RENDER_ITEMS: i32 = 2048;
 pub const PROGRESS_METER_COUNTER: i32 = 150;
+// C++ GameConstants.h: 自然阳光生成倒计时参数
+pub const SUN_COUNTDOWN: i32 = 425;
+pub const SUN_COUNTDOWN_RANGE: i32 = 275;
+pub const SUN_COUNTDOWN_MAX: i32 = 950;
