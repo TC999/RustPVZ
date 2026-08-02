@@ -45,6 +45,7 @@ pub struct SeedChooserScreen {
     pub mChooseMode: i32,
     pub mRepickWarningDialog: *mut crate::lawn::widget::lawn_dialog::LawnDialog,
     pub mSeedsInBank: i32,
+    pub mSeedsInFlight: i32,
 }
 
 impl SeedChooserScreen {
@@ -69,6 +70,7 @@ impl SeedChooserScreen {
             mChooseMode: 0,
             mRepickWarningDialog: std::ptr::null_mut(),
             mSeedsInBank: 0,
+            mSeedsInFlight: 0,
         }
     }
     pub fn Draw(&self, g: &mut Graphics) { self.base.Draw(g); }
@@ -266,8 +268,59 @@ impl SeedChooserScreen {
 
     /// C++ SeedChooserScreen::LandFlyingSeed (SeedChooserScreen.cpp:476)
     pub unsafe fn LandFlyingSeed(&mut self, the_chosen_seed: &mut ChosenSeed) {
-        // [TODO]: 飞行种子落地动画
-        let _ = the_chosen_seed;
+        if the_chosen_seed.mSeedState == ChosenSeedState::SEED_FLYING_TO_BANK as i32 {
+            the_chosen_seed.mX = the_chosen_seed.mEndX;
+            the_chosen_seed.mY = the_chosen_seed.mEndY;
+            the_chosen_seed.mTimeStartMotion = 0;
+            the_chosen_seed.mTimeEndMotion = 0;
+            the_chosen_seed.mSeedState = ChosenSeedState::SEED_IN_BANK as i32;
+            self.mSeedsInFlight -= 1;
+        } else if the_chosen_seed.mSeedState == ChosenSeedState::SEED_FLYING_TO_CHOOSER as i32 {
+            the_chosen_seed.mX = the_chosen_seed.mEndX;
+            the_chosen_seed.mY = the_chosen_seed.mEndY;
+            the_chosen_seed.mTimeStartMotion = 0;
+            the_chosen_seed.mTimeEndMotion = 0;
+            the_chosen_seed.mSeedState = ChosenSeedState::SEED_IN_CHOOSER as i32;
+            self.mSeedsInFlight -= 1;
+            if the_chosen_seed.mSeedType == SeedType::SEED_IMITATER {
+                the_chosen_seed.mSeedState = ChosenSeedState::SEED_PACKET_HIDDEN as i32;
+                // C++: theChosenSeed.mImitaterType = SEED_NONE;
+                // [TODO]: mImitaterType 字段 + UpdateImitaterButton()
+            }
+        }
+    }
+
+    /// C++ SeedChooserScreen::FlyersAreComming (SeedChooserScreen.cpp:577) — 关卡是否有气球僵尸
+    pub unsafe fn FlyersAreComming(&self) -> bool {
+        let the_board = &*self.mBoard;
+        let mut a_wave = 0;
+        while a_wave < the_board.mNumWaves {
+            let mut an_index = 0;
+            while an_index < crate::lawn::board_consts::MAX_ZOMBIES_IN_WAVE {
+                let a_zombie_type = the_board.mZombiesInWave[a_wave as usize][an_index as usize];
+                if a_zombie_type == ZombieType::ZOMBIE_INVALID as i32 {
+                    break;
+                }
+                if a_zombie_type == ZombieType::ZOMBIE_BALLOON as i32 {
+                    return true;
+                }
+                an_index += 1;
+            }
+            a_wave += 1;
+        }
+        false
+    }
+
+    /// C++ SeedChooserScreen::FlyProtectionCurrentlyPlanted (SeedChooserScreen.cpp:594) — 是否已种防空植物
+    pub unsafe fn FlyProtectionCurrentlyPlanted(&self) -> bool {
+        let the_board = &*self.mBoard;
+        let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+        while the_board.IteratePlants(&mut a_plant) {
+            if (*a_plant).m_seed_type == SeedType::SEED_CATTAIL || (*a_plant).m_seed_type == SeedType::SEED_CACTUS {
+                return true;
+            }
+        }
+        false
     }
 
     /// C++ SeedChooserScreen::CloseSeedChooser — 关闭选种界面
