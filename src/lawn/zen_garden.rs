@@ -28,6 +28,7 @@ pub struct ZenGarden {
     pub mBoard: *mut Board,
     pub mGardenType: GardenType,
     pub mLoadedResourceNames: Vec<String>,
+    pub mNowTime: i64,
 }
 
 impl ZenGarden {
@@ -37,6 +38,7 @@ impl ZenGarden {
             mBoard: std::ptr::null_mut(),
             mGardenType: GardenType::GARDEN_MAIN,
             mLoadedResourceNames: Vec::new(),
+            mNowTime: 0,
         }
     }
 
@@ -129,6 +131,73 @@ impl ZenGarden {
             !self.mApp.is_null()
                 && (*self.mApp).HasFinishedAdventure()
                 && !self.IsZenGardenFull(true)
+        }
+    }
+    /// C++ ZenGarden::PlantFertilized (ZenGarden.cpp:518) — 植物施肥
+    pub fn PlantFertilized(&mut self, the_plant: *mut Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return;
+            }
+            (*a_potted_plant).mLastFertilizedTime = self.mNowTime;
+            (*a_potted_plant).mPlantAge = std::mem::transmute::<i32, PottedPlantAge>((*a_potted_plant).mPlantAge as i32 + 1);
+            (*a_potted_plant).mPlantNeed = PottedPlantNeed::PLANTNEED_NONE;
+            (*a_potted_plant).mTimesFed = 0;
+
+            if (*a_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_SMALL {
+                // [TODO]: RemovePottedPlant + PlacePottedPlant
+            } else {
+                (*the_plant).m_state_countdown = 100;
+                // [TODO]: mApp->PlayFoley(FOLEY_PLANTGROW)
+            }
+
+            let the_board = &mut *self.mBoard;
+            let a_plant_x = (*the_plant).base.m_x;
+            let a_plant_y = (*the_plant).base.m_y;
+            if (*a_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_SMALL {
+                the_board.AddCoin(a_plant_x + 40, a_plant_y, CoinType::COIN_GOLD, CoinMotion::COIN_MOTION_COIN);
+            } else if (*a_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_MEDIUM {
+                the_board.AddCoin(a_plant_x + 30, a_plant_y, CoinType::COIN_GOLD, CoinMotion::COIN_MOTION_COIN);
+                the_board.AddCoin(a_plant_x + 50, a_plant_y, CoinType::COIN_GOLD, CoinMotion::COIN_MOTION_COIN);
+            } else if (*a_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_FULL {
+                if (*a_potted_plant).mSeedType == SeedType::SEED_MARIGOLD {
+                    the_board.AddCoin(a_plant_x + 40, a_plant_y, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
+                } else {
+                    the_board.AddCoin(a_plant_x + 10, a_plant_y, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
+                    the_board.AddCoin(a_plant_x + 70, a_plant_y, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
+                }
+            }
+        }
+    }
+
+    /// C++ ZenGarden::PlantFulfillNeed (ZenGarden.cpp:562) — 满足植物需求
+    pub fn PlantFulfillNeed(&mut self, the_plant: *mut Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return;
+            }
+            (*a_potted_plant).mLastNeedFulfilledTime = self.mNowTime;
+            (*a_potted_plant).mPlantNeed = PottedPlantNeed::PLANTNEED_NONE;
+            (*a_potted_plant).mTimesFed = 0;
+
+            let the_board = &mut *self.mBoard;
+            let a_plant_x = (*the_plant).base.m_x;
+            let a_plant_y = (*the_plant).base.m_y;
+            the_board.AddCoin(a_plant_x + 40, a_plant_y, CoinType::COIN_GOLD, CoinMotion::COIN_MOTION_COIN);
+            if crate::lawn::plant::Plant::is_nocturnal((*the_plant).m_seed_type)
+                || crate::lawn::plant::Plant::is_aquatic((*the_plant).m_seed_type)
+            {
+                the_board.AddCoin(a_plant_x + 10, a_plant_y, CoinType::COIN_GOLD, CoinMotion::COIN_MOTION_COIN);
+                the_board.AddCoin(a_plant_x + 70, a_plant_y, CoinType::COIN_GOLD, CoinMotion::COIN_MOTION_COIN);
+            }
         }
     }
 pub fn ZenGardenInitLevel(&mut self) {}
@@ -244,7 +313,6 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn GridToPixelY(&self, _theGridX: i32, _theGridY: i32) -> i32 { 0 }
     pub fn DrawBackdrop(&self, _g: &mut Graphics) {}
     pub fn MouseDownZenGarden(&mut self, _x: i32, _y: i32, _theClickCount: i32, _theHitResult: *mut std::ffi::c_void) -> bool { false }
-    pub fn PlantFulfillNeed(&mut self, _thePlant: *mut Plant) {}
     pub fn PlantWatered(&mut self, _thePlant: *mut Plant) {}
     pub fn GetPlantsNeed(&self, _thePottedPlant: *mut PottedPlant) -> PottedPlantNeed { PottedPlantNeed::PLANTNEED_NONE }
     pub fn MouseDownWithFeedingTool(&mut self, _x: i32, _y: i32, _theCursorType: i32) {}
@@ -254,7 +322,37 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn RemoveHappyEffect(&mut self, _thePlant: *mut Plant) {}
     pub fn PlantUpdateProduction(&mut self, _thePlant: *mut Plant) {}
     pub fn ShowTutorialArrowOnWateringCan(&self) {}
-    pub fn PlantsNeedWater(&self) -> bool { false }
+    /// C++ ZenGarden::PlantCanBeWatered (ZenGarden.cpp:592)
+    pub fn PlantCanBeWatered(&self, the_plant: *mut Plant) -> bool {
+        unsafe {
+            if the_plant.is_null() || (*the_plant).m_potted_plant_index == -1 {
+                return false;
+            }
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return false;
+            }
+            self.GetPlantsNeed(a_potted_plant) == PottedPlantNeed::PLANTNEED_WATER
+        }
+    }
+    /// C++ ZenGarden::PlantsNeedWater (ZenGarden.cpp:579)
+    pub fn PlantsNeedWater(&self) -> bool {
+        unsafe {
+            if self.mApp.is_null() || (*self.mApp).m_player_info.is_null() {
+                return false;
+            }
+            let the_player_info = &*(*self.mApp).m_player_info;
+            let mut i = 0;
+            while i < the_player_info.mNumPottedPlants as usize {
+                let a_potted_plant = self.PottedPlantFromIndex(i as i32);
+                if !a_potted_plant.is_null() && self.GetPlantsNeed(a_potted_plant) == PottedPlantNeed::PLANTNEED_WATER {
+                    return true;
+                }
+                i += 1;
+            }
+        }
+        false
+    }
     pub fn ZenGardenStart(&mut self) {}
     pub fn UpdatePlantEffectState(&mut self, _thePlant: *mut Plant) {}
     pub fn CanUseGameObject(&self, _theObjectType: i32) -> bool { false }
@@ -266,12 +364,46 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn GetStinky(&self) -> *mut GridItem { std::ptr::null_mut() }
     pub fn StinkyPickGoal(&mut self, _theStinky: *mut GridItem) {}
     pub fn PlantShouldRefreshNeed(&self, _thePottedPlant: *mut PottedPlant) -> bool { false }
-    pub fn PlantFertilized(&mut self, _thePlant: *mut Plant) {}
     pub fn WasPlantFertilizedInLastHour(&self, _thePottedPlant: *mut PottedPlant) -> bool { false }
     pub fn SetupForZenTutorial(&mut self) {}
     pub fn HasPurchasedStinky(&self) -> bool { false }
-    pub fn CountPlantsNeedingFertilizer(&self) -> i32 { 0 }
-    pub fn AllPlantsHaveBeenFertilized(&self) -> bool { false }
+    /// C++ ZenGarden::CountPlantsNeedingFertilizer (ZenGarden.cpp:603)
+    pub fn CountPlantsNeedingFertilizer(&self) -> i32 {
+        let mut a_count = 0;
+        unsafe {
+            if self.mApp.is_null() || (*self.mApp).m_player_info.is_null() {
+                return 0;
+            }
+            let the_player_info = &*(*self.mApp).m_player_info;
+            let mut i = 0;
+            while i < the_player_info.mNumPottedPlants as usize {
+                let a_potted_plant = self.PottedPlantFromIndex(i as i32);
+                if !a_potted_plant.is_null() && self.GetPlantsNeed(a_potted_plant) == PottedPlantNeed::PLANTNEED_FERTILIZER {
+                    a_count += 1;
+                }
+                i += 1;
+            }
+        }
+        a_count
+    }
+    /// C++ ZenGarden::AllPlantsHaveBeenFertilized (ZenGarden.cpp:617)
+    pub fn AllPlantsHaveBeenFertilized(&self) -> bool {
+        unsafe {
+            if self.mApp.is_null() || (*self.mApp).m_player_info.is_null() {
+                return false;
+            }
+            let the_player_info = &*(*self.mApp).m_player_info;
+            let mut i = 0;
+            while i < the_player_info.mNumPottedPlants as usize {
+                let a_potted_plant = self.PottedPlantFromIndex(i as i32);
+                if !a_potted_plant.is_null() && self.GetPlantsNeed(a_potted_plant) == PottedPlantNeed::PLANTNEED_FERTILIZER {
+                    return false;
+                }
+                i += 1;
+            }
+        }
+        true
+    }
     pub fn WakeStinky(&mut self) {}
     pub fn ShouldStinkyBeAwake(&self) -> bool { false }
     pub fn IsStinkySleeping(&self) -> bool { true }
