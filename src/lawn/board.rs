@@ -2787,6 +2787,17 @@ impl Board {
         self.mTutorialState = the_state;
         // [TODO]: 教程提示 DisplayAdvice（按状态显示对应提示）
     }
+    /// Board::CountZombieByType — 统计指定类型僵尸数量
+    pub unsafe fn CountZombieByType(&self, the_zombie_type: ZombieType) -> i32 {
+        let mut a_count = 0;
+        let mut a_zombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut a_zombie) {
+            if (*a_zombie).m_zombie_type == the_zombie_type {
+                a_count += 1;
+            }
+        }
+        a_count
+    }
     /// Board::GetBossZombie (from Board.cpp:9466)
     pub unsafe fn GetBossZombie(&self) -> *mut Zombie {
         let mut a_zombie: *mut Zombie = std::ptr::null_mut();

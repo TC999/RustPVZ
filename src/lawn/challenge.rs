@@ -57,6 +57,7 @@ pub struct Challenge {
     pub m_beghouled_mouse_down_y: i32,
     pub m_beghouled_matches_this_move: i32,
     pub m_scary_potter_pots: i32,
+    pub m_rain_counter: i32,
 }
 
 impl Challenge {
@@ -80,6 +81,7 @@ impl Challenge {
             m_beghouled_mouse_down_y: 0,
             m_beghouled_matches_this_move: 0,
             m_scary_potter_pots: 0,
+            m_rain_counter: 0,
         }
     }
 
@@ -497,7 +499,7 @@ impl Challenge {
         let board = self.board();
 
         if (*app).IsStormyNightLevel() {
-            // self.UpdateStormyNight();
+            self.UpdateStormyNight();
         }
 
         if board.mPaused {
@@ -511,7 +513,7 @@ impl Challenge {
         if app.mGameMode as i32 == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS as i32
             || (*app).IsStormyNightLevel()
         {
-            // self.UpdateRain();
+            self.UpdateRain();
         }
 
         if (*app).mGameScene as i32 != GameScenes::SCENE_PLAYING as i32
@@ -1465,6 +1467,74 @@ impl Challenge {
         let _ = (*the_plant).m_head_reanim_id3;
     }
 
+    /// C++ Challenge::UpdateStormyNight (Challenge.cpp:1948) — 暴风雨夜（闪电状态机）
+    pub unsafe fn UpdateStormyNight(&mut self) {
+        let the_board = &mut *self.mBoard;
+        // C++: 暂停时保持闪电状态
+        if the_board.mPaused {
+            if self.mChallengeStateCounter == 1 {
+                return;
+            }
+
+            if self.mChallengeStateCounter == 150 && self.mChallengeState == ChallengeState::STATECHALLENGE_STORM_FLASH_1 {
+                self.mChallengeStateCounter = 1;
+                return;
+            }
+        }
+
+        self.mChallengeStateCounter -= 1;
+        // C++: 特定时刻播放雷声
+        if (self.mChallengeStateCounter == 300
+            && (self.mChallengeState == ChallengeState::STATECHALLENGE_STORM_FLASH_1
+                || self.mChallengeState == ChallengeState::STATECHALLENGE_STORM_FLASH_2))
+            || (self.mChallengeStateCounter == 150
+                && (self.mChallengeState == ChallengeState::STATECHALLENGE_STORM_FLASH_1
+                    || self.mChallengeState == ChallengeState::STATECHALLENGE_STORM_FLASH_3))
+        {
+            // [TODO]: mApp->PlayFoley(FOLEY_THUNDER)
+        }
+        if self.mChallengeStateCounter > 0 {
+            return;
+        }
+
+        let a_game_scene = (*self.mApp).mGameScene;
+        if a_game_scene == GameScenes::SCENE_ZOMBIES_WON {
+            // C++: 僵尸胜利后保持微弱闪光
+            self.mChallengeStateCounter = STORM_FLASH_TIME + crate::sexy_tod_lib::tod_common::rand_range_int(-50, 50);
+            self.mChallengeState = ChallengeState::STATECHALLENGE_STORM_FLASH_3;
+            return;
+        } else if a_game_scene != GameScenes::SCENE_PLAYING {
+            self.mChallengeState = ChallengeState::STATECHALLENGE_NORMAL;
+            self.mChallengeStateCounter = 0;
+            return;
+        } else {
+            // C++: 雪人僵尸在场时倒计时 350~450，否则 300~400/750
+            if the_board.CountZombieByType(ZombieType::ZOMBIE_YETI) > 0 {
+                self.mChallengeStateCounter = STORM_FLASH_TIME + crate::sexy_tod_lib::tod_common::rand_range_int(200, 300);
+            } else {
+                let a_max_dur = if crate::sexy_app_framework::common::rand_int() % 2 != 0 { 400 } else { 750 };
+                self.mChallengeStateCounter = STORM_FLASH_TIME + crate::sexy_tod_lib::tod_common::rand_range_int(300, a_max_dur);
+            }
+
+            // C++: 随机选择闪电阶段 1~3
+            let a_new_state = crate::sexy_tod_lib::tod_common::rand_range_int(
+                ChallengeState::STATECHALLENGE_STORM_FLASH_1 as i32,
+                ChallengeState::STATECHALLENGE_STORM_FLASH_3 as i32,
+            );
+            self.mChallengeState = std::mem::transmute::<i32, ChallengeState>(a_new_state);
+        }
+    }
+
+    /// C++ Challenge::UpdateRain (Challenge.cpp:5065) — 雨滴效果
+    pub unsafe fn UpdateRain(&mut self) {
+        self.m_rain_counter -= 1;
+        // C++: if (mRainCounter < 0 && !mBoard->mCutScene->IsBeforePreloading())
+        if self.m_rain_counter < 0 {
+            // C++: 三个雨点 Reanimation 生成（雨点/水圈/水花）
+            // [TODO]: AddReanimation(REANIM_RAIN_SPLASH/REANIM_RAIN_CIRCLE) + OverrideScale + mColorOverride
+            self.m_rain_counter = crate::sexy_tod_lib::tod_common::rand_range_int(10, 20);
+        }
+    }
     /// C++ Challenge::UpdateRainingSeeds (Challenge.cpp:1919) — 种子雨更新
     pub unsafe fn UpdateRainingSeeds(&mut self) {
         let the_board = &mut *self.mBoard;
