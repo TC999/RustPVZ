@@ -1358,6 +1358,100 @@ impl Challenge {
         }
     }
 
+    /// C++ Challenge::IZombieSetupPlant (Challenge.cpp:4319) — 设置关卡植物
+    pub unsafe fn IZombieSetupPlant(&mut self, the_plant: *mut crate::lawn::plant::Plant) {
+        if the_plant.is_null() {
+            return;
+        }
+        // C++: 4 个 Reanimation mAnimRate = 0
+        // [TODO]: Reanimation 系统翻译后实现
+
+        if (*the_plant).m_seed_type == SeedType::SEED_POTATOMINE {
+            // C++: PlayBodyReanim("anim_armed", REANIM_LOOP, 0, 0);
+            (*the_plant).PlayBodyReanim("anim_armed", crate::sexy_tod_lib::reanimator::ReanimLoopType::REANIM_LOOP, 0, 0.0);
+            (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_POTATO_ARMED;
+        }
+
+        (*the_plant).m_blink_countdown = 0;
+        (*the_plant).UpdateReanim();
+    }
+
+    /// C++ Challenge::IZombiePlacePlantInSquare (Challenge.cpp:4341) — 在格子放置植物
+    pub unsafe fn IZombiePlacePlantInSquare(&mut self, the_seed_type: SeedType, the_grid_x: i32, the_grid_y: i32) {
+        let the_board = &mut *self.mBoard;
+        if the_board.CanPlantAt(the_grid_x, the_grid_y, the_seed_type) == PlantingReason::PLANTING_OK {
+            let a_plant = the_board.NewPlant(the_grid_x, the_grid_y, the_seed_type as i32, SeedType::SEED_NONE as i32);
+            self.IZombieSetupPlant(a_plant);
+        }
+    }
+
+    /// C++ Challenge::IZombiePlacePlants (Challenge.cpp:4350) — 关卡生成随机放置植物
+    pub unsafe fn IZombiePlacePlants(&mut self, the_seed_type: SeedType, the_count: i32, the_grid_y: i32) {
+        // C++: 关卡植物列数（红线左侧）
+        let mut a_columns = 6;
+        let a_game_mode = (*self.mApp).mGameMode as i32;
+        if a_game_mode >= GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1 as i32 && a_game_mode <= GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_5 as i32 {
+            a_columns = 4;
+        } else if a_game_mode != GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_9 as i32 {
+            a_columns = 5;
+        }
+
+        // C++: 行范围
+        let (a_min_grid_y, a_max_grid_y) = if the_grid_y == -1 {
+            (0, 4)
+        } else {
+            (the_grid_y, the_grid_y)
+        };
+
+        let mut a_grid_array: [crate::sexy_tod_lib::tod_common::TodWeightedGridArray; 54] = [
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+            crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 },
+        ];
+        let mut a_grid_array_count = 0;
+
+        let the_board = &mut *self.mBoard;
+        // C++: 遍历行与列收集可种植格
+        let mut a_row = a_min_grid_y;
+        while a_row <= a_max_grid_y {
+            let mut a_col = 0;
+            while a_col < a_columns {
+                if the_board.CanPlantAt(a_col, a_row, the_seed_type) == PlantingReason::PLANTING_OK {
+                    // C++: 坚果/火炬只放右侧 3 列
+                    if (the_seed_type != SeedType::SEED_WALLNUT && the_seed_type != SeedType::SEED_TORCHWOOD)
+                        || a_columns - a_col <= 3
+                    {
+                        a_grid_array[a_grid_array_count as usize].m_x = a_col;
+                        a_grid_array[a_grid_array_count as usize].m_y = a_row;
+                        a_grid_array[a_grid_array_count as usize].m_weight = 1;
+                        a_grid_array_count += 1;
+                    }
+                }
+                a_col += 1;
+            }
+            a_row += 1;
+        }
+
+        // C++: theCount = std::min(theCount, aGridArrayCount)
+        let the_count = the_count.min(a_grid_array_count);
+
+        let mut i = 0;
+        while i < the_count {
+            let a_grid: *mut crate::sexy_tod_lib::tod_common::TodWeightedGridArray = match crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_grid_array(&mut a_grid_array) {
+                Some(g) => g,
+                None => std::ptr::null_mut(),
+            };
+            if a_grid.is_null() {
+                break;
+            }
+            self.IZombiePlacePlantInSquare(the_seed_type, (*a_grid).m_x, (*a_grid).m_y);
+            (*a_grid).m_weight = 0;
+            i += 1;
+        }
+    }
     /// C++ Challenge::IZombieSetPlantFilterEffect (Challenge.cpp:4726) — 植物滤镜
     pub unsafe fn IZombieSetPlantFilterEffect(&mut self, the_plant: *mut crate::lawn::plant::Plant, _the_filter_effect: FilterEffect) {
         if the_plant.is_null() {
