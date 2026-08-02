@@ -88,6 +88,33 @@ impl GridItem {
     }
 
     /// C++ GridItem::GridItemDie (GridItem.cpp:64)
+    /// C++ GridItem::IsOpenPortal (GridItem.cpp:502)
+    pub fn IsOpenPortal(&self) -> bool {
+        // C++: mGridItemState != GRIDITEM_STATE_PORTAL_CLOSED && (PORTAL_CIRCLE || PORTAL_SQUARE)
+        self.mGridItemState != 2 /* GRIDITEM_STATE_PORTAL_CLOSED */
+            && (self.mGridItemType == GridItemType::GRIDITEM_PORTAL_CIRCLE
+                || self.mGridItemType == GridItemType::GRIDITEM_PORTAL_SQUARE)
+    }
+
+    /// C++ GridItem::OpenPortal (GridItem.cpp:450)
+    pub unsafe fn OpenPortal(&mut self) {
+        // C++: 创建/定位传送门 Reanimation + 粒子 + PlayReanim("anim_appear") + FOLEY_PORTAL
+        // [TODO]: Reanimation/粒子（mGridItemReanimID/mGridItemParticleID）
+        // C++: mGridItemState = GRIDITEM_STATE_PORTAL_OPEN (状态在调用方设置或保持)
+    }
+
+    /// C++ GridItem::ClosePortal (GridItem.cpp:484)
+    pub unsafe fn ClosePortal(&mut self) {
+        // [TODO]: Reanimation("anim_dissapear") + 粒子销毁
+        // C++: mGridItemState = GRIDITEM_STATE_PORTAL_CLOSED;
+        self.mGridItemState = 2; /* GRIDITEM_STATE_PORTAL_CLOSED */
+    }
+
+    /// C++ GridItem::UpdatePortal (GridItem.cpp:508)
+    pub unsafe fn UpdatePortal(&mut self) {
+        // [TODO]: 僵尸传送逻辑（Reanimation 动画 + 僵尸传送）
+        let _ = self.mGridItemReanimID;
+    }
     pub unsafe fn GridItemDie(&mut self) {
         self.mDead = true;
 

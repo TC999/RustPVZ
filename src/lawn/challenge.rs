@@ -1592,9 +1592,189 @@ impl Challenge {
         }
     }
 
-    /// C++ Challenge::UpdatePortalCombat — 传送门更新
+    /// C++ Challenge::GetOtherPortal (Challenge.cpp:3232) — 配对传送门
+    pub unsafe fn GetOtherPortal(&self, the_portal: *mut crate::lawn::grid_item::GridItem) -> *mut crate::lawn::grid_item::GridItem {
+        let the_board = &*self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if a_grid_item != the_portal && (*a_grid_item).mGridItemType == (*the_portal).mGridItemType {
+                return a_grid_item;
+            }
+        }
+        std::ptr::null_mut()
+    }
+
+    /// C++ Challenge::GetPortalAt (Challenge.cpp:3245)
+    pub unsafe fn GetPortalAt(&self, the_grid_x: i32, the_grid_y: i32) -> *mut crate::lawn::grid_item::GridItem {
+        let the_board = &*self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).mGridX == the_grid_x
+                && (*a_grid_item).mGridY == the_grid_y
+                && (*a_grid_item).IsOpenPortal()
+            {
+                return a_grid_item;
+            }
+        }
+        std::ptr::null_mut()
+    }
+
+    /// C++ Challenge::GetPortalToLeft (Challenge.cpp:3351)
+    pub unsafe fn GetPortalToLeft(&self, the_grid_x: i32, the_grid_y: i32) -> *mut crate::lawn::grid_item::GridItem {
+        let mut a_grid_item_record: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        let the_board = &*self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).IsOpenPortal() && (*a_grid_item).mGridX < the_grid_x && (*a_grid_item).mGridY == the_grid_y {
+                if a_grid_item_record.is_null() || (*a_grid_item_record).mGridX < (*a_grid_item).mGridX {
+                    a_grid_item_record = a_grid_item;
+                }
+            }
+        }
+        a_grid_item_record
+    }
+
+    /// C++ Challenge::MoveAPortal (Challenge.cpp:3258) — 移动一个传送门
+    pub unsafe fn MoveAPortal(&mut self) {
+        let mut a_pick_array: [crate::sexy_tod_lib::tod_common::TodWeightedArray; 4] = [
+            crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 }, crate::sexy_tod_lib::tod_common::TodWeightedArray { m_item: 0, m_weight: 0 },
+        ];
+        let mut a_num_picks = 0;
+
+        let the_board = &mut *self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).IsOpenPortal() {
+                a_pick_array[a_num_picks as usize].m_weight = 1;
+                a_pick_array[a_num_picks as usize].m_item = a_grid_item as isize;
+                a_num_picks += 1;
+            }
+        }
+        if a_num_picks == 0 {
+            return;
+        }
+
+        // C++: 随机选一个传送门移动
+        let a_portal = crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_array(&a_pick_array[..a_num_picks as usize]) as *mut crate::lawn::grid_item::GridItem;
+        let a_other_portal = self.GetOtherPortal(a_portal);
+        if a_other_portal.is_null() {
+            return;
+        }
+
+        // C++: 收集可放置格（避开另一传送门的行列）
+        let mut a_grid_array: [crate::sexy_tod_lib::tod_common::TodWeightedGridArray; 50] = [crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }; 50];
+        let mut a_grid_array_count = 0;
+
+        let mut a_grid_x = 0;
+        while a_grid_x < 10 {
+            let mut a_grid_y = 0;
+            while a_grid_y < 5 {
+                if self.GetPortalAt(a_grid_x, a_grid_y).is_null()
+                    && (*a_other_portal).mGridX != a_grid_x
+                    && (*a_other_portal).mGridY != a_grid_y
+                {
+                    a_grid_array[a_grid_array_count as usize].m_x = a_grid_x;
+                    a_grid_array[a_grid_array_count as usize].m_y = a_grid_y;
+                    a_grid_array[a_grid_array_count as usize].m_weight = 1;
+                    a_grid_array_count += 1;
+                }
+                a_grid_y += 1;
+            }
+            a_grid_x += 1;
+        }
+
+        let a_grid: *mut crate::sexy_tod_lib::tod_common::TodWeightedGridArray = match crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_grid_array(&mut a_grid_array) {
+            Some(g) => g,
+            None => std::ptr::null_mut(),
+        };
+        if a_grid.is_null() {
+            return;
+        }
+
+        // C++: 创建新传送门并关闭旧传送门
+        let a_new_portal = the_board.mGridItems.data_array_alloc();
+        if a_new_portal.is_null() {
+            return;
+        }
+        (*a_new_portal).mGridItemType = (*a_portal).mGridItemType;
+        (*a_new_portal).mGridX = (*a_grid).m_x;
+        (*a_new_portal).mGridY = (*a_grid).m_y;
+        (*a_new_portal).mRenderOrder = crate::lawn::board::Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, (*a_new_portal).mGridY, 0);
+        (*a_new_portal).OpenPortal();
+        (*a_portal).ClosePortal();
+    }
+
+    /// C++ Challenge::PortalCombatRowSpawnWeight (Challenge.cpp:3338) — 行出怪权重
+    pub unsafe fn PortalCombatRowSpawnWeight(&self, the_grid_y: i32) -> f32 {
+        // C++: if (GetPortalDistanceToMower(theGridY) < 5) return 0.01f;
+        if self.GetPortalDistanceToMower(the_grid_y) < 5 {
+            return 0.01;
+        }
+
+        let the_board = &*self.mBoard;
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            // C++: 开放传送门且同行的另一端传送门行不同 → 高权重
+            if (*a_grid_item).IsOpenPortal() && (*a_grid_item).mGridY == the_grid_y {
+                let a_other_portal = self.GetOtherPortal(a_grid_item);
+                if !a_other_portal.is_null() && (*a_other_portal).mGridY != the_grid_y {
+                    return 1.0;
+                }
+            }
+        }
+        0.3
+    }
+
+    /// C++ Challenge::GetPortalDistanceToMower (Challenge.cpp:3370)
+    pub unsafe fn GetPortalDistanceToMower(&self, the_grid_y: i32) -> i32 {
+        let mut a_grid_x = 10;
+        let mut a_grid_y = the_grid_y;
+        let mut a_distance = 0;
+
+        while a_distance < 40 {
+            let a_portal = self.GetPortalToLeft(a_grid_x, a_grid_y);
+            if a_portal.is_null() {
+                a_distance += a_grid_x;
+                break;
+            }
+
+            let a_other_portal = self.GetOtherPortal(a_portal);
+            if a_other_portal.is_null() {
+                break;
+            }
+
+            a_distance += a_grid_x - (*a_portal).mGridX;
+            a_grid_x = (*a_other_portal).mGridX;
+            a_grid_y = (*a_other_portal).mGridY;
+        }
+
+        a_distance
+    }
+
+    /// C++ Challenge::UpdatePortalCombat (Challenge.cpp:3307) — 传送门更新
     pub unsafe fn UpdatePortalCombat(&mut self) {
-        // [TODO]: PortalCombat 系列
+        let the_board = &mut *self.mBoard;
+        // C++: 更新所有开放传送门
+        let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+        while the_board.IterateGridItems(&mut a_grid_item) {
+            if (*a_grid_item).IsOpenPortal() {
+                (*a_grid_item).UpdatePortal();
+            }
+        }
+
+        // C++: 已掉落奖励则清提示，否则倒计时移动传送门
+        if the_board.mLevelAwardSpawned {
+            the_board.ClearAdvice(AdviceType::ADVICE_PORTAL_RELOCATING as i32);
+        } else {
+            self.mChallengeStateCounter -= 1;
+            if self.mChallengeStateCounter == 500 {
+                the_board.DisplayAdviceAgain("[ADVICE_PORTAL_RELOCATING]", 0, AdviceType::ADVICE_PORTAL_RELOCATING as i32);
+            } else if self.mChallengeStateCounter <= 0 {
+                the_board.ClearAdvice(AdviceType::ADVICE_PORTAL_RELOCATING as i32);
+                self.mChallengeStateCounter = 6000;
+                self.MoveAPortal();
+            }
+        }
     }
 
     /// C++ Challenge::ZombiquariumSpawnSnorkle (Challenge.cpp:3545)
