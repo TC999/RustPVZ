@@ -560,6 +560,80 @@ impl Plant {
     }
 
     /// C++ Plant::Update() — 主更新 (from Plant.cpp line 2853)
+    /// C++ Plant::DoSpecial (Plant.cpp:4290) — 特殊植物激活
+    pub unsafe fn DoSpecial(&mut self) {
+        // [TODO]: 完整 DoSpecial（樱桃/辣椒/毁灭菇/冰菇/土豆雷/三叶草等 20+ 分支）
+    }
+
+    /// C++ Plant::RemoveEffects (Plant.cpp:2303) — 移除植物粒子与动画
+    pub unsafe fn RemoveEffects(&mut self) {
+        // C++: mApp->RemoveParticle(mParticleID);
+        // C++: mApp->RemoveReanimation(mBodyReanimID/mHeadReanimID/mHeadReanimID2/mHeadReanimID3/mLightReanimID/mBlinkReanimID/mSleepingReanimID);
+        // [TODO]: 粒子/Reanimation 移除（待 EffectSystem 完整翻译）
+    }
+
+    /// C++ Plant::Squish (Plant.cpp:2315) — 植物被压扁
+    pub unsafe fn Squish(&mut self) {
+        if self.NotOnGround() {
+            return;
+        }
+
+        // C++: 未入睡的爆炸/特殊植物被压时直接触发
+        if !self.m_is_asleep {
+            if self.m_seed_type == SeedType::SEED_CHERRYBOMB
+                || self.m_seed_type == SeedType::SEED_JALAPENO
+                || self.m_seed_type == SeedType::SEED_DOOMSHROOM
+                || self.m_seed_type == SeedType::SEED_ICESHROOM
+            {
+                self.DoSpecial();
+                return;
+            } else if self.m_seed_type == SeedType::SEED_POTATOMINE
+                && self.m_state != PlantState::STATE_NOTREADY
+            {
+                self.DoSpecial();
+                return;
+            }
+        }
+
+        // C++: 准备就绪的倭瓜被压时不处理
+        if self.m_seed_type == SeedType::SEED_SQUASH && self.m_state != PlantState::STATE_NOTREADY {
+            return;
+        }
+
+        // C++: mRenderOrder = MakeRenderOrder(RENDER_LAYER_GRAVE_STONE, mRow, 8);
+        self.base.m_render_order = super::board::Board::MakeRenderOrder(
+            RenderLayer::RENDER_LAYER_GRAVE_STONE,
+            self.base.m_row,
+            8,
+        );
+        self.m_squished = true;
+        self.m_disappear_countdown = 500;
+        self.app().PlayFoley(crate::sexy_tod_lib::tod_foley::FoleyType::FOLEY_SQUISH);
+        self.RemoveEffects();
+
+        // C++: GridItem* aLadder = mBoard->GetLadderAt(mPlantCol, mRow); if (aLadder) aLadder->GridItemDie();
+        let the_board = self.board();
+        let a_ladder = the_board.GetLadderAt(self.m_plant_col, self.base.m_row);
+        if !a_ladder.is_null() {
+            (*a_ladder).GridItemDie();
+        }
+
+        // C++: if (mApp->IsIZombieLevel()) mBoard->mChallenge->IZombiePlantDropRemainingSun(this);
+        if self.app().IsIZombieLevel() {
+            // [TODO]: mChallenge->IZombiePlantDropRemainingSun(this)
+        }
+    }
+
+    /// C++ Plant::KillAllPlantsNearDoom (Plant.cpp:4277) — 毁灭菇清除同格植物
+    pub unsafe fn KillAllPlantsNearDoom(&mut self) {
+        let mut a_plant: *mut Plant = std::ptr::null_mut();
+        let the_board = self.board();
+        while the_board.IteratePlants(&mut a_plant) {
+            if (*a_plant).base.m_row == self.base.m_row && (*a_plant).m_plant_col == self.m_plant_col {
+                (*a_plant).Die();
+            }
+        }
+    }
     pub unsafe fn Update(&mut self) {
         let mut do_update = false;
         let board = self.board();

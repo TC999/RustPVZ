@@ -2488,6 +2488,17 @@ impl Board {
         a_count
     }
 
+
+    /// Board::GetBossZombie (from Board.cpp:9466)
+    pub unsafe fn GetBossZombie(&self) -> *mut Zombie {
+        let mut a_zombie: *mut Zombie = std::ptr::null_mut();
+        while self.IterateZombies(&mut a_zombie) {
+            if (*a_zombie).m_zombie_type == ZombieType::ZOMBIE_BOSS {
+                return a_zombie;
+            }
+        }
+        std::ptr::null_mut()
+    }
     /// Board::CanPlantAt (from Board.cpp:2779)
     pub unsafe fn CanPlantAt(&self, theGridX: i32, theGridY: i32, theSeedType: SeedType) -> PlantingReason {
         if theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y {

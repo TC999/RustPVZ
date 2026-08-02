@@ -1155,7 +1155,61 @@ impl Zombie {
         if self.m_yucky_face_counter <= 0 { self.m_yucky_face = false; }
     }
     pub unsafe fn UpdateAnimSpeed(&mut self) {
-        // [TODO]: 根据冰冻/黄油状态更新动画速率
+        // C++: if (!IsOnBoard()) return;
+        if !self.IsOnBoard() {
+            return;
+        }
+
+        // C++: Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+        // C++: if (aBodyReanim == nullptr) return;
+        // [TODO]: Reanimation 获取（mBodyReanimID）
+
+        // C++: if (IsImmobilizied() || (mYuckyFace && mYuckyFaceCounter < 170)) { ApplyAnimRate(0.0f); return; }
+        if self.IsImmobilizied() || (self.m_yucky_face && self.m_yucky_face_counter < 170) {
+            self.ApplyAnimRate(0.0);
+            return;
+        }
+
+        // C++: 潜泳进食/返回状态、死亡 → 原始动画速率
+        if self.m_zombie_phase == ZombiePhase::PHASE_SNORKEL_UP_TO_EAT
+            || self.m_zombie_phase == ZombiePhase::PHASE_SNORKEL_DOWN_FROM_EAT
+            || self.IsDeadOrDying()
+        {
+            self.ApplyAnimRate(self.m_original_anim_rate);
+            return;
+        }
+
+        // C++: 进食状态：特定僵尸类型 20，其余 36
+        if self.m_is_eating {
+            if self.m_zombie_type == ZombieType::ZOMBIE_POLEVAULTER
+                || self.m_zombie_type == ZombieType::ZOMBIE_BALLOON
+                || self.m_zombie_type == ZombieType::ZOMBIE_IMP
+                || self.m_zombie_type == ZombieType::ZOMBIE_DIGGER
+                || self.m_zombie_type == ZombieType::ZOMBIE_JACK_IN_THE_BOX
+                || self.m_zombie_type == ZombieType::ZOMBIE_SNORKEL
+                || self.m_zombie_type == ZombieType::ZOMBIE_YETI
+            {
+                self.ApplyAnimRate(20.0);
+            } else {
+                self.ApplyAnimRate(36.0);
+            }
+        } else {
+            // C++: 非行走/特殊状态 → 原始动画速率
+            if self.ZombieNotWalking()
+                || self.IsBobsledTeamWithSled()
+                || self.m_zombie_type == ZombieType::ZOMBIE_CATAPULT
+                || self.m_zombie_phase == ZombiePhase::PHASE_DOLPHIN_RIDING
+                || self.m_zombie_phase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL
+            {
+                self.ApplyAnimRate(self.m_original_anim_rate);
+            } else {
+                // C++: else if (aBodyReanim->TrackExists("_ground")) — 根据 _ground 轨道
+                // 帧位移计算动画速率: aAnimRate = mVelX * aOneOverSpeed * 47.0f / mScaleZombie
+                // [TODO]: 依赖 Reanimation 定义/帧数据（mFrameStart/mFrameCount/mTransforms），
+                // 待 Reanimation 系统翻译后实现
+                // self.ApplyAnimRate(self.m_vel_x * a_one_over_speed * 47.0 / self.m_scale_zombie);
+            }
+        }
     }
 
     // =========================================================================
@@ -1386,6 +1440,110 @@ impl Zombie {
         a_damage_remaining
     }
 
+
+    /// C++ Zombie::EffectedByDamage (Zombie.cpp:8051) — 判断僵尸是否受该伤害范围影响
+    pub unsafe fn EffectedByDamage(&self, the_damage_range_flags: u32) -> bool {
+        // C++: if (!TestBit(flags, DAMAGES_DYING) && IsDeadOrDying()) return false;
+        if (the_damage_range_flags & (1 << DamageRangeFlags::DAMAGES_DYING as i32)) == 0
+            && self.IsDeadOrDying()
+        {
+            return false;
+        }
+
+        // C++: 心智控制相关
+        if (the_damage_range_flags & (1 << DamageRangeFlags::DAMAGES_ONLY_MINDCONTROLLED as i32)) != 0 {
+            if !self.m_mind_controlled {
+                return false;
+            }
+        } else if self.m_mind_controlled {
+            return false;
+        }
+
+        // C++: 蹦极僵尸只有在停留/抓取时才受攻击
+        if self.m_zombie_type == ZombieType::ZOMBIE_BUNGEE
+            && self.m_zombie_phase != ZombiePhase::PHASE_BUNGEE_AT_BOTTOM
+            && self.m_zombie_phase != ZombiePhase::PHASE_BUNGEE_GRABBING
+        {
+            return false;
+        }
+
+        // C++: 被空投过程中不受攻击
+        if self.m_zombie_height == ZombieHeight::HEIGHT_GETTING_BUNGEE_DROPPED {
+            return false;
+        }
+
+        // C++: Boss 只有在低头状态下受攻击
+        if self.m_zombie_type == ZombieType::ZOMBIE_BOSS {
+            if self.m_zombie_phase != ZombiePhase::PHASE_BOSS_HEAD_IDLE_BEFORE_SPIT
+                && self.m_zombie_phase != ZombiePhase::PHASE_BOSS_HEAD_IDLE_AFTER_SPIT
+                && self.m_zombie_phase != ZombiePhase::PHASE_BOSS_HEAD_SPIT
+            {
+                return false;
+            }
+            // [TODO]: Reanimation mAnimTime 检查（PHASE_BOSS_HEAD_ENTER/LEAVE 阶段）
+        }
+
+        // C++: 存在雪橇时，只有领头僵尸受攻击
+        if self.m_zombie_type == ZombieType::ZOMBIE_BOBSLED && self.GetBobsledPosition() > 0 {
+            return false;
+        }
+
+        // C++: 特殊阶段（撑杆跳/小鬼投掷/挖地/海豚/潜泳/气球/出土/舞者）— 仅受 DAMAGES_OFF_GROUND
+        if self.m_zombie_phase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT
+            || self.m_zombie_phase == ZombiePhase::PHASE_IMP_GETTING_THROWN
+            || self.m_zombie_phase == ZombiePhase::PHASE_DIGGER_RISING
+            || self.m_zombie_phase == ZombiePhase::PHASE_DIGGER_TUNNELING_PAUSE_WITHOUT_AXE
+            || self.m_zombie_phase == ZombiePhase::PHASE_DIGGER_RISE_WITHOUT_AXE
+            || self.m_zombie_phase == ZombiePhase::PHASE_DOLPHIN_INTO_POOL
+            || self.m_zombie_phase == ZombiePhase::PHASE_DOLPHIN_IN_JUMP
+            || self.m_zombie_phase == ZombiePhase::PHASE_SNORKEL_INTO_POOL
+            || self.m_zombie_phase == ZombiePhase::PHASE_BALLOON_POPPING
+            || self.m_zombie_phase == ZombiePhase::PHASE_RISING_FROM_GRAVE
+            || self.m_zombie_phase == ZombiePhase::PHASE_BOBSLED_CRASHING
+            || self.m_zombie_phase == ZombiePhase::PHASE_DANCER_RISING
+        {
+            return (the_damage_range_flags & (1 << DamageRangeFlags::DAMAGES_OFF_GROUND as i32)) != 0;
+        }
+
+        // C++: 除雪橇小队外，场外僵尸不受攻击
+        if self.m_zombie_type != ZombieType::ZOMBIE_BOBSLED
+            && self.GetZombieRect().m_x > 800 // C++: WIDE_BOARD_WIDTH
+        {
+            return false;
+        }
+
+        let submerged = self.m_zombie_type == ZombieType::ZOMBIE_SNORKEL && self.m_in_pool && !self.m_is_eating;
+        if (the_damage_range_flags & (1 << DamageRangeFlags::DAMAGES_SUBMERGED as i32)) != 0 && submerged {
+            return true;
+        }
+
+        let underground = self.m_zombie_phase == ZombiePhase::PHASE_DIGGER_TUNNELING;
+        if (the_damage_range_flags & (1 << DamageRangeFlags::DAMAGES_UNDERGROUND as i32)) != 0 && underground {
+            return true;
+        }
+
+        if (the_damage_range_flags & (1 << DamageRangeFlags::DAMAGES_FLYING as i32)) != 0 && self.IsFlying() {
+            return true;
+        }
+
+        // C++: return TestBit(flags, DAMAGES_GROUND) && !IsFlying() && !submerged && !underground;
+        (the_damage_range_flags & (1 << DamageRangeFlags::DAMAGES_GROUND as i32)) != 0
+            && !self.IsFlying()
+            && !submerged
+            && !underground
+    }
+
+    /// C++ Zombie::RemoveColdEffects (Zombie.cpp:8614)
+    pub unsafe fn RemoveColdEffects(&mut self) {
+        if self.m_ice_trap_counter > 0 {
+            self.RemoveIceTrap();
+        }
+
+        if self.m_chilled_counter > 0 {
+            self.m_chilled_counter = 0;
+            self.UpdateAnimSpeed();
+        }
+    }
     /// C++ Zombie::UpdateDamageStates (Zombie.cpp:3871) — 普通僵尸伤害状态（断臂/断头）
     pub unsafe fn UpdateDamageStates(&mut self, the_damage_flags: u32) {
         // C++: if (!CanLoseBodyParts()) return;
