@@ -2807,6 +2807,29 @@ impl Board {
         self.PixelToGridY(the_x, the_y)
     }
 
+    /// C++ Board::GetSeedTypeInCursor (Board.cpp:2053) — 光标中的种子类型
+    pub unsafe fn GetSeedTypeInCursor(&self) -> SeedType {
+        // C++: 独轮车中的盆栽
+        if !self.mCursorObject.is_null() {
+            let a_cursor = &*self.mCursorObject;
+            if a_cursor.mCursorType == CursorType::CURSOR_TYPE_WHEEELBARROW {
+                // [TODO]: mApp->mZenGarden->GetPottedPlantInWheelbarrow()
+                return SeedType::SEED_NONE;
+            }
+
+            // C++: 无植物光标 → SEED_NONE
+            if !self.IsPlantInCursor() {
+                return SeedType::SEED_NONE;
+            }
+            // C++: IMITATER 返回模仿类型
+            return if a_cursor.mType == SeedType::SEED_IMITATER {
+                a_cursor.mImitaterType
+            } else {
+                a_cursor.mType
+            };
+        }
+        SeedType::SEED_NONE
+    }
     /// Board::RefreshSeedPacketFromCursor — 光标归还种子包
     pub unsafe fn RefreshSeedPacketFromCursor(&mut self) {
         // [TODO]: 种子包返回动画
