@@ -69,6 +69,7 @@ impl Attachment {
         }
     }
 
+    pub fn process_delete_queue(&mut self) {}
     pub fn update(&mut self) {
         // PruneDeadEffects
         let mut i = 0;
@@ -209,6 +210,9 @@ pub struct AttachmentHolder {
 }
 
 impl AttachmentHolder {
+    pub fn process_delete_queue(&mut self) {}
+    pub fn update(&mut self) {}
+
     pub fn new() -> Self {
         AttachmentHolder {
             m_attachments: DataArray::new(),

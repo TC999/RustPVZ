@@ -131,6 +131,21 @@ impl EffectSystem {
         self.m_attachment_holder = Some(attachment);
     }
 
+    /// C++ EffectSystem::ProcessDeleteQueue (EffectSystem.cpp:79) — 删除队列处理
+    pub fn process_delete_queue(&mut self) {
+        if let Some(a_particle_holder) = self.m_particle_holder.as_mut() {
+            a_particle_holder.process_delete_queue();
+        }
+        if let Some(a_trail_holder) = self.m_trail_holder.as_mut() {
+            a_trail_holder.process_delete_queue();
+        }
+        if let Some(a_reanimation_holder) = self.m_reanimation_holder.as_mut() {
+            a_reanimation_holder.process_delete_queue();
+        }
+        if let Some(a_attachment_holder) = self.m_attachment_holder.as_mut() {
+            a_attachment_holder.process_delete_queue();
+        }
+    }
     pub fn effect_system_dispose(&mut self) {
         self.m_particle_holder = None;
         self.m_trail_holder = None;
@@ -143,14 +158,7 @@ impl EffectSystem {
         self.effect_system_initialize();
     }
 
-    pub fn process_delete_queue(&mut self) {
-        if let Some(ref mut p) = self.m_particle_holder {
-            p.process_delete_queue();
-        }
-        if let Some(ref mut r) = self.m_reanimation_holder {
-            r.process_delete_queue();
-        }
-    }
+
 
     pub fn update(&mut self) {
         if let Some(ref mut p) = self.m_particle_holder {

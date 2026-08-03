@@ -184,6 +184,7 @@ impl Default for Trail {
 }
 
 impl Trail {
+    pub fn process_delete_queue(&mut self) {}
     pub fn update(&mut self) {
         // 简化：trail 年龄增长，检查是否过期
         self.m_trail_age += 1;
@@ -214,6 +215,9 @@ pub struct TrailHolder {
 }
 
 impl TrailHolder {
+    pub fn process_delete_queue(&mut self) {}
+    pub fn update(&mut self) {}
+
     pub fn new() -> Self {
         TrailHolder { m_trails: DataArray::new() }
     }
