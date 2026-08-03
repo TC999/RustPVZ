@@ -736,6 +736,35 @@ pub struct ReanimationParams {
 }
 
 /// C++ gLawnReanimationArray (Reanimator.cpp:40) — 144 项动画参数表
+/// C++ BlendTransform (Reanimator.cpp:516) — 两变换插值混合
+pub fn blend_transform(the_result: &mut ReanimatorTransform, the_transform1: &ReanimatorTransform, the_transform2: &ReanimatorTransform, the_blend_factor: f32) {
+    the_result.m_trans_x = crate::sexy_tod_lib::tod_common::float_lerp(the_transform1.m_trans_x, the_transform2.m_trans_x, the_blend_factor);
+    the_result.m_trans_y = crate::sexy_tod_lib::tod_common::float_lerp(the_transform1.m_trans_y, the_transform2.m_trans_y, the_blend_factor);
+    the_result.m_scale_x = crate::sexy_tod_lib::tod_common::float_lerp(the_transform1.m_scale_x, the_transform2.m_scale_x, the_blend_factor);
+    the_result.m_scale_y = crate::sexy_tod_lib::tod_common::float_lerp(the_transform1.m_scale_y, the_transform2.m_scale_y, the_blend_factor);
+    the_result.m_alpha = crate::sexy_tod_lib::tod_common::float_lerp(the_transform1.m_alpha, the_transform2.m_alpha, the_blend_factor);
+
+    // C++: 倾斜角度 ±180° 归一化
+    let mut a_skew_x2 = the_transform2.m_skew_x;
+    let mut a_skew_y2 = the_transform2.m_skew_y;
+    while a_skew_x2 > the_transform1.m_skew_x + 180.0 {
+        a_skew_x2 = the_transform1.m_skew_x;
+    }
+    while a_skew_x2 < the_transform1.m_skew_x - 180.0 {
+        a_skew_x2 = the_transform1.m_skew_x;
+    }
+    while a_skew_y2 > the_transform1.m_skew_y + 180.0 {
+        a_skew_y2 = the_transform1.m_skew_y;
+    }
+    while a_skew_y2 < the_transform1.m_skew_y - 180.0 {
+        a_skew_y2 = the_transform1.m_skew_y;
+    }
+    the_result.m_skew_x = crate::sexy_tod_lib::tod_common::float_lerp(the_transform1.m_skew_x, a_skew_x2, the_blend_factor);
+    the_result.m_skew_y = crate::sexy_tod_lib::tod_common::float_lerp(the_transform1.m_skew_y, a_skew_y2, the_blend_factor);
+    the_result.m_frame = the_transform1.m_frame;
+    the_result.m_image = the_transform1.m_image;
+    the_result.m_font = the_transform1.m_font;
+}
 pub static G_LAWN_REANIMATION_ARRAY: [ReanimationParams; 144] = [
     ReanimationParams { m_reanimation_type: ReanimationType::REANIM_LOADBAR_SPROUT, m_reanim_file_name: "reanim/LoadBar_sprout.reanim", m_reanim_param_flags: 1 },
     ReanimationParams { m_reanimation_type: ReanimationType::REANIM_LOADBAR_ZOMBIEHEAD, m_reanim_file_name: "reanim/LoadBar_Zombiehead.reanim", m_reanim_param_flags: 1 },
