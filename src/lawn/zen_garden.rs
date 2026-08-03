@@ -1022,8 +1022,79 @@ pub fn ZenGardenInitLevel(&mut self) {}
                 }
             }
 
-            // C++: 继续行走逻辑（目标/移动）
-            // [TODO]: 完整移动（接近目标→转方向/拾取阳光/StinkyPickGoal）
+            // C++: 移动/拾取/转向逻辑
+            if (*the_stinky).mGridItemCounter > 0 {
+                (*the_stinky).mGridItemCounter -= 1;
+            }
+
+            // C++: 收集附近金币（距离 < 20）
+            let the_board_borrow = &*self.mBoard;
+            let mut a_coin: *mut crate::lawn::coin::Coin = std::ptr::null_mut();
+            while the_board_borrow.IterateCoins(&mut a_coin) {
+                if !(*a_coin).m_is_being_collected
+                    && crate::sexy_tod_lib::tod_common::distance_2d(
+                        (*a_coin).m_pos_x,
+                        (*a_coin).m_pos_y + 30.0,
+                        (*the_stinky).mPosX,
+                        (*the_stinky).mPosY,
+                    ) < 20.0
+                {
+                    (*a_coin).PlayCollectSound();
+                    (*a_coin).Collect((*a_coin).m_pos_x, (*a_coin).m_pos_y);
+                }
+            }
+
+            // C++: 移动速度
+            let a_delta_x = (*the_stinky).mPosX - (*the_stinky).mGoalX;
+            let a_delta_y = (*the_stinky).mPosY - (*the_stinky).mGoalY;
+            let mut a_speed_y: f32 = 0.5;
+            let mut a_speed_x: f32 = 0.5; // [TODO]: Reanimation GetTrackVelocity("_ground") * 15
+            if a_stinky_high_on_chocolate {
+                a_speed_y = 1.0;
+                a_speed_x = a_speed_x.max(0.5);
+            }
+            // [TODO]: 巧克力光标时停步（aSpeedY/X = 0）
+            // C++: aSpeedY *= TodAnimateCurveFloatTime(20, 5, |aDeltaY|, 1.0, 0.2, CURVE_LINEAR);
+            a_speed_y *= crate::sexy_tod_lib::tod_common::tod_animate_curve_float_time(
+                20.0, 5.0, a_delta_y.abs(), 1.0, 0.2, crate::const_enums::TodCurves::CURVE_LINEAR,
+            );
+
+            // C++: X 方向移动（左/右）
+            if (*the_stinky).mGridItemState == 19 /* WALKING_LEFT */ {
+                (*the_stinky).mPosX -= a_speed_x;
+                if (*the_stinky).mPosX < (*the_stinky).mGoalX {
+                    (*the_stinky).mPosX = (*the_stinky).mGoalX;
+                }
+            } else if (*the_stinky).mGridItemState == 21 /* WALKING_RIGHT */ {
+                (*the_stinky).mPosX += a_speed_x;
+                if (*the_stinky).mPosX > (*the_stinky).mGoalX {
+                    (*the_stinky).mPosX = (*the_stinky).mGoalX;
+                }
+            }
+
+            // C++: Y 方向移动 + 到达目标
+            if (*the_stinky).mGridItemState == 19 || (*the_stinky).mGridItemState == 21 {
+                if a_delta_y.abs() < a_speed_y {
+                    (*the_stinky).mPosY = (*the_stinky).mGoalY;
+                } else if a_delta_y > 0.0 {
+                    (*the_stinky).mPosY -= a_speed_y;
+                } else {
+                    (*the_stinky).mPosY += a_speed_y;
+                }
+
+                if a_delta_x.abs() < 5.0 && a_delta_y.abs() < 5.0 {
+                    self.StinkyPickGoal(the_stinky);
+                } else if (*the_stinky).mGridItemCounter == 0 {
+                    self.StinkyPickGoal(the_stinky);
+                }
+            }
+
+            // C++: 转身完成 → 继续行走
+            if (*the_stinky).mGridItemState == 20 /* TURNING_LEFT */ {
+                (*the_stinky).mGridItemState = 19; /* WALKING_LEFT */
+            } else if (*the_stinky).mGridItemState == 22 /* TURNING_RIGHT */ {
+                (*the_stinky).mGridItemState = 21; /* WALKING_RIGHT */
+            }
         }
     }    /// C++ ZenGarden::OpenStore (ZenGarden.cpp:2360) — 打开商店
     pub unsafe fn OpenStore(&mut self) {
