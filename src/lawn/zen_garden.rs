@@ -321,7 +321,72 @@ impl ZenGarden {
     }
 pub fn ZenGardenInitLevel(&mut self) {}
     pub fn DrawPottedPlantIcon(&self, _g: &mut Graphics, _x: f32, _y: f32, _thePottedPlant: *mut PottedPlant) {}
-    pub fn DrawPottedPlant(&self, _g: &mut Graphics, _x: f32, _y: f32, _thePottedPlant: *mut PottedPlant, _theScale: f32, _theDrawPot: bool) {}
+    /// C++ ZenGarden::DrawPottedPlant (ZenGarden.cpp:121) — 盆栽植物绘制
+    pub unsafe fn DrawPottedPlant(&mut self, g: &mut Graphics, x: f32, y: f32, the_potted_plant: *mut PottedPlant, the_scale: f32, the_draw_pot: bool) {
+        unsafe {
+            if the_potted_plant.is_null() {
+                return;
+            }
+            // C++: 缩放 + 变体选择
+            let mut a_plant_variation = crate::const_enums::DrawVariation::VARIATION_NORMAL;
+            let mut a_seed_type = (*the_potted_plant).mSeedType;
+            if (*the_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_SPROUT {
+                a_seed_type = SeedType::SEED_SPROUT;
+                if (*the_potted_plant).mSeedType != SeedType::SEED_MARIGOLD {
+                    a_plant_variation = crate::const_enums::DrawVariation::VARIATION_SPROUT_NO_FLOWER;
+                }
+            } else if (a_seed_type == SeedType::SEED_TANGLEKELP || a_seed_type == SeedType::SEED_SEASHROOM)
+                && (*the_potted_plant).mWhichZenGarden == GardenType::GARDEN_AQUARIUM
+            {
+                a_plant_variation = crate::const_enums::DrawVariation::VARIATION_AQUARIUM;
+            } else {
+                a_plant_variation = (*the_potted_plant).mDrawVariation;
+            }
+
+            let mut a_offset_x = 0.0;
+            let mut a_offset_y = self.PlantDrawHeightOffset(self.mBoard, std::ptr::null_mut(), a_seed_type, -1, -1);
+
+            // C++: 绘制花盆
+            if the_draw_pot {
+                let a_pot_offset_y = self.PlantDrawHeightOffset(self.mBoard, std::ptr::null_mut(), SeedType::SEED_FLOWERPOT, -1, -1);
+                let a_pot_variation = if crate::lawn::plant::Plant::is_aquatic(a_seed_type) {
+                    crate::const_enums::DrawVariation::VARIATION_ZEN_GARDEN_WATER
+                } else {
+                    crate::const_enums::DrawVariation::VARIATION_ZEN_GARDEN
+                };
+                crate::lawn::plant::Plant::DrawSeedType(g, SeedType::SEED_FLOWERPOT, SeedType::SEED_NONE, a_pot_variation, x, y + a_pot_offset_y * the_scale);
+            }
+
+            // C++: 朝向翻转
+            if (*the_potted_plant).mFacing == crate::lawn::system::player_info::FacingDirection::FACING_LEFT {
+                a_offset_x += 80.0 * the_scale;
+            }
+
+            // C++: 成长阶段缩放
+            let mut a_scale_x = the_scale;
+            let mut a_scale_y = the_scale;
+            if (*the_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_SMALL {
+                a_offset_x += 20.0 * a_scale_x;
+                a_offset_y += 40.0 * a_scale_y;
+                a_scale_x *= 0.5;
+                a_scale_y *= 0.5;
+            } else if (*the_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_MEDIUM {
+                a_offset_x += 10.0 * a_scale_x;
+                a_offset_y += 20.0 * a_scale_y;
+                a_scale_x *= 0.75;
+                a_scale_y *= 0.75;
+            }
+
+            if the_draw_pot {
+                a_offset_y += self.PlantFlowerPotHeightOffset(a_seed_type, the_scale);
+            }
+            a_offset_y += self.PlantPottedDrawHeightOffset(a_seed_type, a_scale_y);
+
+            crate::lawn::plant::Plant::DrawSeedType(g, a_seed_type, SeedType::SEED_NONE, a_plant_variation, x + a_offset_x, y + a_offset_y);
+            let _ = a_scale_x;
+        }
+    }
+
     pub fn IsZenGardenFull(&self, the_include_dropped_presents: bool) -> bool {
     // C++: 掉落礼物数量
     let mut a_num_dropped_presents = 0;
@@ -416,6 +481,10 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn MouseDownWithMoneySign(&mut self, _thePlant: *mut Plant) {}
     pub fn PlacePottedPlant(&mut self, _thePottedPlantIndex: isize) -> *mut Plant { std::ptr::null_mut() }
     pub fn PlantPottedDrawHeightOffset(&self, _theSeedType: SeedType, _theScale: f32) -> f32 { 0.0 }
+
+    pub fn PlantDrawHeightOffset(&self, _theBoard: *mut Board, _thePlant: *mut Plant, _theSeedType: SeedType, _theRow: i32, _theCol: i32) -> f32 { 0.0 }
+
+    pub fn PlantFlowerPotHeightOffset(&self, _theSeedType: SeedType, _theScale: f32) -> f32 { 0.0 }
     pub fn ZenPlantOffsetX(_thePottedPlant: *mut PottedPlant) -> f32 { 0.0 }
     /// C++ ZenGarden::ZenGardenUpdate (ZenGarden.cpp:1724) — 禅境花园主循环
     pub unsafe fn ZenGardenUpdate(&mut self) {

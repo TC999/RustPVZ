@@ -1197,6 +1197,12 @@ impl Plant {
     }
 
     /// C++ Plant::UpdateAbilities (Plant.cpp:2509) — 主要能力分发
+    /// C++ Plant::DrawSeedType — 绘制植物种子类型
+    pub fn DrawSeedType(g: &mut Graphics, the_seed_type: SeedType, _the_imitater_type: SeedType, _the_variation: crate::const_enums::DrawVariation, the_x: f32, the_y: f32) {
+        // [TODO]: 植物图像绘制（IMAGE_PLANTS 等资源）
+        let _ = (g, the_seed_type, the_x, the_y);
+    }
+
     pub unsafe fn UpdateAbilities(&mut self) {
         if self.m_do_special_countdown > 0 {
             self.m_do_special_countdown -= 1;
