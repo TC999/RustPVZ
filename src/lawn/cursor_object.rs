@@ -178,7 +178,6 @@ impl CursorObject {
             CursorType::CURSOR_TYPE_NORMAL => {
                 // 不绘制
             }
-            _ => {}
         }
     }
 }

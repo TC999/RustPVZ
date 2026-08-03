@@ -2371,12 +2371,37 @@ impl Zombie {
         let a_g = &mut *g;
         (*a_body_reanim).draw_render_group(a_g, the_base_render_group);
     }    pub unsafe fn DrawIceTrap(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition, _the_front: bool) {
-        if self.m_in_pool || self.m_zombie_type == ZombieType::ZOMBIE_BOSS { return; }
-        // [TODO]: 绘制冰陷阱
-    }
+        // C++ Zombie::DrawIceTrap (Zombie.cpp:6170)
+        if self.m_in_pool || self.m_zombie_type == ZombieType::ZOMBIE_BOSS {
+            return;
+        }
 
-    /// C++ Zombie::DrawButter (Zombie.cpp:6213)
-    pub unsafe fn DrawButter(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition) {
+        // C++: 类型偏移
+        let mut a_offset_x: f32 = 46.0;
+        let mut a_offset_y: f32 = the_draw_pos.m_body_y + 92.0;
+        let mut a_scale: f32 = 1.0;
+        match self.m_zombie_type {
+            ZombieType::ZOMBIE_POGO => {
+                a_offset_x -= 10.0;
+                a_offset_y += 20.0;
+            }
+            ZombieType::ZOMBIE_GARGANTUAR | ZombieType::ZOMBIE_REDEYE_GARGANTUAR => {
+                a_offset_x -= 20.0;
+                a_offset_y -= 7.0;
+                a_scale = 1.6;
+            }
+            ZombieType::ZOMBIE_BUNGEE => {
+                a_offset_x -= 45.0;
+                a_offset_y -= 23.0;
+                a_scale = 1.2;
+            }
+            _ => {}
+        }
+
+        // C++: 冰陷阱图像（IMAGE_ICETRAP）
+        // [TODO]: DrawImageScaledF(g, IMAGE_ICETRAP, posX + offsetX, posY + offsetY, scale, scale)
+        let _ = (g, a_offset_x, a_offset_y, a_scale);
+    }    pub unsafe fn DrawButter(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition) {
         // [TODO]: 绘制黄油效果
     }
 
