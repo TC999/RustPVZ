@@ -433,7 +433,104 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn PlantWatered(&mut self, _thePlant: *mut Plant) {}
 
     pub fn IsPlantInGoldWateringCanRange(&self, _theX: i32, _theY: i32, _thePlant: *mut Plant) -> bool { false }
-    pub fn GetPlantsNeed(&self, _thePottedPlant: *mut PottedPlant) -> PottedPlantNeed { PottedPlantNeed::PLANTNEED_NONE }
+    /// C++ ZenGarden::WasPlantFertilizedInLastHour (ZenGarden.cpp:821)
+    pub fn WasPlantFertilizedInLastHour(&self, the_potted_plant: *mut PottedPlant) -> bool {
+        unsafe {
+            if the_potted_plant.is_null() {
+                return false;
+            }
+            // C++: mNowTime - mLastFertilizedTime < 3600
+            self.mNowTime - (*the_potted_plant).mLastFertilizedTime < 3600
+        }
+    }
+
+    /// C++ ZenGarden::PlantShouldRefreshNeed (ZenGarden.cpp:769) — 需求是否应刷新（跨天）
+    pub fn PlantShouldRefreshNeed(&self, the_potted_plant: *mut PottedPlant) -> bool {
+        unsafe {
+            if the_potted_plant.is_null() {
+                return false;
+            }
+            let a_now = self.mNowTime;
+            // C++: 一小时内浇过水不刷新
+            if a_now - (*the_potted_plant).mLastWateredTime < 3600 {
+                return false;
+            }
+            // [TRANSLATION_NOTE]: 跨天判断（C++ 用 tm_year/tm_yday 比较）。
+            // Rust 移植用 86400 秒（一天）近似，语义等价。
+            a_now - (*the_potted_plant).mLastWateredTime >= 86400
+        }
+    }
+
+    /// C++ ZenGarden::GetPlantsNeed (ZenGarden.cpp:826) — 植物当前需求
+    pub fn GetPlantsNeed(&self, the_potted_plant: *mut PottedPlant) -> PottedPlantNeed {
+        unsafe {
+            if the_potted_plant.is_null() {
+                return PottedPlantNeed::PLANTNEED_NONE;
+            }
+            // C++: 主花园夜间植物无需求
+            if (*the_potted_plant).mPlantAge != PottedPlantAge::PLANTAGE_SPROUT
+                && crate::lawn::plant::Plant::is_nocturnal((*the_potted_plant).mSeedType)
+                && (*the_potted_plant).mWhichZenGarden == GardenType::GARDEN_MAIN
+            {
+                return PottedPlantNeed::PLANTNEED_NONE;
+            }
+            // C++: 独轮车中无需求
+            if (*the_potted_plant).mWhichZenGarden == GardenType::GARDEN_WHEELBARROW {
+                return PottedPlantNeed::PLANTNEED_NONE;
+            }
+
+            let a_now = self.mNowTime;
+            let a_too_long_since_watering = a_now - (*the_potted_plant).mLastWateredTime > 15;
+            let a_too_short_since_watering = a_now - (*the_potted_plant).mLastWateredTime < 3;
+
+            // C++: 一小时内施过肥或需求已满足 → 无需求
+            if self.WasPlantFertilizedInLastHour(the_potted_plant) || self.WasPlantNeedFulfilledToday(the_potted_plant) {
+                return PottedPlantNeed::PLANTNEED_NONE;
+            }
+            // C++: 水生植物（非芽期）
+            if crate::lawn::plant::Plant::is_aquatic((*the_potted_plant).mSeedType)
+                && (*the_potted_plant).mPlantAge != PottedPlantAge::PLANTAGE_SPROUT
+            {
+                if (*the_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_FULL {
+                    if self.PlantShouldRefreshNeed(the_potted_plant) {
+                        return PottedPlantNeed::PLANTNEED_NONE;
+                    }
+                    return (*the_potted_plant).mPlantNeed;
+                } else {
+                    // C++: 非水族馆的水生植物无需求，水族馆需要化肥
+                    if (*the_potted_plant).mWhichZenGarden != GardenType::GARDEN_AQUARIUM {
+                        return PottedPlantNeed::PLANTNEED_NONE;
+                    }
+                    return PottedPlantNeed::PLANTNEED_FERTILIZER;
+                }
+            }
+            // C++: 未超时未浇水 → 无需求
+            if !a_too_long_since_watering {
+                return PottedPlantNeed::PLANTNEED_NONE;
+            }
+            // C++: 喂食次数未满 → 需要水
+            if (*the_potted_plant).mTimesFed < (*the_potted_plant).mFeedingsPerGrow {
+                return PottedPlantNeed::PLANTNEED_WATER;
+            }
+            // C++: 浇水间隔过短 → 无需求
+            if a_too_short_since_watering {
+                return PottedPlantNeed::PLANTNEED_NONE;
+            }
+            // C++: 未满阶段 → 需要化肥
+            if (*the_potted_plant).mPlantAge != PottedPlantAge::PLANTAGE_FULL {
+                return PottedPlantNeed::PLANTNEED_FERTILIZER;
+            }
+            // C++: 跨天刷新 → 无需求
+            if self.PlantShouldRefreshNeed(the_potted_plant) {
+                return PottedPlantNeed::PLANTNEED_NONE;
+            }
+            // C++: 已有需求 → 返回
+            if (*the_potted_plant).mPlantNeed != PottedPlantNeed::PLANTNEED_NONE {
+                return (*the_potted_plant).mPlantNeed;
+            }
+            PottedPlantNeed::PLANTNEED_WATER
+        }
+    }
     /// C++ ZenGarden::MouseDownWithTool (ZenGarden.cpp:1068) — 工具点击
     pub unsafe fn MouseDownWithTool(&mut self, x: i32, y: i32, the_cursor_type: i32) {
         if the_cursor_type == CursorType::CURSOR_TYPE_WHEEELBARROW as i32 && !self.GetPottedPlantInWheelbarrow().is_null() {
@@ -766,8 +863,6 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn OpenStore(&mut self) {}
     pub fn GetStinky(&self) -> *mut GridItem { std::ptr::null_mut() }
     pub fn StinkyPickGoal(&mut self, _theStinky: *mut GridItem) {}
-    pub fn PlantShouldRefreshNeed(&self, _thePottedPlant: *mut PottedPlant) -> bool { false }
-    pub fn WasPlantFertilizedInLastHour(&self, _thePottedPlant: *mut PottedPlant) -> bool { false }
     pub fn SetupForZenTutorial(&mut self) {}
     pub fn HasPurchasedStinky(&self) -> bool { false }
     /// C++ ZenGarden::CountPlantsNeedingFertilizer (ZenGarden.cpp:603)
