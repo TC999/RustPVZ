@@ -493,7 +493,24 @@ impl ReanimationHolder {
         // 删除标记为 dead 的动画
     }
     pub fn update(&mut self) {
-        // 更新所有动画
+        // C++ ReanimationHolder::Update — 遍历动画并更新
+        unsafe {
+            let a_size = self.m_animations.m_size as usize;
+            if self.m_animations.m_block.is_null() {
+                return;
+            }
+            let mut i = 0;
+            while i < a_size {
+                let a_item = &mut *self.m_animations.m_block.add(i);
+                if a_item.m_id != 0 {
+                    let a_reanim = &mut a_item.m_item;
+                    if !a_reanim.m_dead {
+                        a_reanim.reanimation_update();
+                    }
+                }
+                i += 1;
+            }
+        }
     }
     pub fn find_reanimation(&self, _the_reanim_type: ReanimationType) -> *mut Reanimation {
         std::ptr::null_mut()
