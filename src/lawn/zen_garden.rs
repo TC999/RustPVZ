@@ -417,7 +417,6 @@ pub fn ZenGardenInitLevel(&mut self) {}
         }
     }
 }
-    pub fn MouseDownWithTool(&mut self, _x: i32, _y: i32, _theCursorType: i32) {}
     pub fn MovePlant(&mut self, _thePlant: *mut Plant, _theGridX: i32, _theGridY: i32) {}
     pub fn MouseDownWithMoneySign(&mut self, _thePlant: *mut Plant) {}
     pub fn PlacePottedPlant(&mut self, _thePottedPlantIndex: isize) -> *mut Plant { std::ptr::null_mut() }
@@ -438,6 +437,49 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn MouseDownZenGarden(&mut self, _x: i32, _y: i32, _theClickCount: i32, _theHitResult: *mut std::ffi::c_void) -> bool { false }
     pub fn PlantWatered(&mut self, _thePlant: *mut Plant) {}
     pub fn GetPlantsNeed(&self, _thePottedPlant: *mut PottedPlant) -> PottedPlantNeed { PottedPlantNeed::PLANTNEED_NONE }
+    /// C++ ZenGarden::MouseDownWithTool (ZenGarden.cpp:1068) — 工具点击
+    pub unsafe fn MouseDownWithTool(&mut self, x: i32, y: i32, the_cursor_type: i32) {
+        if the_cursor_type == CursorType::CURSOR_TYPE_WHEEELBARROW as i32 && !self.GetPottedPlantInWheelbarrow().is_null() {
+            self.MouseDownWithFullWheelBarrow(x, y);
+            unsafe { (*self.mBoard).ClearCursor(); }
+            return;
+        }
+
+        if the_cursor_type == CursorType::CURSOR_TYPE_WATERING_CAN as i32
+            || the_cursor_type == CursorType::CURSOR_TYPE_FERTILIZER as i32
+            || the_cursor_type == CursorType::CURSOR_TYPE_BUG_SPRAY as i32
+            || the_cursor_type == CursorType::CURSOR_TYPE_PHONOGRAPH as i32
+            || the_cursor_type == CursorType::CURSOR_TYPE_CHOCOLATE as i32
+        {
+            self.MouseDownWithFeedingTool(x, y, the_cursor_type);
+            return;
+        }
+
+        unsafe {
+            let the_board = &*self.mBoard;
+            let a_plant = the_board.ToolHitTest(x, y);
+            if a_plant.is_null() || (*a_plant).m_potted_plant_index == -1 {
+                // C++: mApp->PlayFoley(FOLEY_DROP)
+                (*self.mBoard).ClearCursor();
+                return;
+            }
+
+            if the_cursor_type == CursorType::CURSOR_TYPE_MONEY_SIGN as i32 {
+                self.MouseDownWithMoneySign(a_plant);
+            } else if the_cursor_type == CursorType::CURSOR_TYPE_WHEEELBARROW as i32 {
+                self.MouseDownWithEmptyWheelBarrow(a_plant);
+                (*self.mBoard).ClearCursor();
+            } else if the_cursor_type == CursorType::CURSOR_TYPE_GLOVE as i32 {
+                // C++: 手套拿起植物
+                let board_mut = &mut *self.mBoard;
+                if !board_mut.mCursorObject.is_null() {
+                    (*(board_mut.mCursorObject)).mType = (*a_plant).m_seed_type;
+                    (*(board_mut.mCursorObject)).mCursorType = CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE;
+                }
+                // [TODO]: mGlovePlantID = DataArrayGetID(aPlant)
+            }
+        }
+    }
     pub fn MouseDownWithFeedingTool(&mut self, _x: i32, _y: i32, _theCursorType: i32) {}
     pub fn DrawPlantOverlay(&self, _g: &mut Graphics, _thePlant: *mut Plant) {}
     pub fn PottedPlantUpdate(&mut self, _thePlant: *mut Plant) {}

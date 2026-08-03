@@ -2782,6 +2782,21 @@ impl Board {
         // [TODO]: 箭头 widget 移除
     }
 
+    /// Board::ToolHitTest — 工具命中植物
+    pub unsafe fn ToolHitTest(&self, the_x: i32, the_y: i32) -> *mut Plant {
+        // [TODO]: 完整命中检测（MouseHitTest 机制）
+        let _ = the_x;
+        let _ = the_y;
+        std::ptr::null_mut()
+    }
+
+    /// Board::ClearCursor — 清除光标
+    pub unsafe fn ClearCursor(&mut self) {
+        if !self.mCursorObject.is_null() {
+            (*self.mCursorObject).mCursorType = CursorType::CURSOR_TYPE_NORMAL;
+            (*self.mCursorObject).mVisible = false;
+        }
+    }
     /// Board::SetTutorialState — 设置教程状态
     pub unsafe fn SetTutorialState(&mut self, the_state: i32) {
         self.mTutorialState = the_state;
