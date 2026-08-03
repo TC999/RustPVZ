@@ -546,8 +546,25 @@ impl ReanimationHolder {
 // 全局函数（桩）
 // ============================================================
 
-pub fn reanimator_load_definitions() {}
-pub fn reanimator_ensure_definition_loaded(_the_reanim_type: ReanimationType) {}
+pub static mut G_REANIMATOR_DEF_COUNT: i32 = 0;
+
+/// C++ ReanimatorLoadDefinitions (Reanimator.cpp:1195)
+pub fn reanimator_load_definitions() {
+    // C++: gReanimationParamArraySize = theReanimationParamArraySize;
+    //      gReanimatorDefArray = new ReanimatorDefinition[theReanimationParamArraySize];
+    // [TODO]: gLawnReanimationArray 参数表（ReanimationLawn.cpp）翻译后接入
+    unsafe {
+        G_REANIMATOR_DEF_COUNT = 0;
+        // C++: for each → ReanimatorEnsureDefinitionLoaded(type, true) 预加载
+    }
+}
+
+/// C++ ReanimatorEnsureDefinitionLoaded (Reanimator.cpp:1200)
+pub fn reanimator_ensure_definition_loaded(_the_reanim_type: ReanimationType) {
+    // C++: 按 ReanimationParams（mReanimFileName）从 properties/REANIM/*.json 加载定义
+    // [TODO]: JSON 定义解析（ReanimatorDefinition + 轨道/变换/图集）
+    let _ = _the_reanim_type;
+}
 pub fn reanim_do_transforms_draw(_g: &mut Graphics, _reanim: &Reanimation) {}
 
 pub fn reanim_loader_load_from_resource_manager() {}
