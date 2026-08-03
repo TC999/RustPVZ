@@ -711,8 +711,26 @@ impl Plant {
     }
 
     /// C++ Plant::PlayBodyReanim (Plant.cpp:1129) — 播放主体动画
-    pub unsafe fn PlayBodyReanim(&mut self, _the_track_name: &str, _the_loop_type: crate::sexy_tod_lib::reanimator::ReanimLoopType, _the_blend_time: i32, _the_anim_rate: f32) {
-        // [TODO]: Reanimation 播放（StartBlend/mAnimRate/mLoopType/SetFramesForLayer）
+    /// C++ Plant::PlayBodyReanim (Plant.cpp:1129) — 播放主体动画
+    pub unsafe fn PlayBodyReanim(&mut self, the_track_name: &str, the_loop_type: crate::sexy_tod_lib::reanimator::ReanimLoopType, the_blend_time: i32, the_anim_rate: f32) {
+        let a_body_reanim = self.app().ReanimationGet(self.m_body_reanim_id) as *mut crate::sexy_tod_lib::reanimator::Reanimation;
+        if a_body_reanim.is_null() {
+            return;
+        }
+
+        // C++: if (theBlendTime > 0) aBodyReanim->StartBlend(theBlendTime);
+        if the_blend_time > 0 {
+            (*a_body_reanim).start_blend(the_blend_time);
+        }
+        // C++: if (theAnimRate > 0.0f) aBodyReanim->mAnimRate = theAnimRate;
+        if the_anim_rate > 0.0 {
+            (*a_body_reanim).m_anim_rate = the_anim_rate;
+        }
+        // C++: aBodyReanim->mLoopType = theLoopType; mLoopCount = 0;
+        (*a_body_reanim).m_loop_type = the_loop_type;
+        (*a_body_reanim).m_loop_count = 0;
+        // C++: aBodyReanim->SetFramesForLayer(theTrackName);
+        (*a_body_reanim).set_frames_for_layer(the_track_name);
     }
 
     /// C++ Plant::UpdatePotato (Plant.cpp:1143) — 土豆雷更新

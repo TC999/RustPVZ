@@ -138,6 +138,7 @@ pub struct Reanimation {
     pub m_frame_base: f32,
     pub m_anim_rate: f32,
     pub m_loop_type: ReanimLoopType,
+    pub m_loop_count: i32,
     pub m_dead: bool,
     pub m_dead_no_effect: bool,
     pub m_render_order: i32,
@@ -171,6 +172,7 @@ impl Reanimation {
             m_pos_y: 0.0,
             m_anim_time: 0.0, m_frame_base: 0.0, m_anim_rate: 1.0,
             m_loop_type: ReanimLoopType::REANIM_PLAY_ONCE,
+            m_loop_count: 0,
             m_dead: false, m_dead_no_effect: false,
             m_render_order: 0,
             m_overlay_color: Color::new(),
@@ -204,6 +206,12 @@ impl Reanimation {
 
     pub fn reanimation_play_with_sync(&mut self, _synced: &str, _frame_base: f32) {
         // [TODO]: Play with explicit frame base
+    }
+
+    /// C++ Reanimation::StartBlend (Reanimator.cpp:1064) — 混合过渡
+    /// [TRANSLATION_NOTE]: mTrackInstances 未翻译，混合过渡简化
+    pub fn start_blend(&mut self, _the_blend_time: i32) {
+        // C++: 为每个非空白帧轨道记录混合变换（mBlendTransform/mBlendTime/mBlendCounter）
     }
 
     /// C++ Reanimation::ReanimationInitialize (Reanimator.cpp:387)
