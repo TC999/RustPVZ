@@ -56,8 +56,31 @@ pub fn float_track_set_default(the_track: &mut FloatParameterTrack, the_value: f
     the_track.m_nodes[0] = the_value;
 }
 
-pub fn float_track_evaluate(_the_track: &FloatParameterTrack, _the_time_value: f32, _the_interp: f32) -> f32 {
-    0.0
+pub fn float_track_evaluate(the_track: &FloatParameterTrack, the_time_value: f32, the_interp: f32) -> f32 {
+    // C++ FloatTrackEvaluate (Definition.cpp:1352) — 节点求值
+    // [TRANSLATION_NOTE]: Rust 桩结构无节点时间/高低值/分布曲线，用等距节点线性插值近似
+    if the_track.m_count == 0 {
+        return 0.0;
+    }
+    if the_track.m_count == 1 {
+        return the_track.m_nodes[0];
+    }
+
+    // C++: 时间值 → 节点索引（等距节点近似）
+    let a_index = the_time_value.floor() as usize;
+    if a_index >= the_track.m_count as usize {
+        return the_track.m_nodes[the_track.m_count as usize - 1];
+    }
+    if the_time_value < 0.0 {
+        return the_track.m_nodes[0];
+    }
+
+    // C++: 相邻节点插值（TodCurveEvaluate 线性近似）
+    let a_next = (a_index + 1).min(the_track.m_count as usize - 1);
+    let a_fraction = the_time_value - the_time_value.floor();
+    let a_left = the_track.m_nodes[a_index];
+    let a_right = the_track.m_nodes[a_next];
+    crate::sexy_tod_lib::tod_common::float_lerp(a_left, a_right, a_fraction) * (1.0 - the_interp) + a_right * the_interp
 }
 
 pub fn float_track_is_constant_zero(_the_track: &FloatParameterTrack) -> bool {
