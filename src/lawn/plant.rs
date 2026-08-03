@@ -625,6 +625,16 @@ impl Plant {
     }
 
     /// C++ Plant::KillAllPlantsNearDoom (Plant.cpp:4277) — 毁灭菇清除同格植物
+    /// C++ Plant::SetSleeping — 设置睡眠状态
+    pub unsafe fn SetSleeping(&mut self, the_is_sleeping: bool) {
+        self.m_is_asleep = the_is_sleeping;
+    }
+
+    /// C++ Plant::AddAttachedParticle — 附加粒子
+    pub unsafe fn AddAttachedParticle(&mut self, _pos_x: i32, _pos_y: i32, _render_order: i32, _effect: ParticleEffect) -> *mut std::ffi::c_void {
+        // [TODO]: 粒子系统（mParticleID 创建）
+        std::ptr::null_mut()
+    }
     pub unsafe fn KillAllPlantsNearDoom(&mut self) {
         let mut a_plant: *mut Plant = std::ptr::null_mut();
         let the_board = self.board();

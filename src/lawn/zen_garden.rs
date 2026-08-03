@@ -248,6 +248,82 @@ impl ZenGarden {
             }
         }
     }
+    /// C++ ZenGarden::UpdatePlantState (ZenGarden.cpp:655) — 植物状态更新
+    pub unsafe fn UpdatePlantState(&mut self, the_plant: *mut Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let a_original_state = (*the_plant).m_state;
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return;
+            }
+
+            let a_plant_need = self.GetPlantsNeed(a_potted_plant);
+            if a_plant_need == PottedPlantNeed::PLANTNEED_WATER {
+                (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_NOTREADY;
+            } else if a_plant_need == PottedPlantNeed::PLANTNEED_NONE {
+                if self.WasPlantNeedFulfilledToday(a_potted_plant) {
+                    (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_HAPPY;
+                } else if (*the_plant).m_is_asleep {
+                    (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_NOTREADY;
+                } else {
+                    (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_WATERED;
+                }
+            } else {
+                (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_NEEDY;
+            }
+
+            if a_original_state == (*the_plant).m_state {
+                return;
+            }
+
+            // [TODO]: Reanimation SetImageOverride("Pot_top")
+
+            if a_original_state == crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_HAPPY {
+                self.RemoveHappyEffect(the_plant);
+            }
+            if (*the_plant).m_state == crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_HAPPY {
+                (*the_plant).SetSleeping(false);
+                self.AddHappyEffect(the_plant);
+            } else if crate::lawn::plant::Plant::is_nocturnal((*the_plant).m_seed_type) && !(*self.mBoard).StageIsNight() {
+                (*the_plant).SetSleeping(true);
+            }
+        }
+    }
+
+    /// C++ ZenGarden::AddHappyEffect (ZenGarden.cpp:721) — 添加快乐发光
+    pub unsafe fn AddHappyEffect(&mut self, the_plant: *mut Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let the_board = &*self.mBoard;
+            let a_flower_pot = the_board.GetTopPlantAt((*the_plant).m_plant_col, (*the_plant).base.m_row, PlantPriority::TOPPLANT_ONLY_UNDER_PLANT);
+            if a_flower_pot.is_null() {
+                (*the_plant).AddAttachedParticle((*the_plant).base.m_x + 40, (*the_plant).base.m_y + 60, (*the_plant).base.m_render_order - 1, ParticleEffect::PARTICLE_POTTED_ZEN_GLOW);
+            } else if crate::lawn::plant::Plant::is_aquatic((*the_plant).m_seed_type) {
+                (*a_flower_pot).AddAttachedParticle((*a_flower_pot).base.m_x + 40, (*a_flower_pot).base.m_y + 61, (*a_flower_pot).base.m_render_order - 1, ParticleEffect::PARTICLE_POTTED_WATER_PLANT_GLOW);
+            } else {
+                (*a_flower_pot).AddAttachedParticle((*a_flower_pot).base.m_x + 40, (*a_flower_pot).base.m_y + 63, (*a_flower_pot).base.m_render_order - 1, ParticleEffect::PARTICLE_POTTED_ZEN_GLOW);
+            }
+        }
+    }
+
+    /// C++ ZenGarden::RemoveHappyEffect (ZenGarden.cpp:738) — 移除快乐发光
+    pub unsafe fn RemoveHappyEffect(&mut self, the_plant: *mut Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let the_board = &*self.mBoard;
+            let a_flower_pot = the_board.GetTopPlantAt((*the_plant).m_plant_col, (*the_plant).base.m_row, PlantPriority::TOPPLANT_ONLY_UNDER_PLANT);
+            // [TODO]: 粒子销毁（ParticleTryToGet + ParticleSystemDie）
+            let _ = a_flower_pot;
+            let _ = (*the_plant).m_particle_id;
+        }
+    }
 pub fn ZenGardenInitLevel(&mut self) {}
     pub fn DrawPottedPlantIcon(&self, _g: &mut Graphics, _x: f32, _y: f32, _thePottedPlant: *mut PottedPlant) {}
     pub fn DrawPottedPlant(&self, _g: &mut Graphics, _x: f32, _y: f32, _thePottedPlant: *mut PottedPlant, _theScale: f32, _theDrawPot: bool) {}
@@ -365,8 +441,6 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn MouseDownWithFeedingTool(&mut self, _x: i32, _y: i32, _theCursorType: i32) {}
     pub fn DrawPlantOverlay(&self, _g: &mut Graphics, _thePlant: *mut Plant) {}
     pub fn PottedPlantUpdate(&mut self, _thePlant: *mut Plant) {}
-    pub fn AddHappyEffect(&mut self, _thePlant: *mut Plant) {}
-    pub fn RemoveHappyEffect(&mut self, _thePlant: *mut Plant) {}
     pub fn PlantUpdateProduction(&mut self, _thePlant: *mut Plant) {}
     pub fn ShowTutorialArrowOnWateringCan(&self) {}
     /// C++ ZenGarden::PlantCanBeWatered (ZenGarden.cpp:592)
