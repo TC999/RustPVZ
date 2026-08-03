@@ -355,10 +355,28 @@ impl Reanimation {
         false
     }
 
-    /// C++ Reanimation::FindTrackIndex — 查找轨道索引
-    pub fn find_track_index(&self, _the_track_name: &str) -> i32 {
-        // [TODO]: Linear search in definition tracks
-        -1
+    /// C++ Reanimation::FindTrackIndex (Reanimator.cpp:947) — 查找轨道索引
+    pub fn find_track_index(&self, the_track_name: &str) -> i32 {
+        unsafe {
+            if self.m_definition.is_null() {
+                return 0;
+            }
+            let a_def = &*self.m_definition;
+            let mut a_track_index = 0;
+            while a_track_index < a_def.m_tracks.count as usize {
+                let a_track = &*a_def.m_tracks.tracks.add(a_track_index);
+                if a_track.m_name.eq_ignore_ascii_case(the_track_name) {
+                    return a_track_index as i32;
+                }
+                a_track_index += 1;
+            }
+        }
+        0
+    }
+
+    /// C++ Reanimation::Draw (Reanimator.cpp:941) — 绘制动画（RENDER_GROUP_NORMAL）
+    pub fn draw(&self, g: &mut Graphics) {
+        self.draw_render_group(g, 0);
     }
 
     /// C++ Reanimation::GetCurrentTransform (Reanimator.cpp:546)
