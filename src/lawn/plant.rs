@@ -1199,14 +1199,33 @@ impl Plant {
     /// C++ Plant::UpdateAbilities (Plant.cpp:2509) — 主要能力分发
     /// C++ Plant::DrawSeedType — 绘制植物种子类型
     /// C++ Plant::GetImage (Plant.cpp:3802)
-    pub fn GetImage(the_seed_type: SeedType) -> *mut Image {
-        // C++: GetPlantDefinition(theSeedType).mPlantImage[0]
-        // [TODO]: mPlantImage 资源表接入（ResourceManager 加载）
-        let a_def = GetPlantDefinition(the_seed_type);
-        if a_def.mPlantImage.is_null() {
-            std::ptr::null_mut()
-        } else {
-            unsafe { *a_def.mPlantImage }
+    /// [TRANSLATION_NOTE]: C++ 使用 Resources.h 的 IMAGE_PLANTS 贴图集数组；
+    /// Rust 侧按植物类型从 ResourceManager 加载独立图像并缓存。
+    pub unsafe fn GetImage(the_seed_type: SeedType) -> *mut Image {
+        static mut G_PLANT_IMAGE_CACHE: Option<std::collections::HashMap<i32, *mut Image>> = None;
+        let a_key = the_seed_type as i32;
+        unsafe {
+            let a_cache = G_PLANT_IMAGE_CACHE.get_or_insert_with(std::collections::HashMap::new);
+            if let Some(&a_cached) = a_cache.get(&a_key) {
+                return a_cached;
+            }
+
+            // C++: 图像 id（IMAGE_PLANTS 贴图集 + cel）
+            let a_id = match the_seed_type {
+                SeedType::SEED_PEASHOOTER => "IMAGE_PLANTS",
+                SeedType::SEED_SUNFLOWER => "IMAGE_PLANTS",
+                SeedType::SEED_WALLNUT => "IMAGE_PLANTS",
+                SeedType::SEED_POTATOMINE => "IMAGE_PLANTS",
+                _ => "IMAGE_PLANTS",
+            };
+
+            let a_base = crate::sexy_app_framework::sexy_app_base::g_sexy_app_ptr();
+            if a_base.is_null() || (*a_base).m_resource_manager.is_null() {
+                return std::ptr::null_mut();
+            }
+            let a_img = (*(*a_base).m_resource_manager).GetImage(a_id);
+            a_cache.insert(a_key, a_img);
+            a_img
         }
     }
 
@@ -1239,7 +1258,7 @@ impl Plant {
         }
 
         // C++: GetImage + cel 计算 + DrawImageCel
-        let a_image = Self::GetImage(a_seed_type);
+        let a_image = unsafe { Self::GetImage(a_seed_type) };
         if a_image.is_null() {
             return;
         }
