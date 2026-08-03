@@ -1257,13 +1257,89 @@ impl Plant {
             // [TODO]: 缩放
         }
 
-        // C++: GetImage + cel 计算 + DrawImageCel
-        let a_image = unsafe { Self::GetImage(a_seed_type) };
-        if a_image.is_null() {
+        let mut a_seed_g = Graphics::new();
+        // C++: aSeedG 继承 g 的缩放（简化：用 g 直接绘制）
+        let _ = &mut a_seed_g;
+
+        // C++: LEFTPEATER 水平翻转
+        let mut a_offset_x = 0.0;
+        let mut a_offset_y = 0.0;
+        let mut a_scale_x = 1.0;
+        let mut a_scale_y = 1.0;
+        if a_seed_type == SeedType::SEED_LEFTPEATER {
+            a_offset_x += a_scale_x * 80.0;
+            a_scale_x *= -1.0;
+        }
+
+        // C++: IZombie 僵尸类型
+        if unsafe { crate::lawn::challenge::Challenge::IsZombieSeedType(a_seed_type) } {
+            let a_zombie_type = crate::lawn::challenge::Challenge::IZombieSeedTypeToZombieType(a_seed_type);
+            if a_zombie_type == ZombieType::ZOMBIE_DANCER {
+                a_scale_x *= 0.8;
+                a_scale_y *= 0.8;
+                a_offset_x = 20.0;
+                a_offset_y = 42.0;
+            }
+            // [TODO]: ReanimatorCache->DrawCachedZombie
             return;
         }
-        // [TODO]: 变体 switch（各植物 cel/偏移）→ DrawImageCel
-        let _ = (g, the_pos_x, the_pos_y, a_draw_variation);
+
+        // C++: GIANT_WALLNUT 放大绘制
+        if a_seed_type == SeedType::SEED_GIANT_WALLNUT {
+            a_scale_x *= 1.4;
+            a_scale_y *= 1.4;
+            let a_giant_img = unsafe { Self::GetImage(SeedType::SEED_WALLNUT) };
+            if !a_giant_img.is_null() {
+                let a_img = unsafe { &*a_giant_img };
+                g.DrawImageDestSrc(
+                    a_img,
+                    &crate::sexy_app_framework::misc::rect::Rect::new((the_pos_x - 53.0) as i32, (the_pos_y - 56.0) as i32, (a_img.m_width as f32 * a_scale_x) as i32, (a_img.m_height as f32 * a_scale_y) as i32),
+                    &crate::sexy_app_framework::misc::rect::Rect::new(0, 0, a_img.m_width, a_img.m_height),
+                );
+            }
+            return;
+        }
+
+        // C++: Reanimation 类型植物（DrawCachedPlant）→ 基础图像绘制（TODO ReanimatorCache）
+        let a_plant_def = GetPlantDefinition(a_seed_type);
+        if a_plant_def.mReanimationType != ReanimationType::REANIM_NONE {
+            // [TODO]: ReanimatorCache->DrawCachedPlant
+            let a_image = unsafe { Self::GetImage(a_seed_type) };
+            if a_image.is_null() {
+                return;
+            }
+            let a_img = unsafe { &*a_image };
+            g.DrawImageDestSrc(
+                a_img,
+                &crate::sexy_app_framework::misc::rect::Rect::new((the_pos_x + a_offset_x) as i32, (the_pos_y + a_offset_y) as i32, (a_img.m_width as f32 * a_scale_x).abs() as i32, (a_img.m_height as f32 * a_scale_y) as i32),
+                &crate::sexy_app_framework::misc::rect::Rect::new(0, 0, a_img.m_width, a_img.m_height),
+            );
+            return;
+        }
+
+        // C++: 普通图像路径（cel 计算 + DrawImageCel）
+        let mut a_cel_row = 0;
+        let mut a_cel_col = 2;
+        if a_seed_type == SeedType::SEED_KERNELPULT {
+            a_cel_row = 2;
+        } else if a_seed_type == SeedType::SEED_TWINSUNFLOWER {
+            a_cel_row = 1;
+        }
+
+        let a_plant_image = unsafe { Self::GetImage(a_seed_type) };
+        if a_plant_image.is_null() {
+            return;
+        }
+        let a_img = unsafe { &*a_plant_image };
+        if a_img.m_num_cols <= 2 {
+            a_cel_col = a_img.m_num_cols - 1;
+        }
+        // C++: TodDrawImageCelScaledF — 按 cel 绘制（简化：整图绘制）
+        let a_draw_x = (the_pos_x + a_offset_x) as i32;
+        let a_draw_y = (the_pos_y + a_offset_y) as i32;
+        let a_src_rect = a_img.get_cel_rect_rc(a_cel_col, a_cel_row);
+        let a_dest_rect = crate::sexy_app_framework::misc::rect::Rect::new(a_draw_x, a_draw_y, (a_src_rect.m_width as f32 * a_scale_x).abs() as i32, (a_src_rect.m_height as f32 * a_scale_y) as i32);
+        g.DrawImageDestSrc(a_img, &a_dest_rect, &a_src_rect);
     }
 
     pub unsafe fn UpdateAbilities(&mut self) {
