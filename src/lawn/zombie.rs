@@ -3,7 +3,7 @@
 
 use crate::const_enums::*;
 use super::game_object::GameObject;
-use crate::sexy_app_framework::graphics::graphics::Graphics;
+use crate::sexy_app_framework::graphics::graphics::{Graphics, Image};
 use crate::sexy_app_framework::common::*;
 use crate::sexy_tod_lib::tod_foley::FoleyType;
 use crate::sexy_tod_lib::reanimator::ReanimLoopType;
@@ -2599,6 +2599,40 @@ impl Zombie {
     }
 
     /// C++ Zombie::GetTrackPosition
+    /// C++ Zombie::DrawZombiePart — 精灵部件绘制
+    pub unsafe fn DrawZombiePart(&self, _g: *mut Graphics, _the_image: *mut Image, _the_frame: i32, _the_part: i32, _the_draw_pos: &ZombieDrawPosition) {
+        // [TODO]: 精灵部件绘制（IMAGE_ZOMBIE 帧）
+    }
+
+    /// C++ Zombie::DrawZombieWithParts (Zombie.cpp:5219) — 精灵 fallback 绘制
+    /// C++ 注释：仅 0.1.1 内测版有效，正式版正常不会调用
+    pub unsafe fn DrawZombieWithParts(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition) {
+        let a_frame = if self.m_is_eating { 0 } else { self.m_frame };
+        // C++: DrawZombiePart(g, IMAGE_ZOMBIE, aFrame, PARTS_BODY, theDrawPos)
+        self.DrawZombiePart(g, std::ptr::null_mut(), a_frame, 0 /* PARTS_BODY */, the_draw_pos);
+
+        // C++: 手臂（遛狗时牵绳手臂）
+        if self.m_has_arm && self.m_body_reanim_id == ReanimationID::REANIMATIONID_NULL {
+            // [TODO]: PHASE_WALKING_DOG（Rust ZombiePhase 枚举缺失该变体）
+            if false && self.m_has_head {
+                let mut a_leash_pos = (*the_draw_pos).clone();
+                a_leash_pos.m_image_offset_x -= 14.0;
+                a_leash_pos.m_image_offset_y += 10.0;
+                self.DrawZombiePart(g, std::ptr::null_mut(), a_frame, 1 /* PART_ARM_LEASH */, &a_leash_pos);
+            } else {
+                self.DrawZombiePart(g, std::ptr::null_mut(), a_frame, 2 /* PART_ARM */, the_draw_pos);
+            }
+        }
+
+        // C++: 头（不同阶段的头）
+        if self.m_has_head {
+            if false /* PHASE_WALKING_DOG */ {
+                self.DrawZombiePart(g, std::ptr::null_mut(), a_frame, 3 /* PART_HEAD */, the_draw_pos);
+            } else {
+                self.DrawZombiePart(g, std::ptr::null_mut(), a_frame, 3 /* PART_HEAD */, the_draw_pos);
+            }
+        }
+    }
     pub unsafe fn GetTrackPosition(&self, _track_name: &str, _pos_x: &mut f32, _pos_y: &mut f32) {
         // [TODO]
     }
