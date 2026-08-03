@@ -2329,35 +2329,48 @@ impl Zombie {
     }
 
     /// C++ Zombie::DrawReanim (Zombie.cpp:5626)
-    pub unsafe fn DrawReanim(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition, _the_base_render_group: i32) {
-        let a_body_reanim = (*self.app()).ReanimationTryToGet(self.m_body_reanim_id) as *mut crate::sexy_tod_lib::reanimator::Reanimation;
-        if a_body_reanim.is_null() { return; }
-
-        let an_offset_x = the_draw_pos.m_image_offset_x + 15.0;
-        let mut an_offset_y = the_draw_pos.m_image_offset_y + the_draw_pos.m_body_y - 28.0 + 20.0;
-
-        let mut an_opposite = self.m_mind_controlled;
-        if self.m_zombie_type == ZombieType::ZOMBIE_DANCER || self.m_zombie_type == ZombieType::ZOMBIE_BACKUP_DANCER {
-            an_opposite = false;
-            if self.m_zombie_phase == ZombiePhase::PHASE_DANCER_DANCING_IN && !self.m_is_eating {
-                an_opposite = true;
-            }
-            if self.m_mind_controlled { an_opposite = !an_opposite; }
+    pub unsafe fn DrawReanim(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition, the_base_render_group: i32) {
+        // C++ Zombie::DrawReanim (Zombie.cpp:5626) — 僵尸 Reanimation 绘制
+        let a_body_reanim = self.app().ReanimationGet(self.m_body_reanim_id);
+        if a_body_reanim.is_null() {
+            return;
         }
-        if an_opposite {
-            // [TODO]: 翻转绘制
+        let a_body_reanim = a_body_reanim as *mut crate::sexy_tod_lib::reanimator::Reanimation;
+
+        // C++: 限高裁剪
+        if the_draw_pos.m_clip_height > 71.0 {
+            // [TODO]: SetClipRect(裁剪区域)
         }
 
-        (*a_body_reanim).reanimation_set_scale(self.m_scale_zombie);
-        (*a_body_reanim).reanimation_set_position(
-            an_offset_x + 30.0 - self.m_scale_zombie * 30.0,
-            an_offset_y + 120.0 - self.m_scale_zombie * 120.0,
-        );
-        (*a_body_reanim).reanimation_draw(&mut *g);
-    }
+        // C++: 淡出透明度
+        let mut a_fade_alpha = 255;
+        if self.m_zombie_fade >= 0 {
+            a_fade_alpha = crate::sexy_tod_lib::tod_common::clamp_int(255 * self.m_zombie_fade / 10, 0, 255);
+        }
 
-    /// C++ Zombie::DrawIceTrap (Zombie.cpp:6170)
-    pub unsafe fn DrawIceTrap(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition, _the_front: bool) {
+        // C++: 颜色覆盖（BURNED 黑 / BOSS 低血闪烁 / 冰冻）
+        let mut a_color_override = crate::sexy_app_framework::graphics::color::Color::from_components(255, 255, 255);
+        let mut a_enable_extra_additive_draw = false;
+        if self.m_zombie_phase == ZombiePhase::PHASE_ZOMBIE_BURNED {
+            a_color_override = crate::sexy_app_framework::graphics::color::Color::from_components(0, 0, 0);
+        } else if self.m_zombie_type == ZombieType::ZOMBIE_BOSS
+            && self.m_zombie_phase != ZombiePhase::PHASE_ZOMBIE_DYING
+            && self.m_body_health < self.m_body_max_health / 5
+        {
+            // [TODO]: 灰度闪烁曲线
+            a_enable_extra_additive_draw = true;
+        }
+        if self.m_chilled_counter > 0 || self.m_ice_trap_counter > 0 {
+            // [TODO]: 冰冻蓝调色
+        }
+        let _ = (a_fade_alpha, a_enable_extra_additive_draw);
+
+        // C++: aBodyReanim->mColorOverride = aColorOverride;
+        (*a_body_reanim).m_color_override = a_color_override;
+        // C++: aBodyReanim->DrawRenderGroup(g, theBaseRenderGroup);
+        let a_g = &mut *g;
+        (*a_body_reanim).draw_render_group(a_g, the_base_render_group);
+    }    pub unsafe fn DrawIceTrap(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition, _the_front: bool) {
         if self.m_in_pool || self.m_zombie_type == ZombieType::ZOMBIE_BOSS { return; }
         // [TODO]: 绘制冰陷阱
     }
