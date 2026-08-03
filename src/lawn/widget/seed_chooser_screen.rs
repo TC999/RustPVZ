@@ -23,6 +23,7 @@ pub struct ChosenSeed {
     pub mCrazyDavePicked: bool,
     pub mTimeStartMotion: i32,
     pub mTimeEndMotion: i32,
+    pub mImitaterType: SeedType,
 }
 
 pub struct SeedChooserScreen {
@@ -83,7 +84,135 @@ impl SeedChooserScreen {
             mChooseState: 0,
         }
     }
-    pub fn Draw(&self, g: &mut Graphics) { self.base.Draw(g); }
+    /// C++ SeedChooserScreen::DrawSeedPacket — 绘制种子包
+    pub fn DrawSeedPacket(&self, g: &mut Graphics, x: i32, y: i32, the_seed_type: SeedType, _the_imitater_type: SeedType, _the_alpha: i32, _the_render_ability: i32, _the_b_highlight: bool, _the_b_not_on_lawn: bool) {
+        // [TODO]: DrawSeedPacket 完整渲染（ImageFont/种子图标）
+        let _ = (g, x, y, the_seed_type);
+    }
+
+    /// C++ SeedChooserScreen::FindSeedInBank (SeedChooserScreen.cpp:789)
+    pub fn FindSeedInBank(&self, the_index: i32) -> SeedType {
+        let mut i = 0;
+        while i < self.mNumChosenSeeds {
+            if self.mChosenSeeds[i as usize].mSeedIndexInBank == the_index {
+                return self.mChosenSeeds[i as usize].mSeedType;
+            }
+            i += 1;
+        }
+        SeedType::SEED_NONE
+    }
+
+    /// C++ SeedChooserScreen::Draw (SeedChooserScreen.cpp:345)
+    pub unsafe fn Draw(&mut self, g: &mut Graphics) {
+        // C++: mApp->GetDialog(DIALOG_STORE/ALMANAC) 检查
+        // [TODO]: GetDialog
+
+        // C++: 背景（IMAGE_SEEDCHOOSER_BACKGROUND）
+        // [TODO]: g->DrawImage(IMAGE_SEEDCHOOSER_BACKGROUND, 0, 87)
+
+        // C++: 未选种阶段直接返回
+        let the_board = &*self.mBoard;
+        if !the_board.ChooseSeedsOnCurrentLevel() {
+            return;
+        }
+
+        // C++: 标题文字（TodDrawString CHOOSE_YOUR_PLANTS）
+        // [TODO]: FONT_DWARVENTODCRAFT18YELLOW
+
+        // C++: 阴影种子包（未解锁 → 剪影）
+        let a_num_seeds = if self.Has7Rows() { 48 } else { 40 };
+        let mut a_seed_shadow = SeedType::SEED_PEASHOOTER as i32;
+        while a_seed_shadow < a_num_seeds {
+            let the_seed_type = std::mem::transmute::<i32, SeedType>(a_seed_shadow);
+            if the_seed_type == SeedType::SEED_IMITATER {
+                a_seed_shadow += 1;
+                continue;
+            }
+            let (mut x, mut y) = (0, 0);
+            self.GetSeedPositionInChooser(a_seed_shadow, &mut x, &mut y);
+            if (*self.mApp).HasSeedType(the_seed_type) {
+                if self.mChosenSeeds[a_seed_shadow as usize].mSeedState != ChosenSeedState::SEED_IN_CHOOSER as i32 {
+                    self.DrawSeedPacket(g, x, y, the_seed_type, SeedType::SEED_NONE, 0, 55, true, false);
+                }
+            } else {
+                // [TODO]: g->DrawImage(IMAGE_SEEDPACKETSILHOUETTE, x, y)
+                let _ = (x, y);
+            }
+            a_seed_shadow += 1;
+        }
+
+        // C++: 银行空位剪影
+        let a_num_seeds_in_bank = if the_board.mSeedBank.is_null() { 0 } else { (*the_board.mSeedBank).mNumPackets };
+        let mut an_index = 0;
+        while an_index < a_num_seeds_in_bank {
+            if self.FindSeedInBank(an_index) == SeedType::SEED_NONE {
+                let (mut x, mut y) = (0, 0);
+                self.GetSeedPositionInBank(an_index, &mut x, &mut y);
+                // [TODO]: g->DrawImage(IMAGE_SEEDPACKETSILHOUETTE, x, y)
+                let _ = (x, y);
+            }
+            an_index += 1;
+        }
+
+        // C++: 已选种子包绘制
+        let mut a_seed_type = SeedType::SEED_PEASHOOTER as i32;
+        while a_seed_type < NUM_SEEDS_IN_CHOOSER {
+            let the_seed_type = std::mem::transmute::<i32, SeedType>(a_seed_type);
+            let a_chosen_seed = &self.mChosenSeeds[a_seed_type as usize];
+            let a_seed_state = a_chosen_seed.mSeedState;
+            if (*self.mApp).HasSeedType(the_seed_type)
+                && a_seed_state != ChosenSeedState::SEED_FLYING_TO_BANK as i32
+                && a_seed_state != ChosenSeedState::SEED_FLYING_TO_CHOOSER as i32
+                && a_seed_state != ChosenSeedState::SEED_PACKET_HIDDEN as i32
+                && (a_seed_state == ChosenSeedState::SEED_IN_CHOOSER as i32 || the_board.mCutScene.is_null() == false)
+            {
+                let mut a_grayed = false;
+                if (self.SeedNotRecommendedToPick(the_seed_type) != 0 || self.SeedNotAllowedToPick(the_seed_type))
+                    && a_seed_state == ChosenSeedState::SEED_IN_CHOOSER as i32
+                {
+                    a_grayed = true;
+                }
+                if self.SeedNotAllowedDuringTrial(the_seed_type) {
+                    a_grayed = true;
+                }
+
+                let mut a_pos_x = a_chosen_seed.mX;
+                let mut a_pos_y = a_chosen_seed.mY;
+                if a_seed_state == ChosenSeedState::SEED_IN_BANK as i32 {
+                    a_pos_x -= self.base.base.mX;
+                    a_pos_y -= self.base.base.mY;
+                }
+                self.DrawSeedPacket(g, a_pos_x, a_pos_y, a_chosen_seed.mSeedType, a_chosen_seed.mImitaterType, 0, if a_grayed { 115 } else { 255 }, true, false);
+            }
+            a_seed_type += 1;
+        }
+
+        // C++: 飞行种子包
+        if !self.mImitaterButton.is_null() {
+            (*self.mImitaterButton).Draw(g);
+        }
+        let mut a_seed_type2 = SeedType::SEED_PEASHOOTER as i32;
+        while a_seed_type2 < NUM_SEEDS_IN_CHOOSER {
+            let the_seed_type = std::mem::transmute::<i32, SeedType>(a_seed_type2);
+            let a_chosen_seed = &self.mChosenSeeds[a_seed_type2 as usize];
+            let a_seed_state = a_chosen_seed.mSeedState;
+            if (*self.mApp).HasSeedType(the_seed_type)
+                && (a_seed_state == ChosenSeedState::SEED_FLYING_TO_BANK as i32 || a_seed_state == ChosenSeedState::SEED_FLYING_TO_CHOOSER as i32)
+            {
+                self.DrawSeedPacket(g, a_chosen_seed.mX, a_chosen_seed.mY, a_chosen_seed.mSeedType, a_chosen_seed.mImitaterType, 0, 255, true, false);
+            }
+            a_seed_type2 += 1;
+        }
+
+        // C++: 按钮绘制
+        if !self.mStartButton.is_null() { (*self.mStartButton).Draw(g); }
+        if !self.mRandomButton.is_null() { (*self.mRandomButton).Draw(g); }
+        if !self.mViewLawnButton.is_null() { (*self.mViewLawnButton).Draw(g); }
+        if !self.mAlmanacButton.is_null() { (*self.mAlmanacButton).Draw(g); }
+        if !self.mStoreButton.is_null() { (*self.mStoreButton).Draw(g); }
+        if !self.mMenuButton.is_null() { (*self.mMenuButton).Draw(g); }
+        if !self.mToolTip.is_null() { (*self.mToolTip).Draw(g); }
+    }
     /// C++ SeedChooserScreen::Has7Rows (SeedChooserScreen.cpp:275)
     pub fn Has7Rows(&self) -> bool {
         // C++: HasFinishedAdventure() || mPurchases[STORE_ITEM_PLANT_GATLINGPEA]
