@@ -76,6 +76,12 @@ impl ReanimatorTransform {
 }
 
 /// 动画变换数组
+pub struct ReanimatorFrameTime {
+    pub m_anim_frame_before_int: i32,
+    pub m_anim_frame_after_int: i32,
+    pub m_fraction: f32,
+}
+
 pub struct ReanimatorTransformArray {
     pub m_transforms: *mut ReanimatorTransform,
     pub count: i32,
@@ -149,6 +155,8 @@ pub struct Reanimation {
     pub m_extra_additive_color: Color,
     pub m_extra_overlay_color: Color,
     pub m_extra_overlay_alpha: f32,
+    pub m_frame_start: i32,
+    pub m_frame_count: i32,
 }
 
 impl Reanimation {
@@ -175,6 +183,8 @@ impl Reanimation {
             m_extra_additive_color: Color::new(),
             m_extra_overlay_color: Color::new(),
             m_extra_overlay_alpha: 0.0,
+            m_frame_start: 0,
+            m_frame_count: 1,
         }
     }
 
@@ -268,9 +278,88 @@ impl Reanimation {
         -1
     }
 
-    /// C++ Reanimation::GetCurrentTransform — 获取轨道的当前插值变换
-    pub fn get_current_transform(&self, _the_track_index: i32, _the_transform: &mut ReanimatorTransform) {
-        // [TODO]: Interpolate between keyframes at current m_anim_time
+    /// C++ Reanimation::GetCurrentTransform (Reanimator.cpp:546)
+    pub fn get_current_transform(&self, the_track_index: i32, the_transform_current: &mut ReanimatorTransform) {
+        let mut a_frame_time = ReanimatorFrameTime { m_anim_frame_before_int: 0, m_anim_frame_after_int: 0, m_fraction: 0.0 };
+        self.get_frame_time(&mut a_frame_time);
+        self.get_transform_at_time(the_track_index, the_transform_current, &a_frame_time);
+        // [TODO]: 轨道混合（mTrackInstances blend）——TrackInstance 未翻译，暂不混合
+    }
+
+    /// C++ Reanimation::GetTransformAtTime (Reanimator.cpp:560) — 两帧间插值
+    pub fn get_transform_at_time(&self, the_track_index: i32, the_transform: &mut ReanimatorTransform, the_frame_time: &ReanimatorFrameTime) {
+        unsafe {
+            if self.m_definition.is_null() {
+                return;
+            }
+            let a_definition = &*self.m_definition;
+            if (the_track_index as usize) >= a_definition.m_tracks.count as usize {
+                return;
+            }
+            let a_track = &*a_definition.m_tracks.tracks.add(the_track_index as usize);
+            let a_trans_count = a_track.m_transforms.count as usize;
+            let a_before = the_frame_time.m_anim_frame_before_int as usize;
+            let a_after = the_frame_time.m_anim_frame_after_int as usize;
+            if a_before >= a_trans_count || a_after >= a_trans_count {
+                return;
+            }
+            let a_trans_before = &*a_track.m_transforms.m_transforms.add(a_before);
+            let a_trans_after = &*a_track.m_transforms.m_transforms.add(a_after);
+            let a_frac = the_frame_time.m_fraction;
+
+            the_transform.m_trans_x = crate::sexy_tod_lib::tod_common::float_lerp(a_trans_before.m_trans_x, a_trans_after.m_trans_x, a_frac);
+            the_transform.m_trans_y = crate::sexy_tod_lib::tod_common::float_lerp(a_trans_before.m_trans_y, a_trans_after.m_trans_y, a_frac);
+            the_transform.m_skew_x = crate::sexy_tod_lib::tod_common::float_lerp(a_trans_before.m_skew_x, a_trans_after.m_skew_x, a_frac);
+            the_transform.m_skew_y = crate::sexy_tod_lib::tod_common::float_lerp(a_trans_before.m_skew_y, a_trans_after.m_skew_y, a_frac);
+            the_transform.m_scale_x = crate::sexy_tod_lib::tod_common::float_lerp(a_trans_before.m_scale_x, a_trans_after.m_scale_x, a_frac);
+            the_transform.m_scale_y = crate::sexy_tod_lib::tod_common::float_lerp(a_trans_before.m_scale_y, a_trans_after.m_scale_y, a_frac);
+            the_transform.m_alpha = crate::sexy_tod_lib::tod_common::float_lerp(a_trans_before.m_alpha, a_trans_after.m_alpha, a_frac);
+            the_transform.m_image = a_trans_before.m_image;
+            the_transform.m_font = a_trans_before.m_font;
+
+            // C++: 非空白帧→空白帧过渡截断（mTruncateDisappearingFrames TODO）
+            the_transform.m_frame = a_trans_before.m_frame;
+        }
+    }
+
+    /// C++ Reanimation::GetFrameTime (Reanimator.cpp:896)
+    pub fn get_frame_time(&self, the_frame_time: &mut ReanimatorFrameTime) {
+        {
+            let mut a_frame_count = self.m_frame_count;
+            if self.m_loop_type != ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME
+                && self.m_loop_type != ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME
+                && self.m_loop_type != ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD
+            {
+                a_frame_count = self.m_frame_count - 1;
+            }
+            let a_anim_position = self.m_frame_start as f32 + self.m_anim_time * a_frame_count as f32;
+            let a_anim_frame_before = a_anim_position.floor();
+            the_frame_time.m_fraction = a_anim_position - a_anim_frame_before;
+            the_frame_time.m_anim_frame_before_int = crate::sexy_tod_lib::tod_common::float_round_to_int(a_anim_frame_before);
+            if the_frame_time.m_anim_frame_before_int >= self.m_frame_start + self.m_frame_count - 1 {
+                the_frame_time.m_anim_frame_before_int = self.m_frame_start + self.m_frame_count - 1;
+                the_frame_time.m_anim_frame_after_int = the_frame_time.m_anim_frame_before_int;
+            } else {
+                the_frame_time.m_anim_frame_after_int = the_frame_time.m_anim_frame_before_int + 1;
+            }
+        }
+    }
+
+    /// C++ Reanimation::MatrixFromTransform (Reanimator.cpp:585) — 变换转矩阵
+    pub fn matrix_from_transform(the_transform: &ReanimatorTransform, the_matrix: &mut crate::sexy_app_framework::misc::sexy_matrix::SexyMatrix3) {
+        // C++: 倾斜角度转弧度
+        let a_skew_x = -(the_transform.m_skew_x).to_radians();
+        let a_skew_y = -(the_transform.m_skew_y).to_radians();
+
+        the_matrix.m[0][0] = a_skew_x.cos() * the_transform.m_scale_x;
+        the_matrix.m[1][0] = -a_skew_x.sin() * the_transform.m_scale_x;
+        the_matrix.m[2][0] = 0.0;
+        the_matrix.m[0][1] = a_skew_y.sin() * the_transform.m_scale_y;
+        the_matrix.m[1][1] = a_skew_y.cos() * the_transform.m_scale_y;
+        the_matrix.m[2][1] = 0.0;
+        the_matrix.m[0][2] = the_transform.m_trans_x;
+        the_matrix.m[1][2] = the_transform.m_trans_y;
+        the_matrix.m[2][2] = 1.0;
     }
 
     /// C++ Reanimation::AssignRenderGroupToTrack — 将轨道分配到渲染组
