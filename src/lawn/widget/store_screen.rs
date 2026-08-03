@@ -15,6 +15,15 @@ pub struct StoreScreen {
     pub mBubbleCountDown: i32,
     pub mBackButton: *mut crate::lawn::widget::game_button::GameButton,
     pub mGoToTreeNow: bool,
+    pub mStoreTime: i32,
+    pub mHatchTimer: i32,
+    pub mWaitForDialog: bool,
+    pub mBubbleClickToContinue: bool,
+    pub mMouseOverItem: i32,
+    pub mShakeX: i32,
+    pub mShakeY: i32,
+    pub mPrevButton: *mut crate::lawn::widget::game_button::GameButton,
+    pub mNextButton: *mut crate::lawn::widget::game_button::GameButton,
 }
 
 impl StoreScreen {
@@ -27,6 +36,15 @@ impl StoreScreen {
             mBubbleCountDown: 0,
             mBackButton: std::ptr::null_mut(),
             mGoToTreeNow: false,
+            mStoreTime: 0,
+            mHatchTimer: 0,
+            mWaitForDialog: false,
+            mBubbleClickToContinue: false,
+            mMouseOverItem: -1,
+            mShakeX: 0,
+            mShakeY: 0,
+            mPrevButton: std::ptr::null_mut(),
+            mNextButton: std::ptr::null_mut(),
         }
     }
         /// C++: static StoreItem gStoreItemSpots[NUM_STORE_PAGES][MAX_PAGE_SPOTS]
