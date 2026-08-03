@@ -859,8 +859,65 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn CanUseGameObject(&self, _theObjectType: i32) -> bool { false }
     pub fn ZenToolUpdate(&mut self, _theZenTool: *mut GridItem) {}
     pub fn AddStinky(&mut self) {}
-    pub fn StinkyUpdate(&mut self, _theStinky: *mut GridItem) {}
-    pub fn OpenStore(&mut self) {}
+    /// C++ ZenGarden::StinkyUpdate (ZenGarden.cpp:1507) — 蜗牛更新（状态机）
+    pub unsafe fn StinkyUpdate(&mut self, the_stinky: *mut GridItem) {
+        unsafe {
+            if the_stinky.is_null() {
+                return;
+            }
+            // C++: Reanimation* aStinkyReanim = mApp->ReanimationGet(mGridItemReanimID);
+            // [TODO]: Reanimation 获取
+
+            let a_stinky_high_on_chocolate = self.IsStinkyHighOnChocolate();
+            // [TODO]: UpdateStinkyMotionTrail(theStinky, aStinkyHighOnChocolate)
+            let _ = a_stinky_high_on_chocolate;
+
+            if (*the_stinky).mGridItemState == 24 /* GRIDITEM_STINKY_FALLING_ASLEEP */ {
+                // C++: if (aStinkyReanim->mLoopCount > 0) StinkyFinishFallingAsleep(theStinky, 20);
+                // [TODO]: Reanimation mLoopCount 检查
+                self.StinkyFinishFallingAsleep(the_stinky, 20);
+                return;
+            }
+
+            if (*the_stinky).mGridItemState == 23 /* GRIDITEM_STINKY_SLEEPING */ {
+                // [TODO]: FindReanimAttachment + AssignRenderGroupToPrefix（巧克力高亮）
+
+                if self.ShouldStinkyBeAwake() {
+                    self.StinkyWakeUp(the_stinky);
+                }
+                return;
+            }
+
+            if (*the_stinky).mGridItemState == 25 /* GRIDITEM_STINKY_WAKING_UP */ {
+                // C++: mLoopCount > 0 时 → WALKING_LEFT + PlayReanim("anim_crawl") + StinkyPickGoal
+                // [TODO]: Reanimation mLoopCount 检查
+                (*the_stinky).mGridItemState = 19; /* GRIDITEM_STINKY_WALKING_LEFT */
+                self.StinkyPickGoal(the_stinky);
+                return;
+            }
+
+            if !self.ShouldStinkyBeAwake() {
+                // C++: 走向睡眠位置
+                if (*the_stinky).mPosY < STINKY_SLEEP_POS_Y {
+                    if (*the_stinky).mGoalY != STINKY_SLEEP_POS_Y {
+                        (*the_stinky).mGoalY = STINKY_SLEEP_POS_Y + 10.0;
+                    }
+                } else if (*the_stinky).mGridItemState == 19 /* WALKING_LEFT */ {
+                    self.StinkyStartFallingAsleep(the_stinky);
+                    return;
+                } else if (*the_stinky).mGridItemState == 21 /* WALKING_RIGHT */ {
+                    (*the_stinky).mGridItemState = 20; /* TURNING_LEFT */
+                    (*the_stinky).mMotionTrailCount = 0;
+                    (*the_stinky).mGoalX = (*the_stinky).mPosX;
+                    (*the_stinky).mGoalY = (*the_stinky).mPosY;
+                    return;
+                }
+            }
+
+            // C++: 继续行走逻辑（目标/移动）
+            // [TODO]: 完整移动（接近目标→转方向/拾取阳光/StinkyPickGoal）
+        }
+    }    pub fn OpenStore(&mut self) {}
     pub fn GetStinky(&self) -> *mut GridItem { std::ptr::null_mut() }
     pub fn StinkyPickGoal(&mut self, _theStinky: *mut GridItem) {}
     pub fn SetupForZenTutorial(&mut self) {}
