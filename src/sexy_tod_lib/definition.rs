@@ -499,10 +499,26 @@ pub fn definition_load_xml(the_filename: &str, _the_def_map: &DefMap, _the_defin
 }
 
 pub fn definition_read_compiled_file(_the_compiled_file_path: &str, _the_def_map: &DefMap, _the_definition: *mut u8) -> bool {
+    // C++: zlib 解压 + CRC 校验 + DefMapReadFromCache 指针修复
+    // [TODO]: 二进制缓存解析（DefMapReadFromCache 逐字段读取）
+    let _ = (_the_compiled_file_path, _the_def_map, _the_definition);
     false
 }
 
-pub fn definition_compile_and_load(_the_xml_file_path: &str, _the_def_map: &DefMap, _the_definition: *mut u8) -> bool {
+pub fn definition_compile_and_load(the_xml_file_path: &str, the_def_map: &DefMap, the_definition: *mut u8) -> bool {
+    // C++: 编译缓存路径（compiled/<xml>.compiled）
+    let a_compiled_file_path = definition_get_compiled_file_path_from_xml_file_path(the_xml_file_path);
+
+    // C++: 优先读二进制缓存
+    if definition_read_compiled_file(&a_compiled_file_path, the_def_map, the_definition) {
+        return true;
+    }
+
+    // C++: 失败 → 从 XML 源编译
+    if definition_compile_file(the_xml_file_path, &a_compiled_file_path, the_def_map, the_definition) {
+        return true;
+    }
+
     false
 }
 
@@ -550,8 +566,17 @@ pub fn definition_write_compiled_file(_the_compiled_file_path: &str, _the_def_ma
     false
 }
 
-pub fn definition_compile_file(_the_xml_file_path: &str, _the_compiled_file_path: &str, _the_def_map: &DefMap, _the_definition: *mut u8) -> bool {
-    false
+pub fn definition_compile_file(the_xml_file_path: &str, _the_compiled_file_path: &str, the_def_map: &DefMap, the_definition: *mut u8) -> bool {
+    let mut a_xml_parser = XMLParser::new();
+    if !a_xml_parser.OpenFile(the_xml_file_path) {
+        return false;
+    }
+    if !definition_load_map(&mut a_xml_parser, the_def_map, the_definition) {
+        return false;
+    }
+    // [TODO]: DefinitionWriteCompiledFile（缓存写盘）
+    let _ = _the_compiled_file_path;
+    true
 }
 
 // ============================================================
