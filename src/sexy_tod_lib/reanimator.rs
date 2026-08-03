@@ -223,9 +223,9 @@ impl Reanimation {
     pub fn reanimation_initialize_type(&mut self, the_x: f32, the_y: f32, the_reanim_type: ReanimationType) {
         // C++: ReanimatorEnsureDefinitionLoaded(theReanimType, false) → gReanimatorDefArray[theReanimType]
         crate::sexy_tod_lib::reanimator::reanimator_ensure_definition_loaded(the_reanim_type);
-        // [TODO]: 全局定义表（gReanimatorDefArray）查询；当前 m_definition 由外部设置
+        let a_def = unsafe { G_REANIMATOR_DEF_ARRAY[the_reanim_type as usize] };
         self.m_reanim_type = the_reanim_type;
-        self.reanimation_initialize(the_x, the_y, self.m_definition);
+        self.reanimation_initialize(the_x, the_y, a_def);
     }
     /// C++ Reanimation::Update — 推进动画时间（完整 loop 处理）
     pub fn reanimation_update(&mut self) {
