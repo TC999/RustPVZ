@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::string::String;
 use std::vec::Vec;
 
-use crate::sexy_app_framework::graphics::graphics::{Font, Image};
+use crate::sexy_app_framework::graphics::graphics::{Font, Image, MemoryImage};
 use crate::sexy_app_framework::misc::xml_parser::{XMLElement, XMLParser, XMLParamMap};
 
 // ==================== AnimInfo ====================
@@ -489,8 +489,84 @@ impl ResourceManager {
 
     // ==================== 资源获取 ====================
 
-    pub fn GetImage(&self, _id: &str) -> *mut Image {
-        std::ptr::null_mut()
+    pub fn GetImage(&mut self, id: &str) -> *mut Image {
+        let mut a_image_map = std::mem::take(&mut self.mImageMap);
+        let a_result = match a_image_map.get_mut(id) {
+            Some(a_res) => {
+                // C++: mImageMap.find → aRes->mImage 已加载则返回
+                if a_res.mImage.is_null() && !a_res.base.mFromProgram {
+                    // C++: DoLoadImage → 解码 PNG
+                    let a_path = a_res.base.mPath.clone();
+                    if let Some(mut a_mem) = Self::load_png_image(&a_path) {
+                        let a_img: &mut Image = &mut a_mem.base;
+                        a_res.mImage = a_img as *mut Image;
+                        // 保留 Box 所有权（C++: aRes->mImage）
+                        std::mem::forget(a_mem);
+                    }
+                }
+                a_res.mImage
+            }
+            None => std::ptr::null_mut(),
+        };
+        self.mImageMap = a_image_map;
+        a_result
+    }
+
+    /// C++: ImageLib::GetImage → MemoryImage 像素解码
+    /// [TRANSLATION_NOTE]: 用 png crate 解码 PNG 到 ARGB 像素（对应 C++ ImageLib）
+    fn load_png_image(path: &str) -> Option<Box<MemoryImage>> {
+        let a_file = std::fs::File::open(path).ok()?;
+        let a_decoder = png::Decoder::new(a_file);
+        let mut a_reader = a_decoder.read_info().ok()?;
+        let mut a_buf = vec![0u8; a_reader.output_buffer_size()];
+        let a_info = a_reader.next_frame(&mut a_buf).ok()?;
+        let w = a_info.width as i32;
+        let h = a_info.height as i32;
+        if w <= 0 || h <= 0 {
+            return None;
+        }
+
+        let mut a_mem = Box::new(MemoryImage::new());
+        a_mem.create(w, h);
+        let a_bits = a_mem.get_bits();
+        let a_color_type = a_info.color_type;
+        let a_size = a_info.buffer_size();
+
+        let mut y = 0;
+        while y < h {
+            let mut x = 0;
+            while x < w {
+                let (r, g, b, a) = match a_color_type {
+                    png::ColorType::Rgba => {
+                        let idx = ((y * w + x) as usize) * 4;
+                        (a_buf[idx], a_buf[idx + 1], a_buf[idx + 2], a_buf[idx + 3])
+                    }
+                    png::ColorType::Rgb => {
+                        let idx = ((y * w + x) as usize) * 3;
+                        (a_buf[idx], a_buf[idx + 1], a_buf[idx + 2], 255)
+                    }
+                    png::ColorType::Grayscale => {
+                        let idx = (y * w + x) as usize;
+                        (a_buf[idx], a_buf[idx], a_buf[idx], 255)
+                    }
+                    png::ColorType::GrayscaleAlpha => {
+                        let idx = ((y * w + x) as usize) * 2;
+                        (a_buf[idx], a_buf[idx], a_buf[idx], a_buf[idx + 1])
+                    }
+                    _ => (0, 0, 0, 0),
+                };
+                let _ = a_size;
+                unsafe {
+                    *a_bits.add((y * w + x) as usize) = ((a as u32) << 24) | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+                }
+                x += 1;
+            }
+            y += 1;
+        }
+
+        a_mem.set_image_mode(true, true);
+        a_mem.bits_changed();
+        Some(a_mem)
     }
 
     pub fn GetSound(&self, _id: &str) -> isize { -1 }
@@ -500,7 +576,8 @@ impl ResourceManager {
     }
 
     pub fn GetImageThrow(&self, id: &str) -> Result<*mut Image, ResourceManagerException> {
-        let img = self.GetImage(id);
+        // [TRANSLATION_NOTE]: GetImage 惰性加载需要 &mut；此处通过引用转换（单线程主循环中安全）
+        let img = unsafe { (self as *const ResourceManager as *mut ResourceManager).as_mut().unwrap().GetImage(id) };
         if img.is_null() {
             Err(ResourceManagerException::new(&format!("Image not found: {}", id)))
         } else {
