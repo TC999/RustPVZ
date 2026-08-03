@@ -240,14 +240,71 @@ impl Reanimation {
         // C++: 其他 loop 类型（LOOP_FULL_LAST_FRAME / PLAY_ONCE_FULL_LAST_FRAME）由帧计算处理
     }
 
-    /// C++ Reanimation::Draw — 绘制当前帧
-    pub fn reanimation_draw(&self, _g: &mut Graphics) {
-        // [TODO]: Iterate tracks, interpolate transforms, draw images
+    /// C++ Reanimation::DrawTrack (Reanimator.cpp:637) — 绘制单条轨道（简化版）
+    /// [TRANSLATION_NOTE]: mTrackInstances/ReanimAtlas 未翻译，颜色混合/图集绘制 TODO，
+    /// 保留核心：变换插值 → 图像帧 → 基础绘制
+    pub fn draw_track(&self, g: &mut Graphics, the_track_index: i32) -> bool {
+        unsafe {
+            if self.m_definition.is_null() {
+                return false;
+            }
+            let mut a_transform = ReanimatorTransform::new();
+            self.get_current_transform(the_track_index, &mut a_transform);
+            let a_image_frame = crate::sexy_tod_lib::tod_common::float_round_to_int(a_transform.m_frame);
+            if a_image_frame < 0 {
+                return false;
+            }
+
+            let a_image_alpha = crate::sexy_tod_lib::tod_common::clamp_int(crate::sexy_tod_lib::tod_common::float_round_to_int(a_transform.m_alpha), 0, 255);
+            if a_image_alpha <= 0 {
+                return false;
+            }
+            if a_transform.m_image.is_null() {
+                return false;
+            }
+
+            // C++: ReanimBltMatrix — 用矩阵绘制图像（倾斜/缩放）
+            let mut a_matrix = crate::sexy_app_framework::misc::sexy_matrix::SexyMatrix3::new();
+            Self::matrix_from_transform(&a_transform, &mut a_matrix);
+
+            let a_image = &*a_transform.m_image;
+            let a_img_w = a_image.m_width;
+            let a_img_h = a_image.m_height;
+            // C++: 绘制 dest rect（简化：忽略倾斜，用 trans+scale）
+            let a_dest_x = (a_transform.m_trans_x) as i32;
+            let a_dest_y = (a_transform.m_trans_y) as i32;
+            let a_dest_w = (a_img_w as f32 * a_transform.m_scale_x) as i32;
+            let a_dest_h = (a_img_h as f32 * a_transform.m_scale_y) as i32;
+            g.DrawImageDestSrc(a_image, &crate::sexy_app_framework::misc::rect::Rect::new(a_dest_x, a_dest_y, a_dest_w, a_dest_h), &crate::sexy_app_framework::misc::rect::Rect::new(0, 0, a_img_w, a_img_h));
+            let _ = a_matrix;
+        }
+        true
     }
 
-    /// C++ Reanimation::DrawRenderGroup — 绘制指定渲染组的轨道
-    pub fn draw_render_group(&self, _g: &mut Graphics, _render_group: i32) {
-        // [TODO]: Only draw tracks assigned to the specified group
+    /// C++ Reanimation::DrawRenderGroup (Reanimator.cpp:919) — 绘制渲染组轨道
+    /// [TRANSLATION_NOTE]: mTrackInstances 未翻译（render group 过滤/附件），
+    /// 简化：绘制所有轨道
+    pub fn draw_render_group(&self, g: &mut Graphics, _render_group: i32) {
+        if self.m_dead {
+            return;
+        }
+        unsafe {
+            if self.m_definition.is_null() {
+                return;
+            }
+            let a_track_count = (*self.m_definition).m_tracks.count as i32;
+            let mut a_track_index = 0;
+            while a_track_index < a_track_count {
+                self.draw_track(g, a_track_index);
+                // [TODO]: AttachmentDraw（附件动画）
+                a_track_index += 1;
+            }
+        }
+    }
+
+    /// C++ Reanimation::Draw (Reanimator.cpp:941)
+    pub fn reanimation_draw(&self, g: &mut Graphics) {
+        self.draw_render_group(g, 0 /* RENDER_GROUP_NORMAL */);
     }
 
     pub fn reanimation_set_position(&mut self, _x: f32, _y: f32) {
