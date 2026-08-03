@@ -734,15 +734,35 @@ impl Coin {
             // [TODO]: 闪烁效果
         }
 
-        // C++: 银币/金币贴图
-        if self.m_type == CoinType::COIN_SILVER || self.m_type == CoinType::COIN_GOLD {
-            // [TODO]: DrawImage(IMAGE_COIN, mPosX, mPosY)
+        // C++: 获取硬币图像并绘制
+        let a_image = self.GetImage();
+        if !a_image.is_null() {
+            // C++: DrawImageCel(aImage, mPosX - w/2, mPosY - h/2, celCol)
+            let a_img = unsafe { &*a_image };
+            let a_draw_x = (self.m_pos_x - a_img.m_width as f32 / 2.0) as i32;
+            let a_draw_y = (self.m_pos_y - a_img.m_height as f32 / 2.0) as i32;
+            g.DrawImage(a_img, a_draw_x, a_draw_y);
         }
+    }
 
-        // [TODO]: 其他类型绘制
-        // - COIN_SUN / COIN_LARGESUN
-        // - COIN_FINAL_SEED_PACKET (种子包)
-        // - COIN_TROPHY, COIN_SHOVEL, COIN_CARKEYS, COIN_ALMANAC 等
+    /// C++ Coin::GetImage (Coin.cpp:387) — 硬币图像
+    pub unsafe fn GetImage(&self) -> *mut crate::sexy_app_framework::graphics::graphics::Image {
+        // C++: switch (mType) 返回对应图像
+        // [TRANSLATION_NOTE]: 图像从 ResourceManager 加载（id 近似），加载失败返回 null（跳过绘制）
+        let a_id = match self.m_type {
+            CoinType::COIN_SUN => "IMAGE_SUN",
+            CoinType::COIN_SMALLSUN => "IMAGE_SMALLSUN",
+            CoinType::COIN_LARGESUN => "IMAGE_LARGESUN",
+            CoinType::COIN_SILVER => "IMAGE_COIN",
+            CoinType::COIN_GOLD => "IMAGE_COIN",
+            CoinType::COIN_FINAL_SEED_PACKET => "IMAGE_SEEDPACKET",
+            _ => return std::ptr::null_mut(),
+        };
+        let the_base = crate::sexy_app_framework::sexy_app_base::g_sexy_app_ptr();
+        if the_base.is_null() || (*the_base).m_resource_manager.is_null() {
+            return std::ptr::null_mut();
+        }
+        (*(*the_base).m_resource_manager).GetImage(a_id)
     }
 
     // =========================================================================
