@@ -26,6 +26,8 @@ pub struct LawnMower {
     pub mRenderOrder: i32,
     // C++ 扩展字段
     pub mReanimID: ReanimationID,
+    pub mBoard: *mut std::ffi::c_void,
+    pub mAltitude: f32,
     pub mChompCounter: i32,
     pub mSquishedCounter: i32,
     pub mLastPortalX: i32,
@@ -51,6 +53,8 @@ impl LawnMower {
             mAttachmentID: AttachmentID::ATTACHMENTID_NULL,
             mVisible: true, mRenderOrder: 0,
             mReanimID: ReanimationID::REANIMATIONID_NULL,
+            mBoard: std::ptr::null_mut(),
+            mAltitude: 0.0,
             mChompCounter: 0, mSquishedCounter: 0, mLastPortalX: -1,
         }
     }
@@ -251,13 +255,38 @@ impl LawnMower {
     // Draw — C++ 保真翻译 (LawnMower.cpp:274)
     // =========================================================================
     pub unsafe fn Draw(&self, g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
-        if !self.mVisible || self.mDead { return; }
+        if !self.mVisible || self.mDead {
+            return;
+        }
 
-        // C++: 根据割草机类型和状态绘制
-        // [TODO]:
-        // - 被压扁的割草机: 绘制翻转/压扁图像
-        // - 正常割草机: 使用重动画绘制
-        // - 泳池割草机: 水中绘制特殊版本
+        // C++: 阴影（IMAGE_PLANTSHADOW/2，夜晚变体）
+        // [TODO]: TodDrawImageCelCenterScaledF（图像资源）
+        let mut a_shadow_type = 0;
+        let a_scale_x = 1.0;
+        let mut a_scale_y = 1.0;
+        if !self.mBoard.is_null() && (*(self.mBoard as *mut crate::lawn::board::Board)).StageIsNight() {
+            a_shadow_type = 1;
+        }
+        let mut a_shadow_x = self.mPosX - 7.0;
+        let mut a_shadow_y = self.mPosY - self.mAltitude + 47.0;
+        if self.mMowerType == LawnMowerType::LAWNMOWER_POOL_CLEANER {
+            a_shadow_x -= 17.0;
+            a_shadow_y -= 8.0;
+        } else if self.mMowerType == LawnMowerType::LAWNMOWER_ROOF_CLEANER {
+            a_shadow_x -= 9.0;
+            a_shadow_y -= 36.0;
+            a_scale_y = 1.2;
+            if self.mMowerState == MowerState::MOWER_TRIGGERED {
+                a_shadow_y += 36.0;
+            }
+        }
+        let _ = (a_shadow_type, a_shadow_x, a_shadow_y, a_scale_x, a_scale_y);
+
+        // C++: Reanimation 绘制（mReanimID）
+        // [TODO]: mApp->ReanimationGet(mReanimID)->DrawRenderGroup(g, RENDER_GROUP_NORMAL)
+
+        // C++: 状态翻转（MOWER_SQUISHED 压扁翻转）
+        // [TODO]: mMowerState == MOWER_TRIGGERED_SQUASHED → 翻转绘制
     }
 
     // =========================================================================
