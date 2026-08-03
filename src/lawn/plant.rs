@@ -1198,9 +1198,53 @@ impl Plant {
 
     /// C++ Plant::UpdateAbilities (Plant.cpp:2509) — 主要能力分发
     /// C++ Plant::DrawSeedType — 绘制植物种子类型
-    pub fn DrawSeedType(g: &mut Graphics, the_seed_type: SeedType, _the_imitater_type: SeedType, _the_variation: crate::const_enums::DrawVariation, the_x: f32, the_y: f32) {
-        // [TODO]: 植物图像绘制（IMAGE_PLANTS 等资源）
-        let _ = (g, the_seed_type, the_x, the_y);
+    /// C++ Plant::GetImage (Plant.cpp:3802)
+    pub fn GetImage(the_seed_type: SeedType) -> *mut Image {
+        // C++: GetPlantDefinition(theSeedType).mPlantImage[0]
+        // [TODO]: mPlantImage 资源表接入（ResourceManager 加载）
+        let a_def = GetPlantDefinition(the_seed_type);
+        if a_def.mPlantImage.is_null() {
+            std::ptr::null_mut()
+        } else {
+            unsafe { *a_def.mPlantImage }
+        }
+    }
+
+    /// C++ Plant::DrawSeedType (Plant.cpp:4100) — 绘制植物种子类型
+    pub fn DrawSeedType(g: &mut Graphics, the_seed_type: SeedType, the_imitater_type: SeedType, the_draw_variation: crate::const_enums::DrawVariation, the_pos_x: f32, the_pos_y: f32) {
+        // C++: 模仿者变体
+        let mut a_seed_type = the_seed_type;
+        let mut a_draw_variation = the_draw_variation;
+        if the_seed_type == SeedType::SEED_IMITATER && the_imitater_type != SeedType::SEED_NONE {
+            a_seed_type = the_imitater_type;
+            a_draw_variation = crate::const_enums::DrawVariation::VARIATION_IMITATER;
+            if the_imitater_type == SeedType::SEED_HYPNOSHROOM
+                || the_imitater_type == SeedType::SEED_SQUASH
+                || the_imitater_type == SeedType::SEED_POTATOMINE
+                || the_imitater_type == SeedType::SEED_GARLIC
+                || the_imitater_type == SeedType::SEED_LILYPAD
+            {
+                a_draw_variation = crate::const_enums::DrawVariation::VARIATION_IMITATER_LESS;
+            }
+        } else if the_draw_variation == crate::const_enums::DrawVariation::VARIATION_NORMAL && the_seed_type == SeedType::SEED_TANGLEKELP {
+            a_draw_variation = crate::const_enums::DrawVariation::VARIATION_AQUARIUM;
+        }
+
+        // C++: BIG_TIME 模式放大核桃/向日葵/万寿菊
+        let a_game_mode = unsafe { (*crate::lawn_app::G_LAWN_APP).mGameMode };
+        if a_game_mode == GameMode::GAMEMODE_CHALLENGE_BIG_TIME
+            && (a_seed_type == SeedType::SEED_WALLNUT || a_seed_type == SeedType::SEED_SUNFLOWER || a_seed_type == SeedType::SEED_MARIGOLD)
+        {
+            // [TODO]: 缩放
+        }
+
+        // C++: GetImage + cel 计算 + DrawImageCel
+        let a_image = Self::GetImage(a_seed_type);
+        if a_image.is_null() {
+            return;
+        }
+        // [TODO]: 变体 switch（各植物 cel/偏移）→ DrawImageCel
+        let _ = (g, the_pos_x, the_pos_y, a_draw_variation);
     }
 
     pub unsafe fn UpdateAbilities(&mut self) {
