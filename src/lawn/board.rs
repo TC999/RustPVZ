@@ -2947,6 +2947,47 @@ impl Board {
         // [TODO]: Draw level background based on mBackground type
     }
 
+    /// C++ Board::DrawUIBottom (Board.cpp:7322) — 底部 UI（波浪/覆盖/种子银行）
+    pub unsafe fn DrawUIBottom(&self, g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // C++: 水族馆波浪动画
+        if self.mBackground == BackgroundType::BACKGROUND_ZOMBIQUARIUM as i32 {
+            let a_wave_time = ((self.mMainCounter / 8) as i32 % 22 - 11).abs();
+            // [TODO]: DRAWMODE_ADDITIVE + IMAGE_WAVESIDE/WAVECENTER cel 绘制
+            let _ = a_wave_time;
+        }
+
+        // C++: 温室/水族馆覆盖层
+        if self.mBackground == BackgroundType::BACKGROUND_GREENHOUSE as i32
+            || self.mBackground == BackgroundType::BACKGROUND_ZOMBIQUARIUM as i32
+        {
+            // [TODO]: DRAWMODE_ADDITIVE + IMAGE_BACKGROUND_GREENHOUSE_OVERLAY
+        }
+
+        // C++: 种子银行绘制
+        if (*self.mApp).mGameScene != GameScenes::SCENE_ZOMBIES_WON {
+            if !self.mSeedBank.is_null() {
+                if (*self.mSeedBank).BeginDraw(g) {
+                    (*self.mSeedBank).Draw(g);
+                    (*self.mSeedBank).EndDraw(g);
+                }
+            }
+
+            // C++: 老虎机消息提示
+            if !self.mAdvice.is_null() {
+                (*self.mAdvice).Draw(g);
+            }
+        }
+
+        self.DrawShovel(g);
+        if !self.StageHasFog() {
+            self.DrawTopRightUI(g);
+        }
+    }
+
+    /// C++ Board::DrawShovel (Board.cpp:7645) — 铲子绘制
+    pub unsafe fn DrawShovel(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
+        // [TODO]: 铲子光标/拖拽绘制
+    }
     /// C++ Board::DrawTopRightUI (Board.cpp:7286)
     pub unsafe fn DrawTopRightUI(&self, _g: &mut crate::sexy_app_framework::graphics::graphics::Graphics) {
         // [TODO]: Draw menu button, store button, progress meter

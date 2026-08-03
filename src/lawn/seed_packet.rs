@@ -276,6 +276,16 @@ impl SeedBank {
         // TODO: Draw all seed packets in the bank
     }
 
+    /// C++ SeedBank::BeginDraw — 绘制前设置（裁剪）
+    pub unsafe fn BeginDraw(&self, _g: &mut Graphics) -> bool {
+        // [TODO]: 裁剪区域设置
+        true
+    }
+
+    /// C++ SeedBank::EndDraw — 绘制后恢复
+    pub unsafe fn EndDraw(&self, _g: &mut Graphics) {
+    }
+
     pub unsafe fn AddSeed(&mut self, theSeedType: SeedType, _placeOnLeft: bool) {
         if self.mNumPackets >= 10 { return; }
         let idx = if _placeOnLeft {
