@@ -119,12 +119,7 @@ impl ZenGarden {
         }
     }
 
-    /// C++ ZenGarden::PlantHighOnChocolate — 植物是否处于巧克力亢奋
-    pub fn PlantHighOnChocolate(&self, the_potted_plant: *mut PottedPlant) -> bool {
-        // [TODO]: mLastChocolateTime 检查
-        let _ = the_potted_plant;
-        false
-    }
+
 
     /// C++ ZenGarden::PlantSetLaunchCounter (ZenGarden.cpp:192)
     pub fn PlantSetLaunchCounter(&self, the_plant: *mut Plant) {
@@ -619,7 +614,117 @@ pub fn ZenGardenInitLevel(&mut self) {}
     }
 
     pub fn DrawPlantOverlay(&self, _g: &mut Graphics, _thePlant: *mut Plant) {}
-    pub fn PottedPlantUpdate(&mut self, _thePlant: *mut Plant) {}
+    /// C++ ZenGarden::PottedPlantUpdate (ZenGarden.cpp:2257) — 盆栽养成循环
+    pub unsafe fn PottedPlantUpdate(&mut self, the_plant: *mut Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return;
+            }
+            let a_now = self.mNowTime;
+            // C++: 时间戳异常时重置
+            if (*a_potted_plant).mLastWateredTime > a_now
+                || (*a_potted_plant).mLastNeedFulfilledTime > a_now
+                || (*a_potted_plant).mLastFertilizedTime > a_now
+                || (*a_potted_plant).mLastChocolateTime > a_now
+            {
+                self.ResetPlantTimers(a_potted_plant);
+            }
+
+            if (*the_plant).m_is_asleep {
+                return;
+            }
+            if (*the_plant).m_state_countdown > 0 {
+                (*the_plant).m_state_countdown -= 1;
+            }
+            if (*a_potted_plant).mPlantAge == PottedPlantAge::PLANTAGE_FULL && self.WasPlantNeedFulfilledToday(a_potted_plant) {
+                self.PlantUpdateProduction(the_plant);
+            }
+            self.UpdatePlantEffectState(the_plant);
+        }
+    }
+
+    /// C++ ZenGarden::ResetPlantTimers (ZenGarden.cpp:2249)
+    pub unsafe fn ResetPlantTimers(&mut self, the_potted_plant: *mut PottedPlant) {
+        unsafe {
+            if the_potted_plant.is_null() {
+                return;
+            }
+            (*the_potted_plant).mLastWateredTime = 0;
+            (*the_potted_plant).mLastNeedFulfilledTime = 0;
+            (*the_potted_plant).mLastFertilizedTime = 0;
+            (*the_potted_plant).mLastChocolateTime = 0;
+        }
+    }
+
+    /// C++ ZenGarden::UpdatePlantEffectState (ZenGarden.cpp:657) — 植物效果状态
+    pub unsafe fn UpdatePlantEffectState(&mut self, the_plant: *mut Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let a_original_state = (*the_plant).m_state;
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return;
+            }
+
+            let a_plant_need = self.GetPlantsNeed(a_potted_plant);
+            if a_plant_need == PottedPlantNeed::PLANTNEED_WATER {
+                (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_NOTREADY;
+            } else if a_plant_need == PottedPlantNeed::PLANTNEED_NONE {
+                if self.WasPlantNeedFulfilledToday(a_potted_plant) {
+                    (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_HAPPY;
+                } else if (*the_plant).m_is_asleep {
+                    (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_NOTREADY;
+                } else {
+                    (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_WATERED;
+                }
+            } else {
+                (*the_plant).m_state = crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_NEEDY;
+            }
+            if a_original_state == (*the_plant).m_state {
+                return;
+            }
+
+            // [TODO]: 花盆 Pot_top 贴图切换
+
+            if a_original_state == crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_HAPPY {
+                self.RemoveHappyEffect(the_plant);
+            }
+            if (*the_plant).m_state == crate::lawn::plant::PlantState::STATE_ZEN_GARDEN_HAPPY {
+                (*the_plant).SetSleeping(false);
+                self.AddHappyEffect(the_plant);
+            } else if crate::lawn::plant::Plant::is_nocturnal((*the_plant).m_seed_type) && !(*self.mBoard).StageIsNight() {
+                (*the_plant).SetSleeping(true);
+            }
+        }
+    }
+
+    /// C++ ZenGarden::PlantHighOnChocolate (ZenGarden.cpp:2338)
+    pub fn PlantHighOnChocolate(&self, the_potted_plant: *mut PottedPlant) -> bool {
+        unsafe {
+            if the_potted_plant.is_null() {
+                return false;
+            }
+            // C++: mNowTime - mLastChocolateTime < 300
+            self.mNowTime - (*the_potted_plant).mLastChocolateTime < 300
+        }
+    }
+
+    /// C++ ZenGarden::IsStinkyHighOnChocolate (ZenGarden.cpp:2332)
+    pub fn IsStinkyHighOnChocolate(&self) -> bool {
+        unsafe {
+            if self.mApp.is_null() || (*self.mApp).m_player_info.is_null() {
+                return false;
+            }
+            // C++: mNowTime - mLastStinkyChocolateTime < 3600
+            self.mNowTime as u32 - (*(*self.mApp).m_player_info).mLastStinkyChocolateTime < 3600
+        }
+    }
     pub fn PlantUpdateProduction(&mut self, _thePlant: *mut Plant) {}
     pub fn ShowTutorialArrowOnWateringCan(&self) {}
     /// C++ ZenGarden::PlantCanBeWatered (ZenGarden.cpp:592)
@@ -654,7 +759,6 @@ pub fn ZenGardenInitLevel(&mut self) {}
         false
     }
     pub fn ZenGardenStart(&mut self) {}
-    pub fn UpdatePlantEffectState(&mut self, _thePlant: *mut Plant) {}
     pub fn CanUseGameObject(&self, _theObjectType: i32) -> bool { false }
     pub fn ZenToolUpdate(&mut self, _theZenTool: *mut GridItem) {}
     pub fn AddStinky(&mut self) {}
@@ -703,8 +807,20 @@ pub fn ZenGardenInitLevel(&mut self) {}
         }
         true
     }
-    pub fn WakeStinky(&mut self) {}
-    pub fn ShouldStinkyBeAwake(&self) -> bool { false }
+    /// C++ ZenGarden::WakeStinky (ZenGarden.cpp:2322)
+    pub unsafe fn WakeStinky(&mut self) {
+        unsafe {
+            if (*self.mApp).m_player_info.is_null() {
+                return;
+            }
+            let a_player = &mut *(*self.mApp).m_player_info;
+            // C++: mPurchases[STINKY] = 时间戳
+            let a_time = self.mNowTime as u32;
+            a_player.mPurchases[StoreItem::STORE_ITEM_STINKY_THE_SNAIL as usize] = if a_time == 0 { 1 } else { a_time };
+            // [TODO]: mApp->PlaySample(SOUND_TAP); ClearAdvice(ADVICE_STINKY_SLEEPING)
+            a_player.mHasWokenStinky = 1;
+        }
+    }    pub fn ShouldStinkyBeAwake(&self) -> bool { false }
     pub fn IsStinkySleeping(&self) -> bool { true }
     pub fn PickRandomSeedType() -> SeedType { SeedType::SEED_SUNFLOWER }
     pub fn StinkyWakeUp(&mut self, _theStinky: *mut GridItem) {}
