@@ -12,6 +12,7 @@ pub struct StoreScreen {
     pub mApp: *mut LawnApp,
     pub mPage: i32,
     pub mEasyBuyingCheat: bool,
+    pub mBubbleCountDown: i32,
 }
 
 impl StoreScreen {
@@ -21,6 +22,7 @@ impl StoreScreen {
             mApp: theApp,
             mPage: 0,
             mEasyBuyingCheat: false,
+            mBubbleCountDown: 0,
         }
     }
         /// C++: static StoreItem gStoreItemSpots[NUM_STORE_PAGES][MAX_PAGE_SPOTS]
@@ -177,5 +179,132 @@ impl StoreScreen {
         false
     }
 pub fn Draw(&self, g: &mut Graphics) { self.base.Draw(g); }
-    pub fn Update(&mut self) {}
+    /// C++ StoreScreen::GetItemCost (StoreScreen.cpp:883)
+    pub unsafe fn GetItemCost(&self, the_store_item: i32) -> i32 {
+        if the_store_item == StoreItem::STORE_ITEM_BONUS_LAWN_MOWER as i32 {
+            unsafe {
+                return if (*self.mApp).m_player_info.is_null() {
+                    200
+                } else if (*(*self.mApp).m_player_info).mPurchases[StoreItem::STORE_ITEM_BONUS_LAWN_MOWER as usize] != 0 {
+                    500
+                } else {
+                    200
+                };
+            }
+        }
+        match the_store_item {
+            x if x == StoreItem::STORE_ITEM_PLANT_GATLINGPEA as i32 => 500,
+            x if x == StoreItem::STORE_ITEM_PLANT_TWINSUNFLOWER as i32 => 500,
+            x if x == StoreItem::STORE_ITEM_PLANT_GLOOMSHROOM as i32 => 750,
+            x if x == StoreItem::STORE_ITEM_PLANT_CATTAIL as i32 => 1000,
+            x if x == StoreItem::STORE_ITEM_PLANT_WINTERMELON as i32 => 1000,
+            x if x == StoreItem::STORE_ITEM_PLANT_GOLD_MAGNET as i32 => 300,
+            x if x == StoreItem::STORE_ITEM_PLANT_SPIKEROCK as i32 => 750,
+            x if x == StoreItem::STORE_ITEM_PLANT_COBCANNON as i32 => 2000,
+            x if x == StoreItem::STORE_ITEM_PLANT_IMITATER as i32 => 3000,
+            x if x == StoreItem::STORE_ITEM_POTTED_MARIGOLD_1 as i32
+                || x == StoreItem::STORE_ITEM_POTTED_MARIGOLD_2 as i32
+                || x == StoreItem::STORE_ITEM_POTTED_MARIGOLD_3 as i32 => 250,
+            x if x == StoreItem::STORE_ITEM_GOLD_WATERINGCAN as i32 => 1000,
+            x if x == StoreItem::STORE_ITEM_FERTILIZER as i32 => 75,
+            x if x == StoreItem::STORE_ITEM_BUG_SPRAY as i32 => 100,
+            x if x == StoreItem::STORE_ITEM_PHONOGRAPH as i32 => 1500,
+            x if x == StoreItem::STORE_ITEM_GARDENING_GLOVE as i32 => 100,
+            x if x == StoreItem::STORE_ITEM_MUSHROOM_GARDEN as i32 => 3000,
+            x if x == StoreItem::STORE_ITEM_WHEEL_BARROW as i32 => 20,
+            x if x == StoreItem::STORE_ITEM_STINKY_THE_SNAIL as i32 => 300,
+            x if x == StoreItem::STORE_ITEM_PACKET_UPGRADE as i32 => {
+                // C++: 0→75, 1→500, 2→2000, 3→8000
+                unsafe {
+                    if (*self.mApp).m_player_info.is_null() {
+                        75
+                    } else {
+                        match (*(*self.mApp).m_player_info).mPurchases[StoreItem::STORE_ITEM_PACKET_UPGRADE as usize] {
+                            0 => 75,
+                            1 => 500,
+                            2 => 2000,
+                            _ => 8000,
+                        }
+                    }
+                }
+            }
+            x if x == StoreItem::STORE_ITEM_POOL_CLEANER as i32 => 100,
+            x if x == StoreItem::STORE_ITEM_ROOF_CLEANER as i32 => 300,
+            x if x == StoreItem::STORE_ITEM_RAKE as i32 => 20,
+            x if x == StoreItem::STORE_ITEM_AQUARIUM_GARDEN as i32 => 3000,
+            x if x == StoreItem::STORE_ITEM_TREE_OF_WISDOM as i32 => 1000,
+            x if x == StoreItem::STORE_ITEM_TREE_FOOD as i32 => 250,
+            x if x == StoreItem::STORE_ITEM_FIRSTAID as i32 => 200,
+            _ => 0,
+        }
+    }
+
+    /// C++ StoreScreen::CanAffordItem (StoreScreen.cpp:924)
+    pub unsafe fn CanAffordItem(&self, the_store_item: i32) -> bool {
+        unsafe {
+            if (*self.mApp).m_player_info.is_null() {
+                return false;
+            }
+            (*(*self.mApp).m_player_info).mCoins >= self.GetItemCost(the_store_item) as u32
+        }
+    }
+
+    /// C++ StoreScreen::PurchaseItem (StoreScreen.cpp:930)
+    pub unsafe fn PurchaseItem(&mut self, the_store_item: i32) {
+        // C++: SetCursor(POINTER); CrazyDaveStopTalking(); mBubbleCountDown = 0;
+        self.mBubbleCountDown = 0;
+        // [TODO]: mApp->CrazyDaveStopTalking()
+
+        if !self.CanAffordItem(the_store_item) {
+            // [TODO]: DoDialog(DIALOG_NOT_ENOUGH_MONEY) 钱不够提示
+            return;
+        }
+
+        // [TODO]: DoDialog(DIALOG_STORE_PURCHASE) 确认购买 + WaitForResult(ID_OK)
+
+        unsafe {
+            if (*self.mApp).m_player_info.is_null() {
+                return;
+            }
+            let a_player = &mut *(*self.mApp).m_player_info;
+            // C++: AddCoins(-GetItemCost(theStoreItem))
+            a_player.AddCoins(-self.GetItemCost(the_store_item));
+
+            if the_store_item == StoreItem::STORE_ITEM_PACKET_UPGRADE as i32 {
+                a_player.mPurchases[the_store_item as usize] += 1;
+                // C++: 显示新种子槽数提示（6 + mPurchases）
+                // [TODO]: DoDialog(DIALOG_UPGRADED) + mSeedBank->UpdateWidth()
+            } else if the_store_item == StoreItem::STORE_ITEM_BONUS_LAWN_MOWER as i32 {
+                a_player.mPurchases[the_store_item as usize] += 1;
+            } else if the_store_item == StoreItem::STORE_ITEM_RAKE as i32 {
+                // C++: 耙子 3 个
+                a_player.mPurchases[the_store_item as usize] = 3;
+            } else if the_store_item == StoreItem::STORE_ITEM_STINKY_THE_SNAIL as i32 {
+                // C++: 记录购买时间
+                a_player.mPurchases[the_store_item as usize] = crate::sexy_app_framework::sexy_app_base::sdl_get_ticks().max(1);
+            } else if the_store_item == StoreItem::STORE_ITEM_FERTILIZER as i32
+                || the_store_item == StoreItem::STORE_ITEM_BUG_SPRAY as i32
+            {
+                // C++: 化肥/杀虫剂批量购买（≥OFFSET 后 +5）
+                if a_player.mPurchases[the_store_item as usize] < crate::lawn::system::player_info::PURCHASE_COUNT_OFFSET as u32 {
+                    a_player.mPurchases[the_store_item as usize] = crate::lawn::system::player_info::PURCHASE_COUNT_OFFSET as u32;
+                }
+                a_player.mPurchases[the_store_item as usize] += 5;
+            } else if the_store_item == StoreItem::STORE_ITEM_TREE_FOOD as i32 {
+                // C++: 树肥批量购买
+                if a_player.mPurchases[the_store_item as usize] < crate::lawn::system::player_info::PURCHASE_COUNT_OFFSET as u32 {
+                    a_player.mPurchases[the_store_item as usize] = crate::lawn::system::player_info::PURCHASE_COUNT_OFFSET as u32;
+                }
+                a_player.mPurchases[the_store_item as usize] += 1;
+            } else if self.IsPottedPlant(the_store_item) {
+                // [TODO]: mApp->mZenGarden->AddPottedPlant 盆栽加入花园
+                a_player.mPurchases[the_store_item as usize] += 1;
+            } else {
+                // C++: 植物/道具购买
+                a_player.mPurchases[the_store_item as usize] += 1;
+            }
+        }
+
+        // [TODO]: mApp->PlaySample(SOUND_BUTTONCLICK)
+    }    pub fn Update(&mut self) {}
 }
