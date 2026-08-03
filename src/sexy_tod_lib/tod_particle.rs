@@ -209,8 +209,26 @@ impl TodParticleEmitter {
             m_x: 0.0, m_y: 0.0,
         }
     }
-    pub fn update(&mut self) {}
-    pub fn draw(&self, _g: &mut Graphics) {}
+    pub fn update(&mut self) {
+        // C++ TodParticleEmitter::Update (TodParticle.cpp:788) — 发射器更新
+        if self.m_dead {
+            return;
+        }
+        self.m_age += 1.0;
+        // C++: mSystemAge >= mSystemDuration → 死亡（循环标志 TODO）
+        // [TODO]: mSystemDuration（FloatParameterTrack 轨道求值）与 PARTICLE_SYSTEM_LOOPS 循环
+        if !self.m_definition.is_null() {
+            unsafe {
+                if ((*self.m_definition).m_particle_flags & (1 << 3 /* PARTICLE_SYSTEM_LOOPS */)) != 0 {
+                    // C++: 循环发射器重置年龄（时长 TODO）
+                }
+            }
+        }
+        // [TODO]: 粒子发射（SpawnParticle）/运动/寿命
+    }
+    pub fn draw(&self, _g: &mut Graphics) {
+        // [TODO]: 粒子渲染（图像 + 轨迹）
+    }
 }
 
 /// 粒子系统实例
@@ -222,6 +240,7 @@ pub struct TodParticleSystem {
     pub m_x: f32, pub m_y: f32,
     pub m_render_order: i32,
     pub m_is_attachment: bool,
+    pub m_dont_update: bool,
 }
 
 impl TodParticleSystem {
@@ -232,10 +251,28 @@ impl TodParticleSystem {
             m_age: 0.0, m_dead: false,
             m_x: 0.0, m_y: 0.0,
             m_render_order: 0, m_is_attachment: false,
+            m_dont_update: false,
         }
     }
-    pub fn update(&mut self) { self.m_age += 1.0; }
-    pub fn draw(&self, _g: &mut Graphics) {}
+    pub fn update(&mut self) {
+        // C++ TodParticleSystem::Update (TodParticle.cpp:726)
+        if self.m_dont_update {
+            return;
+        }
+        let mut an_emitter_alive = false;
+        for an_emitter in self.m_emitters.iter_mut() {
+            an_emitter.update();
+            if !an_emitter.m_dead {
+                an_emitter_alive = true;
+            }
+        }
+        if !an_emitter_alive {
+            self.m_dead = true;
+        }
+    }
+    pub fn draw(&self, _g: &mut Graphics) {
+        // [TODO]: 粒子系统渲染（逐发射器）
+    }
     pub fn set_position(&mut self, x: f32, y: f32) { self.m_x = x; self.m_y = y; }
     pub fn set_scale(&mut self, _scale: f32) {}
 }
@@ -248,4 +285,6 @@ pub fn particle_load_definitions() {}
 pub fn particle_ensure_definition_loaded(_the_particle_effect: i32) {}
 
 pub fn particle_draw_system(_g: &mut Graphics, _system: &TodParticleSystem) {}
-pub fn particle_update_system(_system: &mut TodParticleSystem) {}
+pub fn particle_update_system(system: &mut TodParticleSystem) {
+    system.update();
+}
