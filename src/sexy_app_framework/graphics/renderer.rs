@@ -115,6 +115,38 @@ pub fn set_show_cursor(show: bool) {
     }
 }
 
+/// 用 SDL_ttf 渲染文字到屏幕。
+/// [TRANSLATION_NOTE]: C++ 使用图像字体（ImageFont/FontData），Rust 移植渐进方案
+/// 使用 TTF 系统字体（Windows arial.ttf）渲染，语义等价（显示文字）。
+static mut G_TTF_CONTEXT: Option<sdl2::ttf::Sdl2TtfContext> = None;
+
+pub fn draw_text(text: &str, x: i32, y: i32, r: u8, g: u8, b: u8, a: u8, size: u16) {
+    unsafe {
+        if G_TTF_CONTEXT.is_none() {
+            G_TTF_CONTEXT = sdl2::ttf::init().ok();
+        }
+        let ttf = match G_TTF_CONTEXT.as_mut() {
+            Some(t) => t,
+            None => return,
+        };
+        let font = match ttf.load_font("C:\\Windows\\Fonts\\arial.ttf", size.max(8)) {
+            Ok(f) => f,
+            Err(_) => return,
+        };
+        let surface = match font.render(text).blended_wrapped(sdl2::pixels::Color::RGBA(r, g, b, a), 600) {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        let c = canvas();
+        let tc = c.texture_creator();
+        let texture = match tc.create_texture_from_surface(surface) {
+            Ok(t) => t,
+            Err(_) => return,
+        };
+        let (w, h) = (texture.query().width, texture.query().height);
+        let _ = c.copy(&texture, None, sdl2::rect::Rect::new(x, y, w, h));
+    }
+}
 /// 将内存图像（ARGB 像素，对应 C++ MemoryImage::GetBits）绘制到屏幕。
 /// [TRANSLATION_NOTE]: 对应 C++ MemoryImage::Blt/NormalBlt/AdditiveBlt 的屏幕呈现路径。
 /// 通过 SDL streaming 纹理上传像素，混合模式由 SDL 处理（BLEND = 标准 alpha 合成，

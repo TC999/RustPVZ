@@ -271,9 +271,13 @@ impl Graphics {
         self.draw_rect(rect.m_x, rect.m_y, rect.m_width, rect.m_height);
     }
 
-    pub fn draw_string(&self, _text: &str, _x: i32, _y: i32) {
-        // TODO: Use sdl2::ttf to render text
-        // Requires Font containing TTF font data
+    pub fn draw_string(&self, text: &str, x: i32, y: i32) {
+        // C++: Graphics::DrawString → mFont->DrawString
+        // [TRANSLATION_NOTE]: TTF 渐进渲染（renderer::draw_text）
+        let a_color = self.state.m_color;
+        crate::sexy_app_framework::graphics::renderer::draw_text(
+            text, x, y, a_color.m_red as u8, a_color.m_green as u8, a_color.m_blue as u8, (a_color.m_alpha & 0xFF) as u8, 12,
+        );
     }
 
     pub fn set_clip_rect(&mut self, x: i32, y: i32, width: i32, height: i32) {
