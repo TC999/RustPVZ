@@ -273,3 +273,39 @@ impl AttachmentHolder {
         unsafe { self.m_attachments.data_array_alloc() }
     }
 }
+
+/// C++ AttachmentDraw (Attachment.cpp:872) — 附件绘制统一入口
+pub unsafe fn attachment_draw(the_attachment_id: u32, g: &mut Graphics, the_parent_hidden: bool) {
+    if the_attachment_id == 0 /* ATTACHMENTID_NULL */ {
+        return;
+    }
+    let a_effect_system = crate::sexy_tod_lib::effect_system::g_effect_system();
+    if a_effect_system.is_null() {
+        return;
+    }
+    // C++: gEffectSystem->mAttachmentHolder->mAttachments.DataArrayTryToGet(theAttachmentID)
+    if let Some(a_holder) = (*a_effect_system).m_attachment_holder.as_ref() {
+        let a_attachment = a_holder.m_attachments.data_array_try_to_get(the_attachment_id);
+        if !a_attachment.is_null() {
+            (*a_attachment).draw(g, the_parent_hidden);
+        }
+    }
+}
+
+/// C++ AttachmentDie (Attachment.cpp:885) — 附件死亡
+pub unsafe fn attachment_die(the_attachment_id: &mut u32) {
+    if *the_attachment_id == 0 /* ATTACHMENTID_NULL */ {
+        return;
+    }
+    let a_effect_system = crate::sexy_tod_lib::effect_system::g_effect_system();
+    if a_effect_system.is_null() {
+        return;
+    }
+    if let Some(a_holder) = (*a_effect_system).m_attachment_holder.as_ref() {
+        let a_attachment = a_holder.m_attachments.data_array_try_to_get(*the_attachment_id);
+        if !a_attachment.is_null() {
+            (*a_attachment).attachment_die();
+        }
+    }
+    *the_attachment_id = 0;
+}
