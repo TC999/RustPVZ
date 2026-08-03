@@ -4,6 +4,7 @@
 use crate::const_enums::ReanimationType;
 use crate::sexy_app_framework::graphics::graphics::{Graphics, Image};
 use crate::sexy_app_framework::graphics::color::Color;
+use crate::sexy_tod_lib::definition::{DefField, DefMap, DefFieldType};
 use crate::sexy_app_framework::misc::sexy_matrix::SexyTransform2D;
 use crate::sexy_tod_lib::data_array::DataArray;
 
@@ -726,13 +727,58 @@ pub fn reanimation_fill_in_missing_data_ptr(the_prev: *mut std::ffi::c_void, the
     }
 }
 
+/// C++ gReanimatorDefMap (Definition.cpp:141-169) — Reanimator 定义字段表
+/// [TRANSLATION_NOTE]: 偏移用 std::mem::offset_of!（Rust 结构布局）
+pub static G_REANIMATOR_TRANSFORM_DEF_FIELDS: [DefField; 11] = [
+    DefField { m_field_name: "x", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_trans_x) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "y", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_trans_y) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "kx", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_skew_x) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "ky", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_skew_y) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "sx", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_scale_x) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "sy", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_scale_y) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "f", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_frame) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "a", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_alpha) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "i", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_image) as i32, m_field_type: DefFieldType::DT_IMAGE, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "font", m_field_offset: std::mem::offset_of!(ReanimatorTransform, m_font) as i32, m_field_type: DefFieldType::DT_FONT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "", m_field_offset: 0, m_field_type: DefFieldType::DT_INVALID, m_extra_data: std::ptr::null() },
+];
+
+pub static G_REANIMATOR_TRANSFORM_DEF_MAP: DefMap = DefMap {
+    m_map_fields: G_REANIMATOR_TRANSFORM_DEF_FIELDS.as_ptr(),
+    m_def_size: std::mem::size_of::<ReanimatorTransform>() as i32,
+    m_constructor_func: None,
+};
+
+pub static G_REANIMATOR_TRACK_DEF_FIELDS: [DefField; 3] = [
+    DefField { m_field_name: "name", m_field_offset: std::mem::offset_of!(ReanimatorTrack, m_name) as i32, m_field_type: DefFieldType::DT_STRING, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "t", m_field_offset: std::mem::offset_of!(ReanimatorTrack, m_transforms) as i32, m_field_type: DefFieldType::DT_ARRAY, m_extra_data: (&G_REANIMATOR_TRANSFORM_DEF_MAP as *const DefMap) as *const u8 },
+    DefField { m_field_name: "", m_field_offset: 0, m_field_type: DefFieldType::DT_INVALID, m_extra_data: std::ptr::null() },
+];
+
+pub static G_REANIMATOR_TRACK_DEF_MAP: DefMap = DefMap {
+    m_map_fields: G_REANIMATOR_TRACK_DEF_FIELDS.as_ptr(),
+    m_def_size: std::mem::size_of::<ReanimatorTrack>() as i32,
+    m_constructor_func: None,
+};
+
+pub static G_REANIMATOR_DEF_FIELDS: [DefField; 3] = [
+    DefField { m_field_name: "track", m_field_offset: std::mem::offset_of!(ReanimatorDefinition, m_tracks) as i32, m_field_type: DefFieldType::DT_ARRAY, m_extra_data: (&G_REANIMATOR_TRACK_DEF_MAP as *const DefMap) as *const u8 },
+    DefField { m_field_name: "fps", m_field_offset: std::mem::offset_of!(ReanimatorDefinition, m_fps) as i32, m_field_type: DefFieldType::DT_FLOAT, m_extra_data: std::ptr::null() },
+    DefField { m_field_name: "", m_field_offset: 0, m_field_type: DefFieldType::DT_INVALID, m_extra_data: std::ptr::null() },
+];
+
+pub static G_REANIMATOR_DEF_MAP: DefMap = DefMap {
+    m_map_fields: G_REANIMATOR_DEF_FIELDS.as_ptr(),
+    m_def_size: std::mem::size_of::<ReanimatorDefinition>() as i32,
+    m_constructor_func: None,
+};
+
 /// C++ ReanimationLoadDefinition (Reanimator.cpp:217) — 加载动画定义
-/// .reanim 为二进制编译缓存（XML 源预编译），Rust 侧解析为 TODO
-pub fn reanimation_load_definition(_the_file_name: &str, the_definition: &mut ReanimatorDefinition) -> bool {
+/// XML 源路径可用（compile_and_load）；二进制缓存 TODO
+pub fn reanimation_load_definition(the_file_name: &str, the_definition: &mut ReanimatorDefinition) -> bool {
     // C++: DefinitionLoadXML(theFileName, &gReanimatorDefMap, theDefinition)
-    // [TODO]: .reanim 缓存/XML 解析（ReanimatorTrack + ReanimatorTransform 全量加载）
-    let _ = the_definition;
-    false
+    let a_xml_file_path = format!("properties/{}", the_file_name);
+    crate::sexy_tod_lib::definition::definition_compile_and_load(&a_xml_file_path, &G_REANIMATOR_DEF_MAP, the_definition as *mut ReanimatorDefinition as *mut u8)
 }
 
 /// C++ ReanimatorEnsureDefinitionLoaded (Reanimator.cpp:1160)

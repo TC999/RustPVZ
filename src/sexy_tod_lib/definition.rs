@@ -42,6 +42,9 @@ pub struct DefField {
     pub m_extra_data: *const u8,
 }
 
+unsafe impl Send for DefField {}
+unsafe impl Sync for DefField {}
+
 /// 定义结构图
 #[repr(C)]
 pub struct DefMap {
