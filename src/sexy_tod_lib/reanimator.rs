@@ -131,6 +131,8 @@ impl ReanimatorDefinition {
 pub struct Reanimation {
     pub m_definition: *mut ReanimatorDefinition,
     pub m_reanim_type: ReanimationType,
+    pub m_pos_x: f32,
+    pub m_pos_y: f32,
     pub m_anim_time: f32,
     pub m_frame_base: f32,
     pub m_anim_rate: f32,
@@ -164,6 +166,8 @@ impl Reanimation {
         Reanimation {
             m_definition: std::ptr::null_mut(),
             m_reanim_type: ReanimationType::REANIM_NONE,
+            m_pos_x: 0.0,
+            m_pos_y: 0.0,
             m_anim_time: 0.0, m_frame_base: 0.0, m_anim_rate: 1.0,
             m_loop_type: ReanimLoopType::REANIM_PLAY_ONCE,
             m_dead: false, m_dead_no_effect: false,
@@ -201,6 +205,27 @@ impl Reanimation {
         // [TODO]: Play with explicit frame base
     }
 
+    /// C++ Reanimation::ReanimationInitialize (Reanimator.cpp:387)
+    pub fn reanimation_initialize(&mut self, the_x: f32, the_y: f32, the_definition: *mut ReanimatorDefinition) {
+        self.m_definition = the_definition;
+        self.m_pos_x = the_x;
+        self.m_pos_y = the_y;
+        self.m_anim_time = 0.0;
+        self.m_anim_rate = 1.0;
+        self.m_loop_type = ReanimLoopType::REANIM_LOOP;
+        self.m_dead = false;
+        // C++: mTrackInstances 分配等（未翻译）
+        // C++: mLastTrackKeyframe[mTrackCount] 初始化 TODO
+    }
+
+    /// C++ Reanimation::ReanimationInitializeType (Reanimator.cpp:348)
+    pub fn reanimation_initialize_type(&mut self, the_x: f32, the_y: f32, the_reanim_type: ReanimationType) {
+        // C++: ReanimatorEnsureDefinitionLoaded(theReanimType, false) → gReanimatorDefArray[theReanimType]
+        crate::sexy_tod_lib::reanimator::reanimator_ensure_definition_loaded(the_reanim_type);
+        // [TODO]: 全局定义表（gReanimatorDefArray）查询；当前 m_definition 由外部设置
+        self.m_reanim_type = the_reanim_type;
+        self.reanimation_initialize(the_x, the_y, self.m_definition);
+    }
     /// C++ Reanimation::Update — 推进动画时间（完整 loop 处理）
     pub fn reanimation_update(&mut self) {
         if self.m_dead {
