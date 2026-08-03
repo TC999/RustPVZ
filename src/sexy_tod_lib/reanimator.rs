@@ -127,6 +127,44 @@ impl ReanimatorDefinition {
 }
 
 // ============================================================
+// ReanimatorTrackInstance - 轨道实例
+// ============================================================
+#[derive(Clone)]
+pub struct ReanimatorTrackInstance {
+    pub m_blend_counter: i32,
+    pub m_blend_time: i32,
+    pub m_blend_transform: ReanimatorTransform,
+    pub m_shake_override: f32,
+    pub m_shake_x: f32,
+    pub m_shake_y: f32,
+    pub m_render_group: i32,
+    pub m_track_color: crate::sexy_app_framework::graphics::color::Color,
+    pub m_ignore_clip_rect: bool,
+    pub m_truncate_disappearing_frames: bool,
+    pub m_ignore_color_override: bool,
+    pub m_ignore_extra_additive_color: bool,
+}
+
+impl ReanimatorTrackInstance {
+    pub fn new() -> Self {
+        ReanimatorTrackInstance {
+            m_blend_counter: 0,
+            m_blend_time: 0,
+            m_blend_transform: ReanimatorTransform::new(),
+            m_shake_override: 0.0,
+            m_shake_x: 0.0,
+            m_shake_y: 0.0,
+            m_render_group: 0,
+            m_track_color: crate::sexy_app_framework::graphics::color::Color::from_components(255, 255, 255),
+            m_ignore_clip_rect: false,
+            m_truncate_disappearing_frames: false,
+            m_ignore_color_override: false,
+            m_ignore_extra_additive_color: false,
+        }
+    }
+}
+
+// ============================================================
 // Reanimation - 动画实例
 // ============================================================
 pub struct Reanimation {
@@ -161,6 +199,7 @@ pub struct Reanimation {
     pub m_extra_overlay_alpha: f32,
     pub m_frame_start: i32,
     pub m_frame_count: i32,
+    pub m_track_instances: Vec<ReanimatorTrackInstance>,
 }
 
 impl Reanimation {
@@ -192,6 +231,7 @@ impl Reanimation {
             m_extra_overlay_alpha: 0.0,
             m_frame_start: 0,
             m_frame_count: 1,
+            m_track_instances: Vec::new(),
         }
     }
 
@@ -236,8 +276,9 @@ impl Reanimation {
         self.m_anim_rate = 1.0;
         self.m_loop_type = ReanimLoopType::REANIM_LOOP;
         self.m_dead = false;
-        // C++: mTrackInstances 分配等（未翻译）
-        // C++: mLastTrackKeyframe[mTrackCount] 初始化 TODO
+        // C++: mTrackInstances = new ReanimatorTrackInstance[mTrackCount]
+        let a_track_count = if the_definition.is_null() { 0 } else { unsafe { (*the_definition).m_tracks.count as usize } };
+        self.m_track_instances = vec![ReanimatorTrackInstance::new(); a_track_count];
     }
 
     /// C++ Reanimation::ReanimationInitializeType (Reanimator.cpp:348)
@@ -322,9 +363,24 @@ impl Reanimation {
                 return false;
             }
 
-            // C++: 颜色混合（mTrackColor 白色 × mColorOverride × Graphics 颜色）
-            // [TODO]: mTrackInstances（mTrackColor/mIgnoreColorOverride）未翻译
-            let mut a_color = self.m_color_override;
+            // C++: 颜色混合（mTrackColor × mColorOverride × Graphics 颜色）
+            let a_track_color = self.m_track_instances.get(the_track_index as usize).map_or(
+                crate::sexy_app_framework::graphics::color::Color::from_components(255, 255, 255),
+                |t| t.m_track_color,
+            );
+            let a_ignore_color_override = self.m_track_instances.get(the_track_index as usize).map_or(false, |t| t.m_ignore_color_override);
+            let mut a_color = if a_ignore_color_override {
+                a_track_color
+            } else {
+                // C++: ColorsMultiply(aTrackColor, mColorOverride) 正片叠底
+                let mut a_c = crate::sexy_app_framework::graphics::color::Color::from_components(
+                    a_track_color.m_red * self.m_color_override.m_red / 255,
+                    a_track_color.m_green * self.m_color_override.m_green / 255,
+                    a_track_color.m_blue * self.m_color_override.m_blue / 255,
+                );
+                a_c.m_alpha = a_track_color.m_alpha * self.m_color_override.m_alpha / 255;
+                a_c
+            };
             // C++: aImageAlpha = ClampInt(FloatRoundToInt(aTransform.mAlpha * aColor.mAlpha), 0, 255)
             let a_image_alpha = crate::sexy_tod_lib::tod_common::clamp_int(crate::sexy_tod_lib::tod_common::float_round_to_int(a_transform.m_alpha * a_color.m_alpha as f32), 0, 255);
             if a_image_alpha <= 0 {
@@ -370,8 +426,12 @@ impl Reanimation {
             let a_track_count = (*self.m_definition).m_tracks.count as i32;
             let mut a_track_index = 0;
             while a_track_index < a_track_count {
-                self.draw_track(g, a_track_index);
-                // [TODO]: AttachmentDraw（附件动画）
+                // C++: aTrackInstance->mRenderGroup == theRenderGroup 过滤
+                let a_render_group = self.m_track_instances.get(a_track_index as usize).map_or(0, |t| t.m_render_group);
+                if a_render_group == _render_group {
+                    self.draw_track(g, a_track_index);
+                    // [TODO]: AttachmentDraw（附件动画）
+                }
                 a_track_index += 1;
             }
         }
