@@ -703,6 +703,9 @@ pub static G_LAWN_REANIMATION_ARRAY: [ReanimationParams; 144] = [
 ];
 pub static mut G_REANIMATOR_DEF_COUNT: i32 = 0;
 
+/// C++ gReanimatorDefArray — 动画定义数组（按 ReanimationType 索引）
+pub static mut G_REANIMATOR_DEF_ARRAY: [*mut ReanimatorDefinition; 144] = [std::ptr::null_mut(); 144];
+
 /// C++ ReanimatorLoadDefinitions (Reanimator.cpp:1195)
 pub fn reanimator_load_definitions() {
     // C++: gReanimationParamArraySize = theReanimationParamArraySize;
@@ -783,18 +786,29 @@ pub fn reanimation_load_definition(the_file_name: &str, the_definition: &mut Rea
 
 /// C++ ReanimatorEnsureDefinitionLoaded (Reanimator.cpp:1160)
 pub fn reanimator_ensure_definition_loaded(the_reanim_type: ReanimationType) {
-    // C++: 已加载则返回（gReanimatorDefArray[type].mTracks.tracks != nullptr）
-    // [TODO]: 全局定义数组（gReanimatorDefArray）接入
-
-    // C++: aReanimParams = &gReanimationParamArray[theReanimType]
     let the_index = the_reanim_type as usize;
     if the_index >= G_LAWN_REANIMATION_ARRAY.len() {
         return;
     }
+
+    // C++: 已加载则返回（gReanimatorDefArray[type] 非空）
+    unsafe {
+        if !G_REANIMATOR_DEF_ARRAY[the_index].is_null() {
+            return;
+        }
+    }
+
+    // C++: aReanimParams = &gReanimationParamArray[theReanimType]
     let a_reanim_params = &G_LAWN_REANIMATION_ARRAY[the_index];
+
     // C++: ReanimationLoadDefinition(aReanimParams->mReanimFileName, aReanimDef)
-    // [TODO]: 定义存储 + 失败提示
-    let _ = a_reanim_params.m_reanim_file_name;
+    let mut a_def = Box::new(ReanimatorDefinition::new());
+    if reanimation_load_definition(a_reanim_params.m_reanim_file_name, &mut *a_def) {
+        unsafe {
+            G_REANIMATOR_DEF_ARRAY[the_index] = Box::into_raw(a_def);
+        }
+    }
+    // C++: 失败时 TodErrorMessageBox（发布版退出）；Rust 移植：静默返回
 }
 pub fn reanim_do_transforms_draw(_g: &mut Graphics, _reanim: &Reanimation) {}
 
