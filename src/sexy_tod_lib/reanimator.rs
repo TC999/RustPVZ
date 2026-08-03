@@ -250,41 +250,61 @@ impl Reanimation {
     }
     /// C++ Reanimation::Update — 推进动画时间（完整 loop 处理）
     pub fn reanimation_update(&mut self) {
-        if self.m_dead {
+        if self.m_frame_count == 0 || self.m_dead {
             return;
         }
+
+        // C++: mLastFrameTime = mAnimTime; mAnimTime += SECONDS_PER_UPDATE * mAnimRate / mFrameCount;
         self.m_last_processed_time = self.m_anim_time;
-        self.m_anim_time += self.m_anim_rate * 0.01;
+        self.m_anim_time += 0.01 * self.m_anim_rate / self.m_frame_count as f32;
 
-        let a_track_count = unsafe {
-            if self.m_definition.is_null() {
-                0.0
-            } else {
-                (*self.m_definition).m_tracks.count as f32
+        if self.m_anim_rate > 0.0 {
+            // C++: 正向播放的循环/结束处理
+            match self.m_loop_type {
+                ReanimLoopType::REANIM_LOOP | ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME => {
+                    while self.m_anim_time >= 1.0 {
+                        self.m_loop_count += 1;
+                        self.m_anim_time -= 1.0;
+                    }
+                }
+                ReanimLoopType::REANIM_PLAY_ONCE | ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME => {
+                    if self.m_anim_time >= 1.0 {
+                        self.m_loop_count = 1;
+                        self.m_anim_time = 1.0;
+                        self.m_dead = true;
+                    }
+                }
+                ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD | ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD => {
+                    if self.m_anim_time >= 1.0 {
+                        self.m_loop_count = 1;
+                        self.m_anim_time = 1.0;
+                    }
+                }
             }
-        };
-
-        // C++: if (mAnimTime >= mDefinition->mTrackCount || mAnimTime < 0)
-        if self.m_anim_time >= a_track_count || self.m_anim_time < 0.0 {
-            if self.m_loop_type == ReanimLoopType::REANIM_LOOP {
-                // C++: mAnimTime = fmod(mAnimTime, mDefinition->mTrackCount);
-                if a_track_count > 0.0 {
-                    self.m_anim_time = self.m_anim_time.rem_euclid(a_track_count);
+        } else {
+            // C++: 反向播放的循环/结束处理
+            match self.m_loop_type {
+                ReanimLoopType::REANIM_LOOP | ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME => {
+                    while self.m_anim_time < 0.0 {
+                        self.m_loop_count += 1;
+                        self.m_anim_time += 1.0;
+                    }
                 }
-            } else if self.m_anim_time >= a_track_count {
-                if self.m_loop_type == ReanimLoopType::REANIM_PLAY_ONCE {
-                    // C++: 单次播放结束 → 死亡
-                    self.m_dead = true;
-                } else if self.m_loop_type == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD {
-                    // C++: 播放一次并保持最后一帧
-                    self.m_anim_time = a_track_count - 0.01;
-                    self.m_frame_base = a_track_count - 1.0;
+                ReanimLoopType::REANIM_PLAY_ONCE | ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME => {
+                    if self.m_anim_time < 0.0 {
+                        self.m_loop_count = 1;
+                        self.m_anim_time = 0.0;
+                        self.m_dead = true;
+                    }
                 }
-            } else {
-                self.m_anim_time = 0.0;
+                ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD | ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD => {
+                    if self.m_anim_time < 0.0 {
+                        self.m_loop_count = 1;
+                        self.m_anim_time = 0.0;
+                    }
+                }
             }
         }
-        // C++: 其他 loop 类型（LOOP_FULL_LAST_FRAME / PLAY_ONCE_FULL_LAST_FRAME）由帧计算处理
     }
 
     /// C++ Reanimation::DrawTrack (Reanimator.cpp:637) — 绘制单条轨道（简化版）
