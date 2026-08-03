@@ -713,11 +713,42 @@ pub fn reanimator_load_definitions() {
     }
 }
 
-/// C++ ReanimatorEnsureDefinitionLoaded (Reanimator.cpp:1200)
-pub fn reanimator_ensure_definition_loaded(_the_reanim_type: ReanimationType) {
-    // C++: 按 ReanimationParams（mReanimFileName）从 properties/REANIM/*.json 加载定义
-    // [TODO]: JSON 定义解析（ReanimatorDefinition + 轨道/变换/图集）
-    let _ = _the_reanim_type;
+/// C++ ReanimationFillInMissingData (Reanimator.cpp:200) — 用前一帧数据填充未定义数据
+pub fn reanimation_fill_in_missing_data_float(the_prev: f32, the_value: &mut f32) {
+    if *the_value == 100000.0 /* NO_VALUE */ {
+        *the_value = the_prev;
+    }
+}
+
+pub fn reanimation_fill_in_missing_data_ptr(the_prev: *mut std::ffi::c_void, the_value: &mut *mut std::ffi::c_void) {
+    if the_value.is_null() {
+        *the_value = the_prev;
+    }
+}
+
+/// C++ ReanimationLoadDefinition (Reanimator.cpp:217) — 加载动画定义
+/// .reanim 为二进制编译缓存（XML 源预编译），Rust 侧解析为 TODO
+pub fn reanimation_load_definition(_the_file_name: &str, the_definition: &mut ReanimatorDefinition) -> bool {
+    // C++: DefinitionLoadXML(theFileName, &gReanimatorDefMap, theDefinition)
+    // [TODO]: .reanim 缓存/XML 解析（ReanimatorTrack + ReanimatorTransform 全量加载）
+    let _ = the_definition;
+    false
+}
+
+/// C++ ReanimatorEnsureDefinitionLoaded (Reanimator.cpp:1160)
+pub fn reanimator_ensure_definition_loaded(the_reanim_type: ReanimationType) {
+    // C++: 已加载则返回（gReanimatorDefArray[type].mTracks.tracks != nullptr）
+    // [TODO]: 全局定义数组（gReanimatorDefArray）接入
+
+    // C++: aReanimParams = &gReanimationParamArray[theReanimType]
+    let the_index = the_reanim_type as usize;
+    if the_index >= G_LAWN_REANIMATION_ARRAY.len() {
+        return;
+    }
+    let a_reanim_params = &G_LAWN_REANIMATION_ARRAY[the_index];
+    // C++: ReanimationLoadDefinition(aReanimParams->mReanimFileName, aReanimDef)
+    // [TODO]: 定义存储 + 失败提示
+    let _ = a_reanim_params.m_reanim_file_name;
 }
 pub fn reanim_do_transforms_draw(_g: &mut Graphics, _reanim: &Reanimation) {}
 
