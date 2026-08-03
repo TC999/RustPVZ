@@ -175,7 +175,23 @@ pub struct Particle {
 }
 
 impl Particle {
-    pub fn update(&mut self) {
+    /// C++ ParticleDraw — 粒子绘制（基础版：缩放/透明度，旋转 TODO）
+    pub fn draw(&self, g: &mut Graphics) {
+        if self.m_dead || self.m_image.is_null() {
+            return;
+        }
+        let a_image = unsafe { &*self.m_image };
+        let a_dest_w = (a_image.m_width as f32 * self.m_scale) as i32;
+        let a_dest_h = (a_image.m_height as f32 * self.m_scale) as i32;
+        let a_dest_x = (self.m_x - a_dest_w as f32 / 2.0) as i32;
+        let a_dest_y = (self.m_y - a_dest_h as f32 / 2.0) as i32;
+        g.DrawImageDestSrc(
+            a_image,
+            &crate::sexy_app_framework::misc::rect::Rect::new(a_dest_x, a_dest_y, a_dest_w, a_dest_h),
+            &crate::sexy_app_framework::misc::rect::Rect::new(0, 0, a_image.m_width, a_image.m_height),
+        );
+        // [TODO]: 旋转（mRotation）与透明度（mAlpha）绘制
+    }    pub fn update(&mut self) {
         // C++ TodParticle::Update — 粒子运动与寿命
         if self.m_dead {
             return;
@@ -289,8 +305,11 @@ impl TodParticleEmitter {
         }
         // [TODO]: 粒子发射（SpawnParticle）
     }
-    pub fn draw(&self, _g: &mut Graphics) {
-        // [TODO]: 粒子渲染（图像 + 轨迹）
+    pub fn draw(&self, g: &mut Graphics) {
+        // C++: 遍历粒子绘制
+        for a_particle in &self.m_particles {
+            a_particle.draw(g);
+        }
     }
 }
 
