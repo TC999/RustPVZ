@@ -2402,11 +2402,39 @@ impl Zombie {
         // [TODO]: DrawImageScaledF(g, IMAGE_ICETRAP, posX + offsetX, posY + offsetY, scale, scale)
         let _ = (g, a_offset_x, a_offset_y, a_scale);
     }    pub unsafe fn DrawButter(&self, g: *mut Graphics, the_draw_pos: &ZombieDrawPosition) {
-        // [TODO]: 绘制黄油效果
-    }
+        // C++ Zombie::DrawButter (Zombie.cpp:6213) — 黄油效果
+        let mut a_offset_x = self.m_pos_x + the_draw_pos.m_image_offset_x as f32 + the_draw_pos.m_head_x as f32 + 11.0;
+        let mut a_offset_y = self.m_pos_y + the_draw_pos.m_image_offset_y as f32 + the_draw_pos.m_head_y as f32 + the_draw_pos.m_body_y as f32 + 21.0;
+        let mut a_scale: f32 = 1.0;
 
-    /// C++ Zombie::DrawShadow (Zombie.cpp:9334)
-    pub unsafe fn DrawShadow(&self, g: *mut Graphics) {
+        // C++: 报童发狂 / 投石车 / 常规 → 轨道位置
+        if self.m_zombie_phase == ZombiePhase::PHASE_NEWSPAPER_MADDENING {
+            self.GetTrackPosition("anim_head_look", &mut a_offset_x, &mut a_offset_y);
+        } else if self.m_zombie_type == ZombieType::ZOMBIE_CATAPULT {
+            self.GetTrackPosition("Zombie_catapult_driver_head", &mut a_offset_x, &mut a_offset_y);
+        } else if self.m_body_reanim_id != ReanimationID::REANIMATIONID_NULL {
+            self.GetTrackPosition("anim_head1", &mut a_offset_x, &mut a_offset_y);
+        }
+        a_offset_x -= self.m_pos_x + 29.0;
+        a_offset_y -= self.m_pos_y + 36.0;
+
+        // C++: 类型偏移
+        match self.m_zombie_type {
+            ZombieType::ZOMBIE_POGO => {
+                a_offset_y -= 5.0;
+            }
+            ZombieType::ZOMBIE_GARGANTUAR | ZombieType::ZOMBIE_REDEYE_GARGANTUAR => {
+                a_offset_x += 10.0;
+                a_offset_y -= 30.0;
+                a_scale = 1.6;
+            }
+            _ => {}
+        }
+
+        // C++: 黄油图像（IMAGE_BUTTER）
+        // [TODO]: DrawImageF(g, IMAGE_BUTTER, mPosX + offsetX, mPosY + offsetY)
+        let _ = (g, a_offset_x, a_offset_y, a_scale);
+    }    pub unsafe fn DrawShadow(&self, g: *mut Graphics) {
         // [TODO]: 绘制阴影
     }
 
