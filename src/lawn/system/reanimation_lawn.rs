@@ -96,8 +96,19 @@ impl ReanimatorCache {
         }
     }
 
-    pub fn DrawReanimatorFrame(_g: &mut Graphics, _thePosX: f32, _thePosY: f32, _theReanimationType: i32, _theTrackName: &str, _theDrawVariation: DrawVariation) {
-        // 暂为 stub — 待 Reanimation 系统完善
+    pub fn DrawReanimatorFrame(g: &mut Graphics, the_pos_x: f32, the_pos_y: f32, the_reanimation_type: i32, the_track_name: &str, the_draw_variation: DrawVariation) {
+        // C++ ReanimatorCache::DrawReanimatorFrame (ReanimationLawn.cpp:82)
+        // [TRANSLATION_NOTE]: ReanimationInitializeType/TrackExists/SetFramesForLayer 未完整翻译
+        let mut a_reanim = crate::sexy_tod_lib::reanimator::Reanimation::new();
+        a_reanim.m_anim_time = 0.0;
+        // [TODO]: ReanimationInitializeType（definition 加载）+ SetFramesForLayer(theTrackName)
+        let _ = (the_reanimation_type, the_track_name);
+
+        if the_draw_variation != DrawVariation::VARIATION_NORMAL {
+            Self::UpdateReanimationForVariation(std::ptr::null_mut(), the_draw_variation);
+        }
+
+        a_reanim.draw_render_group(g, 0);
     }
 
     pub fn MakeCachedPlantFrame(&self, theSeedType: SeedType, _theDrawVariation: DrawVariation) -> *mut MemoryImage {
