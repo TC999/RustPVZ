@@ -268,24 +268,222 @@ pub fn definition_read_vector2_field(xml_parser: &mut XMLParser, the_value: &mut
     false
 }
 
-pub fn definition_read_array_field(_xml_parser: &mut XMLParser, _the_array: &mut DefinitionArrayDef, _the_field: &DefField) -> bool {
+/// C++ DefinitionReadFlagField (Definition.cpp:709) — 标志位读取
+pub fn definition_read_flag_field(xml_parser: &mut XMLParser, the_value: &str, the_flags: &mut u32, the_symbol_map: &[DefSymbol]) -> bool {
+    // C++: 空格分隔的符号列表，逐位设置
+    let mut a_value = the_value.to_string();
+    if a_value.starts_with("| ") {
+        a_value = a_value[3..].to_string();
+    }
+    for a_part in a_value.split('|') {
+        let a_part = a_part.trim();
+        if a_part.is_empty() {
+            continue;
+        }
+        let mut a_symbol_value = 0;
+        if !def_symbol_value_from_string(the_symbol_map, a_part, &mut a_symbol_value) {
+            definition_xml_error(xml_parser, &format!("Unknown flag '{}'", a_part));
+            return false;
+        }
+        *the_flags |= a_symbol_value as u32;
+    }
+    true
+}
+
+/// C++ DefinitionReadArrayField (Definition.cpp:823) — 数组元素（倍增扩容）
+pub fn definition_read_array_field(xml_parser: &mut XMLParser, the_array: &mut DefinitionArrayDef, the_field: &DefField) -> bool {
+    // C++: theField->mExtraData 指向元素 DefMap
+    let a_def_map = the_field.m_extra_data as *const DefMap;
+    if a_def_map.is_null() {
+        return false;
+    }
+    unsafe {
+        let a_def_map = &*a_def_map;
+        // C++: 内存分配（DefinitionAlloc 等价：Vec 泄漏）
+        fn alloc_bytes(size: usize) -> *mut u8 {
+            let mut a_vec = Vec::<u8>::with_capacity(size);
+            let a_ptr = a_vec.as_mut_ptr();
+            std::mem::forget(a_vec);
+            a_ptr
+        }
+        fn free_bytes(ptr: *mut u8, size: usize) {
+            if !ptr.is_null() {
+                unsafe { drop(Vec::from_raw_parts(ptr, 0, size)); }
+            }
+        }
+        if the_array.m_array_count == 0 {
+            // C++: 首次分配
+            the_array.m_array_count = 1;
+            the_array.m_array_data = alloc_bytes(a_def_map.m_def_size as usize);
+        } else {
+            // C++: 2 的幂次时倍增扩容
+            if the_array.m_array_count == 1 || (the_array.m_array_count & (the_array.m_array_count - 1)) == 0 {
+                let an_old_data = the_array.m_array_data;
+                let a_new_size = (2 * the_array.m_array_count * a_def_map.m_def_size) as usize;
+                let a_new_data = alloc_bytes(a_new_size);
+                std::ptr::copy_nonoverlapping(an_old_data, a_new_data, (the_array.m_array_count * a_def_map.m_def_size) as usize);
+                free_bytes(an_old_data, (the_array.m_array_count * a_def_map.m_def_size) as usize);
+                the_array.m_array_data = a_new_data;
+            }
+            the_array.m_array_count += 1;
+        }
+
+        let a_element = the_array.m_array_data.add((a_def_map.m_def_size * (the_array.m_array_count - 1)) as usize);
+        if definition_load_map(xml_parser, a_def_map, a_element) {
+            return true;
+        }
+    }
+    definition_xml_error(xml_parser, "failed to read sub def");
     false
 }
 
-pub fn definition_read_float_track_field(_xml_parser: &mut XMLParser, _the_track: &mut FloatParameterTrack) -> bool {
+/// C++ DefinitionReadFloatTrackField — 浮点轨道（节点列表）
+pub fn definition_read_float_track_field(xml_parser: &mut XMLParser, the_track: &mut FloatParameterTrack) -> bool {
+    let mut a_string_value = String::new();
+    if !definition_read_xml_string(xml_parser, &mut a_string_value) {
+        return false;
+    }
+    // C++: 节点由空格分隔的 "值(,值)" 组成
+    let a_nodes: Vec<&str> = a_string_value.split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty()).collect();
+    for a_node in a_nodes {
+        let a_parts: Vec<&str> = a_node.split(',').collect();
+        if let Ok(a_value) = a_parts[0].trim().parse::<f32>() {
+            let a_count = the_track.m_count as usize;
+            if a_count < 16 {
+                the_track.m_nodes[a_count] = a_value;
+                the_track.m_count += 1;
+            }
+        }
+    }
+    true
+}
+
+/// C++ DefinitionReadImageField — 图像字段（ResourceManager 加载）
+pub fn definition_read_image_field(xml_parser: &mut XMLParser, the_image: *mut *mut Image) -> bool {
+    let mut a_string_value = String::new();
+    if !definition_read_xml_string(xml_parser, &mut a_string_value) {
+        return false;
+    }
+    // [TODO]: gSexyAppBase->mResourceManager->GetImage
+    unsafe {
+        *the_image = std::ptr::null_mut();
+    }
+    let _ = a_string_value;
+    true
+}
+
+/// C++ DefinitionReadFontField
+pub fn definition_read_font_field(_xml_parser: &mut XMLParser, the_font: *mut *mut Font) -> bool {
+    unsafe {
+        *the_font = std::ptr::null_mut();
+    }
+    true
+}
+
+/// C++ DefinitionReadField (Definition.cpp:1113) — 字段分发主循环
+pub fn definition_read_field(xml_parser: &mut XMLParser, the_def_map: &DefMap, the_definition: *mut u8, the_done: &mut bool) -> bool {
+    if xml_parser.HasFailed() {
+        return false;
+    }
+
+    let mut a_xml_element = crate::sexy_app_framework::misc::xml_parser::XMLElement::new();
+    if !xml_parser.NextElement(&mut a_xml_element) || a_xml_element.mType == crate::sexy_app_framework::misc::xml_parser::XMLElement::TYPE_END {
+        *the_done = true;
+        return true;
+    }
+    if a_xml_element.mType != crate::sexy_app_framework::misc::xml_parser::XMLElement::TYPE_START {
+        definition_xml_error(xml_parser, "Missing element start");
+        return false;
+    }
+
+    // C++: 遍历 DefMap 字段表（mFieldName == "" 结束）
+    let mut a_field_index = 0;
+    unsafe {
+        loop {
+            let a_field = &*the_def_map.m_map_fields.add(a_field_index);
+            if a_field.m_field_name.is_empty() {
+                break;
+            }
+            let a_p_var = the_definition.add(a_field.m_field_offset as usize) as *mut std::ffi::c_void;
+
+            // C++: 元素名匹配
+            if a_xml_element.mValue.eq_ignore_ascii_case(a_field.m_field_name) {
+                let a_success = match a_field.m_field_type {
+                    DefFieldType::DT_INT => {
+                        let a_value = &mut *(a_p_var as *mut i32);
+                        definition_read_int_field(xml_parser, a_value)
+                    }
+                    DefFieldType::DT_FLOAT => {
+                        let a_value = &mut *(a_p_var as *mut f32);
+                        definition_read_float_field(xml_parser, a_value)
+                    }
+                    DefFieldType::DT_STRING => {
+                        let a_value = a_p_var as *mut *const u8;
+                        definition_read_string_field(xml_parser, a_value)
+                    }
+                    DefFieldType::DT_ENUM => {
+                        let a_value = &mut *(a_p_var as *mut i32);
+                        let a_symbols = a_field.m_extra_data as *const DefSymbol;
+                        let a_symbols = std::slice::from_raw_parts(a_symbols, 64);
+                        definition_read_enum_field(xml_parser, a_value, a_symbols)
+                    }
+                    DefFieldType::DT_VECTOR2 => {
+                        let a_value = &mut *(a_p_var as *mut SexyVector2);
+                        definition_read_vector2_field(xml_parser, a_value)
+                    }
+                    DefFieldType::DT_ARRAY => {
+                        let a_value = &mut *(a_p_var as *mut DefinitionArrayDef);
+                        definition_read_array_field(xml_parser, a_value, a_field)
+                    }
+                    DefFieldType::DT_TRACK_FLOAT => {
+                        let a_value = &mut *(a_p_var as *mut FloatParameterTrack);
+                        definition_read_float_track_field(xml_parser, a_value)
+                    }
+                    DefFieldType::DT_FLAGS => {
+                        let a_value = &mut *(a_p_var as *mut u32);
+                        let a_symbols = a_field.m_extra_data as *const DefSymbol;
+                        let a_symbols = std::slice::from_raw_parts(a_symbols, 64);
+                        definition_read_flag_field(xml_parser, &a_xml_element.mValue, a_value, a_symbols)
+                    }
+                    DefFieldType::DT_IMAGE => {
+                        let a_value = a_p_var as *mut *mut Image;
+                        definition_read_image_field(xml_parser, a_value)
+                    }
+                    DefFieldType::DT_FONT => {
+                        let a_value = a_p_var as *mut *mut Font;
+                        definition_read_font_field(xml_parser, a_value)
+                    }
+                    _ => false,
+                };
+                if a_success {
+                    return true;
+                }
+                definition_xml_error(xml_parser, &format!("Failed to read '{}' field", a_xml_element.mValue));
+                return false;
+            }
+            a_field_index += 1;
+        }
+    }
+    definition_xml_error(xml_parser, &format!("Ignoring unknown element '{}'", a_xml_element.mValue));
     false
 }
 
-pub fn definition_read_image_field(_xml_parser: &mut XMLParser, _the_image: *mut *mut Image) -> bool {
-    false
-}
-
-pub fn definition_read_font_field(_xml_parser: &mut XMLParser, _the_font: *mut *mut Font) -> bool {
-    false
-}
-
-pub fn definition_read_field(_xml_parser: &mut XMLParser, _the_def_map: &DefMap, _the_definition: *mut u8, _the_done: &mut bool) -> bool {
-    false
+/// C++ DefinitionLoadMap (Definition.cpp:1185) — 结构体定义加载
+pub fn definition_load_map(xml_parser: &mut XMLParser, the_def_map: &DefMap, the_definition: *mut u8) -> bool {
+    // C++: 构造函数
+    if let Some(a_constructor) = the_def_map.m_constructor_func {
+        a_constructor(the_definition);
+    }
+    loop {
+        let mut a_done = false;
+        if !definition_read_field(xml_parser, the_def_map, the_definition, &mut a_done) {
+            return false;
+        }
+        if a_done {
+            break;
+        }
+    }
+    true
 }
 
 // ============================================================
@@ -308,9 +506,6 @@ pub fn definition_compile_and_load(_the_xml_file_path: &str, _the_def_map: &DefM
     false
 }
 
-pub fn definition_load_map(_xml_parser: &mut XMLParser, _the_def_map: &DefMap, _the_definition: *mut u8) -> bool {
-    false
-}
 
 pub fn definition_load_image(_the_image: *mut *mut Image, _the_name: &str) -> bool {
     false
