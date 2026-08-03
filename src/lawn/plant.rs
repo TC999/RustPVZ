@@ -1570,6 +1570,50 @@ impl Plant {
         // TODO: Frame and reanimation animation update
     }
 
+    /// C++ Plant::UpdateReanimColor (Plant.cpp:2637) — 植物动画颜色（升级提示/致幻/手套）
+    pub unsafe fn UpdateReanimColor(&mut self) {
+        if !self.IsOnBoard() {
+            return;
+        }
+        let a_body_reanim = self.app().ReanimationTryToGet(self.m_body_reanim_id) as *mut crate::sexy_tod_lib::reanimator::Reanimation;
+        if a_body_reanim.is_null() {
+            return;
+        }
+
+        // C++: mBoard->GetSeedTypeInCursor()
+        // [TODO]: GetSeedTypeInCursor
+        let a_seed_type = SeedType::SEED_NONE;
+        let a_color_override;
+
+        // C++: 手套状态灰化
+        let mut is_on_glove = false;
+        let the_board = &*self.board();
+        if !the_board.mCursorObject.is_null()
+            && (*the_board.mCursorObject).mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE
+        {
+            // [TODO]: mGlovePlantID 比对
+            let _ = (*the_board.mCursorObject).mGlovePlantID;
+            is_on_glove = true;
+        }
+
+        // C++: 颜色分支
+        if is_on_glove {
+            a_color_override = crate::sexy_app_framework::graphics::color::Color::from_components(128, 128, 128);
+        } else if /* [TODO]: IsPartOfUpgradableTo */ false
+            && the_board.CanPlantAt(self.m_plant_col, self.base.m_row, a_seed_type) == PlantingReason::PLANTING_OK
+        {
+            a_color_override = crate::sexy_tod_lib::tod_common::get_flashing_color(the_board.mMainCounter as u32, 90);
+        } else if /* [TODO]: 玉米炮升级提示 */ false {
+            a_color_override = crate::sexy_tod_lib::tod_common::get_flashing_color(the_board.mMainCounter as u32, 90);
+        } else if self.m_seed_type == SeedType::SEED_EXPLODE_O_NUT {
+            a_color_override = crate::sexy_app_framework::graphics::color::Color::from_components(255, 64, 64);
+        } else {
+            a_color_override = crate::sexy_app_framework::graphics::color::Color::from_components(255, 255, 255);
+        }
+
+        // C++: aBodyReanim->mColorOverride = aColorOverride;
+        (*a_body_reanim).m_color_override = a_color_override;
+    }
     /// C++ Plant::UpdateReanim (Plant.cpp:2737) — 植物动画更新
     pub unsafe fn UpdateReanim(&mut self) {
         let a_body_reanim = self.app().ReanimationTryToGet(self.m_body_reanim_id) as *mut crate::sexy_tod_lib::reanimator::Reanimation;
@@ -1577,8 +1621,7 @@ impl Plant {
             return;
         }
 
-        // C++: UpdateReanimColor()
-        // [TODO]: UpdateReanimColor（冰冻/发光/致幻变色）
+        self.UpdateReanimColor();
 
         let mut a_offset_x = self.m_shake_offset_x;
         // [TODO]: ZenGarden::PlantDrawHeightOffset（需 zen_garden 实例）
