@@ -1,0 +1,25 @@
+// Matrix helpers
+// C++: TodDrawString (TodCommon.cpp:432) — 对齐后绘制文字
+pub fn tod_draw_string(
+    g: &mut crate::sexy_app_framework::graphics::graphics::Graphics,
+    the_text: &str,
+    the_pos_x: i32,
+    the_pos_y: i32,
+    the_font: &crate::sexy_app_framework::graphics::graphics::Font,
+    the_color: &crate::sexy_app_framework::graphics::color::Color,
+    the_justification: i32,
+) {
+    // C++: std::string aFinalString = TodStringTranslate(theText);
+    // [TODO]: TodStringTranslate 本地化
+
+    let mut a_pos_x = the_pos_x;
+    // C++: DS_ALIGN_RIGHT = 3, DS_ALIGN_RIGHT_VERTICAL_MIDDLE = 6, DS_ALIGN_CENTER = 1, DS_ALIGN_CENTER_VERTICAL_MIDDLE = 4
+    if the_justification == 3 || the_justification == 6 {
+        a_pos_x -= the_font.string_width(the_text);
+    } else if the_justification == 1 || the_justification == 4 {
+        a_pos_x -= the_font.string_width(the_text) / 2;
+    }
+
+    // C++: theFont->DrawString(g, aPosX, thePosY, aFinalString, theColor, g->mClipRect);
+    the_font.draw_string(g, a_pos_x, the_pos_y, the_text, the_color);
+}
