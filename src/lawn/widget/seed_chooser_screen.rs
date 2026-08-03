@@ -46,6 +46,11 @@ pub struct SeedChooserScreen {
     pub mRepickWarningDialog: *mut crate::lawn::widget::lawn_dialog::LawnDialog,
     pub mSeedsInBank: i32,
     pub mSeedsInFlight: i32,
+    pub mSeedChooserAge: i32,
+    pub mLastMouseX: i32,
+    pub mLastMouseY: i32,
+    pub mViewLawnTime: i32,
+    pub mChooseState: i32,
 }
 
 impl SeedChooserScreen {
@@ -71,6 +76,11 @@ impl SeedChooserScreen {
             mRepickWarningDialog: std::ptr::null_mut(),
             mSeedsInBank: 0,
             mSeedsInFlight: 0,
+            mSeedChooserAge: 0,
+            mLastMouseX: 0,
+            mLastMouseY: 0,
+            mViewLawnTime: 0,
+            mChooseState: 0,
         }
     }
     pub fn Draw(&self, g: &mut Graphics) { self.base.Draw(g); }
@@ -384,5 +394,79 @@ impl SeedChooserScreen {
         }
         false
     }
-    pub fn Update(&mut self) {}
+    /// C++ SeedChooserScreen::Update (SeedChooserScreen.cpp:523)
+    pub unsafe fn Update(&mut self) {
+        unsafe {
+            // C++: mLastMouseX/Y = mApp->mWidgetManager->mLastMouseX/Y;
+            // [TODO]: mApp->mWidgetManager 访问
+            self.mSeedChooserAge += 1;
+            if !self.mToolTip.is_null() {
+                (*self.mToolTip).Update();
+            }
+
+            // C++: 遍历种子飞行动画
+            let mut a_seed_type = SeedType::SEED_PEASHOOTER as i32;
+            while a_seed_type < NUM_SEEDS_IN_CHOOSER {
+                let the_seed_type = std::mem::transmute::<i32, SeedType>(a_seed_type);
+                if (*self.mApp).HasSeedType(the_seed_type) {
+                    let a_state = self.mChosenSeeds[a_seed_type as usize].mSeedState;
+                    if a_state == ChosenSeedState::SEED_FLYING_TO_BANK as i32
+                        || a_state == ChosenSeedState::SEED_FLYING_TO_CHOOSER as i32
+                    {
+                        // C++: TodAnimateCurve 飞行动画
+                        let mut a_chosen_seed = self.mChosenSeeds[a_seed_type as usize].clone();
+                        let a_time_start = a_chosen_seed.mTimeStartMotion;
+                        let a_time_end = a_chosen_seed.mTimeEndMotion;
+                        a_chosen_seed.mX = crate::sexy_tod_lib::tod_common::tod_animate_curve(
+                            a_time_start, a_time_end, self.mSeedChooserAge, a_chosen_seed.mStartX, a_chosen_seed.mEndX,
+                            crate::const_enums::TodCurves::CURVE_EASE_IN_OUT,
+                        );
+                        a_chosen_seed.mY = crate::sexy_tod_lib::tod_common::tod_animate_curve(
+                            a_time_start, a_time_end, self.mSeedChooserAge, a_chosen_seed.mStartY, a_chosen_seed.mEndY,
+                            crate::const_enums::TodCurves::CURVE_EASE_IN_OUT,
+                        );
+                        if self.mSeedChooserAge >= a_chosen_seed.mTimeEndMotion {
+                            self.LandFlyingSeed(&mut a_chosen_seed);
+                        }
+                        self.mChosenSeeds[a_seed_type as usize] = a_chosen_seed;
+                    }
+                }
+                a_seed_type += 1;
+            }
+
+            // C++: 按钮更新
+            if !self.mStartButton.is_null() { (*self.mStartButton).Update(); }
+            if !self.mRandomButton.is_null() { (*self.mRandomButton).Update(); }
+            if !self.mViewLawnButton.is_null() { (*self.mViewLawnButton).Update(); }
+            if !self.mAlmanacButton.is_null() { (*self.mAlmanacButton).Update(); }
+            if !self.mImitaterButton.is_null() { (*self.mImitaterButton).Update(); }
+            if !self.mStoreButton.is_null() { (*self.mStoreButton).Update(); }
+            if !self.mMenuButton.is_null() { (*self.mMenuButton).Update(); }
+
+            self.UpdateViewLawn();
+            // C++: UpdateCursor();
+            self.base.base.mDirty = true;
+        }
+    }
+
+    /// C++ SeedChooserScreen::UpdateViewLawn (SeedChooserScreen.cpp:461)
+    pub unsafe fn UpdateViewLawn(&mut self) {
+        // C++: if (mChooseState == CHOOSE_VIEW_LAWN) { mViewLawnTime++; ... }
+        if self.mChooseState == 1 /* CHOOSE_VIEW_LAWN */ {
+            self.mViewLawnTime += 1;
+            if self.mViewLawnTime >= 500 {
+                self.mChooseState = 0; /* CHOOSE_NORMAL */
+                self.mViewLawnTime = 0;
+                if !self.mMenuButton.is_null() {
+                    (*self.mMenuButton).mDisabled = false;
+                }
+            }
+        }
+    }
+
+    /// C++ SeedChooserScreen::UpdateCursor (SeedChooserScreen.cpp:504)
+    pub unsafe fn UpdateCursor(&mut self) {
+        // C++: mApp->GetDialogCount() / 教程 / UPSELL 检查后设置光标
+        // [TODO]: 完整光标逻辑（DrawCursors）
+    }
 }
