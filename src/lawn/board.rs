@@ -2807,6 +2807,24 @@ impl Board {
         self.PixelToGridY(the_x, the_y)
     }
 
+    /// C++ Board::IsValidCobCannonSpotHelper (Board.cpp:2369) — 玉米炮位置检查
+    /// [TRANSLATION_NOTE]: PlantsOnLawn 结构未翻译，简化为顶部植物检查
+    pub unsafe fn IsValidCobCannonSpot(&self, the_grid_x: i32, the_grid_y: i32) -> bool {
+        if self.mApp.is_null() {
+            return false;
+        }
+        let a_normal = self.GetTopPlantAt(the_grid_x, the_grid_y, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
+        // C++: 南瓜占位 → 无效
+        if !a_normal.is_null() && (*a_normal).m_seed_type == SeedType::SEED_PUMPKINSHELL {
+            return false;
+        }
+        // C++: 玉米投手 → 有效
+        if !a_normal.is_null() && (*a_normal).m_seed_type == SeedType::SEED_KERNELPULT {
+            return true;
+        }
+        // C++: 简化种植作弊（TODO: mEasyPlantingCheat）
+        false
+    }
     /// C++ Board::GetSeedTypeInCursor (Board.cpp:2053) — 光标中的种子类型
     pub unsafe fn GetSeedTypeInCursor(&self) -> SeedType {
         // C++: 独轮车中的盆栽

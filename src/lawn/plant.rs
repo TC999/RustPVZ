@@ -1570,6 +1570,48 @@ impl Plant {
         // TODO: Frame and reanimation animation update
     }
 
+    /// C++ Plant::IsUpgradableTo (Plant.cpp:2598) — 是否可升级为指定植物
+    pub unsafe fn IsUpgradableTo(&self, the_upgraded_type: SeedType) -> bool {
+        // C++: 各升级关系
+        if the_upgraded_type == SeedType::SEED_GATLINGPEA && self.m_seed_type == SeedType::SEED_REPEATER {
+            return true;
+        }
+        if the_upgraded_type == SeedType::SEED_WINTERMELON && self.m_seed_type == SeedType::SEED_MELONPULT {
+            return true;
+        }
+        if the_upgraded_type == SeedType::SEED_TWINSUNFLOWER && self.m_seed_type == SeedType::SEED_SUNFLOWER {
+            return true;
+        }
+        if the_upgraded_type == SeedType::SEED_SPIKEROCK && self.m_seed_type == SeedType::SEED_SPIKEWEED {
+            return true;
+        }
+        if the_upgraded_type == SeedType::SEED_COBCANNON && self.m_seed_type == SeedType::SEED_KERNELPULT {
+            let the_board = &*self.board();
+            return the_board.IsValidCobCannonSpot(self.m_plant_col, self.base.m_row);
+        }
+        if the_upgraded_type == SeedType::SEED_GOLD_MAGNET && self.m_seed_type == SeedType::SEED_MAGNETSHROOM {
+            return true;
+        }
+        if the_upgraded_type == SeedType::SEED_GLOOMSHROOM && self.m_seed_type == SeedType::SEED_FUMESHROOM {
+            return true;
+        }
+        if the_upgraded_type == SeedType::SEED_CATTAIL && self.m_seed_type == SeedType::SEED_LILYPAD {
+            let the_board = &*self.board();
+            let a_plant = the_board.GetTopPlantAt(self.m_plant_col, self.base.m_row, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
+            return a_plant.is_null() || (*a_plant).m_seed_type != SeedType::SEED_CATTAIL;
+        }
+        false
+    }
+
+    /// C++ Plant::IsPartOfUpgradableTo (Plant.cpp:2588) — 是否属于升级目标的一部分
+    pub unsafe fn IsPartOfUpgradableTo(&self, the_upgraded_type: SeedType) -> bool {
+        if the_upgraded_type == SeedType::SEED_COBCANNON && self.m_seed_type == SeedType::SEED_KERNELPULT {
+            let the_board = &*self.board();
+            return the_board.IsValidCobCannonSpot(self.m_plant_col, self.base.m_row)
+                || the_board.IsValidCobCannonSpot(self.m_plant_col - 1, self.base.m_row);
+        }
+        self.IsUpgradableTo(the_upgraded_type)
+    }
     /// C++ Plant::UpdateReanimColor (Plant.cpp:2637) — 植物动画颜色（升级提示/致幻/手套）
     pub unsafe fn UpdateReanimColor(&mut self) {
         if !self.IsOnBoard() {
@@ -1599,11 +1641,14 @@ impl Plant {
         // C++: 颜色分支
         if is_on_glove {
             a_color_override = crate::sexy_app_framework::graphics::color::Color::from_components(128, 128, 128);
-        } else if /* [TODO]: IsPartOfUpgradableTo */ false
+        } else if self.IsPartOfUpgradableTo(a_seed_type)
             && the_board.CanPlantAt(self.m_plant_col, self.base.m_row, a_seed_type) == PlantingReason::PLANTING_OK
         {
             a_color_override = crate::sexy_tod_lib::tod_common::get_flashing_color(the_board.mMainCounter as u32, 90);
-        } else if /* [TODO]: 玉米炮升级提示 */ false {
+        } else if a_seed_type == SeedType::SEED_COBCANNON
+            && self.m_seed_type == SeedType::SEED_KERNELPULT
+            && the_board.CanPlantAt(self.m_plant_col - 1, self.base.m_row, a_seed_type) == PlantingReason::PLANTING_OK
+        {
             a_color_override = crate::sexy_tod_lib::tod_common::get_flashing_color(the_board.mMainCounter as u32, 90);
         } else if self.m_seed_type == SeedType::SEED_EXPLODE_O_NUT {
             a_color_override = crate::sexy_app_framework::graphics::color::Color::from_components(255, 64, 64);
