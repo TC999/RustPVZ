@@ -344,14 +344,68 @@ impl Reanimation {
         0.0
     }
 
-    /// C++ Reanimation::SetFramesForLayer — 将动画设置为特定层的帧
-    pub fn set_frames_for_layer(&mut self, _the_layer: &str) {
-        // [TODO]: Find the track index for the layer, set frame range
+    /// C++ Reanimation::GetFramesForLayer (Reanimator.cpp:1021) — 层的帧范围
+    pub fn get_frames_for_layer(&self, the_track_name: &str, the_frame_start: &mut i32, the_frame_count: &mut i32) {
+        unsafe {
+            if self.m_definition.is_null() || (*self.m_definition).m_tracks.count == 0 {
+                *the_frame_start = 0;
+                *the_frame_count = 0;
+                return;
+            }
+            let a_track_index = self.find_track_index(the_track_name);
+            let a_def = &*self.m_definition;
+            let a_track = &*a_def.m_tracks.tracks.add(a_track_index as usize);
+            *the_frame_start = 0;
+            *the_frame_count = 1;
+            let mut i = 0;
+            while i < a_track.m_transforms.count as usize {
+                if (*a_track.m_transforms.m_transforms.add(i)).m_frame >= 0.0 {
+                    *the_frame_start = i as i32;
+                    break;
+                }
+                i += 1;
+            }
+            let mut j = *the_frame_start;
+            while (j as usize) < a_track.m_transforms.count as usize {
+                if (*a_track.m_transforms.m_transforms.add(j as usize)).m_frame >= 0.0 {
+                    *the_frame_count = j - *the_frame_start + 1;
+                }
+                j += 1;
+            }
+        }
     }
 
-    /// C++ Reanimation::TrackExists — 检查指定名称的轨道是否存在
-    pub fn track_exists(&self, _the_track_name: &str) -> bool {
-        // [TODO]: Search m_definition->m_tracks for matching name
+    /// C++ Reanimation::SetFramesForLayer (Reanimator.cpp:1046) — 将动画设置为特定层的帧
+    pub fn set_frames_for_layer(&mut self, the_layer: &str) {
+        // C++: 正向动画从 0 开始，反向从 0.9999999 开始
+        if self.m_anim_rate >= 0.0 {
+            self.m_anim_time = 0.0;
+        } else {
+            self.m_anim_time = 0.9999999;
+        }
+        let mut a_frame_start = 0;
+        let mut a_frame_count = 0;
+        self.get_frames_for_layer(the_layer, &mut a_frame_start, &mut a_frame_count);
+        self.m_frame_start = a_frame_start;
+        self.m_frame_count = a_frame_count;
+    }
+
+    /// C++ Reanimation::TrackExists (Reanimator.cpp:1056) — 检查轨道是否存在
+    pub fn track_exists(&self, the_track_name: &str) -> bool {
+        unsafe {
+            if self.m_definition.is_null() {
+                return false;
+            }
+            let a_def = &*self.m_definition;
+            let mut a_track_index = 0;
+            while a_track_index < a_def.m_tracks.count as usize {
+                let a_track = &*a_def.m_tracks.tracks.add(a_track_index);
+                if a_track.m_name.eq_ignore_ascii_case(the_track_name) {
+                    return true;
+                }
+                a_track_index += 1;
+            }
+        }
         false
     }
 
