@@ -133,8 +133,50 @@ impl Attachment {
         // 覆盖缩放
     }
 
-    pub fn draw(&mut self, _g: &mut Graphics, _the_parent_hidden: bool) {
-        // 绘制所有附加效果
+    /// C++ Attachment::Draw (Attachment.cpp:458) — 绘制所有附加效果
+    pub fn draw(&mut self, g: &mut Graphics, the_parent_hidden: bool) {
+        let a_effect_system = crate::sexy_tod_lib::effect_system::g_effect_system();
+        if a_effect_system.is_null() {
+            return;
+        }
+        unsafe {
+            let mut i = 0;
+            while i < self.m_num_effects as usize {
+                let a_attach_effect = &self.m_effect_array[i];
+                // C++: 父隐藏时跳过
+                if the_parent_hidden && a_attach_effect.m_dont_draw_if_parent_hidden {
+                    i += 1;
+                    continue;
+                }
+
+                match a_attach_effect.m_effect_type {
+                    EffectType::EFFECT_REANIM => {
+                        // C++: aReanimations.DataArrayTryToGet(mEffectID)->Draw(g)
+                        let a_holder = (*a_effect_system).m_reanimation_holder.as_ref();
+                        if let Some(a_holder) = a_holder {
+                            let a_reanim = a_holder.m_animations.data_array_try_to_get(a_attach_effect.m_effect_id);
+                            if !a_reanim.is_null() {
+                                (*(a_reanim as *mut crate::sexy_tod_lib::reanimator::Reanimation)).draw(g);
+                            }
+                        }
+                    }
+                    EffectType::EFFECT_PARTICLE => {
+                        // C++: aParticleSystems.DataArrayTryToGet(mEffectID)->Draw(g)
+                        // [TODO]: TodParticleSystem 绘制
+                        let _ = a_attach_effect.m_effect_id;
+                    }
+                    EffectType::EFFECT_TRAIL => {
+                        // [TODO]: Trail 绘制
+                    }
+                    EffectType::EFFECT_ATTACHMENT => {
+                        // C++: 递归附件绘制
+                        // [TODO]: AttachmentHolder try_to_get + Draw
+                    }
+                    EffectType::EFFECT_OTHER => {}
+                }
+                i += 1;
+            }
+        }
     }
 
     pub fn attachment_die(&mut self) {

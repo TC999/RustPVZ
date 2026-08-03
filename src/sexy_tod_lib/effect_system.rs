@@ -79,6 +79,10 @@ impl TodTriangleGroup {
 pub static mut G_TOD_TRIANGLE_DRAW_ADDITIVE: bool = false;
 pub static mut G_EFFECT_SYSTEM: *mut EffectSystem = std::ptr::null_mut();
 
+pub fn g_effect_system() -> *mut EffectSystem {
+    unsafe { G_EFFECT_SYSTEM }
+}
+
 // ---- TodDrawTriangle 函数（简化桩）----
 // C++ 中这些函数通过宏生成数十个变体，涵盖不同像素格式/混合模式
 // 此处简化为一个统一的桩函数
