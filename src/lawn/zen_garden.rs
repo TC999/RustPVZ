@@ -64,11 +64,59 @@ impl ZenGarden {
         0
     }
 
-    /// C++ ZenGarden::WasPlantNeedFulfilledToday — 今天是否满足需求
+    /// C++ ZenGarden::GetPlantSellPrice (ZenGarden.cpp:405) — 植物出售价格
+    pub fn GetPlantSellPrice(&self, the_plant: *mut Plant) -> i32 {
+        unsafe {
+            if the_plant.is_null() {
+                return 0;
+            }
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return 0;
+            }
+
+            if (*a_potted_plant).mSeedType == SeedType::SEED_MARIGOLD {
+                match (*a_potted_plant).mPlantAge {
+                    PottedPlantAge::PLANTAGE_SPROUT => return 150,
+                    PottedPlantAge::PLANTAGE_SMALL => return 200,
+                    PottedPlantAge::PLANTAGE_MEDIUM => return 250,
+                    PottedPlantAge::PLANTAGE_FULL => return 300,
+                    _ => return 0,
+                }
+            }
+
+            match (*a_potted_plant).mPlantAge {
+                PottedPlantAge::PLANTAGE_SPROUT => 150,
+                PottedPlantAge::PLANTAGE_SMALL => 300,
+                PottedPlantAge::PLANTAGE_MEDIUM => 500,
+                PottedPlantAge::PLANTAGE_FULL => {
+                    // C++: 夜间/水生植物售价更高
+                    if crate::lawn::plant::Plant::is_nocturnal((*a_potted_plant).mSeedType)
+                        || crate::lawn::plant::Plant::is_aquatic((*a_potted_plant).mSeedType)
+                    {
+                        1000
+                    } else {
+                        800
+                    }
+                }
+                _ => 0,
+            }
+        }
+    }
+
+    /// C++ ZenGarden::WasPlantNeedFulfilledToday (ZenGarden.cpp:756) — 今天是否满足需求
     pub fn WasPlantNeedFulfilledToday(&self, the_potted_plant: *mut PottedPlant) -> bool {
-        // [TODO]: mLastNeedFulfilledTime 与当日时间比较
-        let _ = the_potted_plant;
-        true
+        unsafe {
+            if the_potted_plant.is_null() {
+                return false;
+            }
+            // C++: int64 aNow = mNowTime; aNow - mLastNeedFulfilledTime < 3600
+            let a_now = self.mNowTime;
+            if a_now - (*the_potted_plant).mLastNeedFulfilledTime < 3600 {
+                return true;
+            }
+            (*the_potted_plant).mPlantNeed == PottedPlantNeed::PLANTNEED_NONE
+        }
     }
 
     /// C++ ZenGarden::PlantHighOnChocolate — 植物是否处于巧克力亢奋
@@ -299,7 +347,6 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn PlacePottedPlant(&mut self, _thePottedPlantIndex: isize) -> *mut Plant { std::ptr::null_mut() }
     pub fn PlantPottedDrawHeightOffset(&self, _theSeedType: SeedType, _theScale: f32) -> f32 { 0.0 }
     pub fn ZenPlantOffsetX(_thePottedPlant: *mut PottedPlant) -> f32 { 0.0 }
-    pub fn GetPlantSellPrice(&self, _thePlant: *mut Plant) -> i32 { 0 }
     pub fn ZenGardenUpdate(&mut self) {}
     pub fn MouseDownWithFullWheelBarrow(&mut self, _x: i32, _y: i32) {}
     pub fn MouseDownWithEmptyWheelBarrow(&mut self, _thePlant: *mut Plant) {}
