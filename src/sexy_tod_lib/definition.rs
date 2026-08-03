@@ -168,27 +168,103 @@ pub fn definition_xml_error(_xml_parser: &mut XMLParser, _format: &str) {
     // placeholder
 }
 
-pub fn definition_read_xml_string(_xml_parser: &mut XMLParser, _the_value: &mut String) -> bool {
+/// C++ DefinitionReadXMLString (Definition.cpp:744) — 读取当前元素的文本内容
+pub fn definition_read_xml_string(xml_parser: &mut XMLParser, the_value: &mut String) -> bool {
+    // C++: 循环读取元素直到 TEXT 节点（跳过子元素 START/END）
+    let mut a_element = crate::sexy_app_framework::misc::xml_parser::XMLElement::new();
+    loop {
+        if !xml_parser.NextElement(&mut a_element) {
+            return false;
+        }
+        // C++: TYPE_TEXT（元素内含文本）；Rust 映射为 TYPE_ELEMENT + mValue
+        if a_element.mType == crate::sexy_app_framework::misc::xml_parser::XMLElement::TYPE_ELEMENT {
+            *the_value = a_element.mValue.clone();
+            return true;
+        }
+    }
+}
+
+/// C++ DefinitionReadIntField (Definition.cpp:752)
+pub fn definition_read_int_field(xml_parser: &mut XMLParser, the_value: &mut i32) -> bool {
+    let mut a_string_value = String::new();
+    if !definition_read_xml_string(xml_parser, &mut a_string_value) {
+        return false;
+    }
+    match a_string_value.trim().parse::<i32>() {
+        Ok(v) => {
+            *the_value = v;
+            true
+        }
+        Err(_) => {
+            definition_xml_error(xml_parser, &format!("Can't parse int value '{}'", a_string_value));
+            false
+        }
+    }
+}
+
+/// C++ DefinitionReadFloatField (Definition.cpp:765)
+pub fn definition_read_float_field(xml_parser: &mut XMLParser, the_value: &mut f32) -> bool {
+    let mut a_string_value = String::new();
+    if !definition_read_xml_string(xml_parser, &mut a_string_value) {
+        return false;
+    }
+    match a_string_value.trim().parse::<f32>() {
+        Ok(v) => {
+            *the_value = v;
+            true
+        }
+        Err(_) => {
+            definition_xml_error(xml_parser, &format!("Can't parse float value '{}'", a_string_value));
+            false
+        }
+    }
+}
+
+/// C++ DefinitionReadStringField (Definition.cpp:778)
+pub fn definition_read_string_field(xml_parser: &mut XMLParser, the_value: *mut *const u8) -> bool {
+    let mut a_string_value = String::new();
+    if !definition_read_xml_string(xml_parser, &mut a_string_value) {
+        return false;
+    }
+    // C++: DefinitionAlloc + memcpy；Rust 用 Box::leak 持�有 C 风格字符串
+    let a_c_string = std::ffi::CString::new(a_string_value).unwrap_or_default();
+    let a_ptr = a_c_string.into_raw();
+    unsafe {
+        *the_value = a_ptr as *const u8;
+    }
+    true
+}
+
+/// C++ DefinitionReadEnumField (Definition.cpp:790)
+pub fn definition_read_enum_field(xml_parser: &mut XMLParser, the_value: &mut i32, the_symbol_map: &[DefSymbol]) -> bool {
+    let mut a_string_value = String::new();
+    if !definition_read_xml_string(xml_parser, &mut a_string_value) {
+        return false;
+    }
+    if def_symbol_value_from_string(the_symbol_map, a_string_value.trim(), the_value) {
+        return true;
+    }
+    definition_xml_error(xml_parser, &format!("Unknown enum value '{}'", a_string_value));
     false
 }
 
-pub fn definition_read_int_field(_xml_parser: &mut XMLParser, _the_value: &mut i32) -> bool {
-    false
-}
-
-pub fn definition_read_float_field(_xml_parser: &mut XMLParser, _the_value: &mut f32) -> bool {
-    false
-}
-
-pub fn definition_read_string_field(_xml_parser: &mut XMLParser, _the_value: *mut *const u8) -> bool {
-    false
-}
-
-pub fn definition_read_enum_field(_xml_parser: &mut XMLParser, _the_value: &mut i32, _the_symbol_map: &[DefSymbol]) -> bool {
-    false
-}
-
-pub fn definition_read_vector2_field(_xml_parser: &mut XMLParser, _the_value: &mut SexyVector2) -> bool {
+/// C++ DefinitionReadVector2Field (Definition.cpp:810) — "x, y" 或两个子元素
+pub fn definition_read_vector2_field(xml_parser: &mut XMLParser, the_value: &mut SexyVector2) -> bool {
+    let mut a_string_value = String::new();
+    if !definition_read_xml_string(xml_parser, &mut a_string_value) {
+        return false;
+    }
+    // C++: sscanf("%f, %f")
+    let a_trim = a_string_value.trim();
+    let a_parts: Vec<&str> = a_trim.split(',').collect();
+    if a_parts.len() == 2 {
+        if let (Ok(x), Ok(y)) = (a_parts[0].trim().parse::<f32>(), a_parts[1].trim().parse::<f32>()) {
+            the_value.x = x;
+            the_value.y = y;
+            return true;
+        }
+    }
+    definition_xml_error(xml_parser, &format!("Can't parse vector2 '{}'", a_string_value));
     false
 }
 
