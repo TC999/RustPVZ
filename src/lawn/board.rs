@@ -2797,6 +2797,20 @@ impl Board {
             (*self.mCursorObject).mVisible = false;
         }
     }
+    /// Board::PlantingPixelToGridX — 种植像素转网格 X
+    pub unsafe fn PlantingPixelToGridX(&self, the_x: i32, the_y: i32, _the_seed_type: SeedType) -> i32 {
+        self.PixelToGridX(the_x, the_y)
+    }
+
+    /// Board::PlantingPixelToGridY — 种植像素转网格 Y
+    pub unsafe fn PlantingPixelToGridY(&self, the_x: i32, the_y: i32, _the_seed_type: SeedType) -> i32 {
+        self.PixelToGridY(the_x, the_y)
+    }
+
+    /// Board::RefreshSeedPacketFromCursor — 光标归还种子包
+    pub unsafe fn RefreshSeedPacketFromCursor(&mut self) {
+        // [TODO]: 种子包返回动画
+    }
     /// Board::SetTutorialState — 设置教程状态
     pub unsafe fn SetTutorialState(&mut self, the_state: i32) {
         self.mTutorialState = the_state;

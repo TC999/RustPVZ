@@ -1362,6 +1362,51 @@ impl Challenge {
         }
     }
 
+    /// C++ Challenge::IZombieMouseDownWithZombie (Challenge.cpp:4275) — IZombie 点击放置
+    pub unsafe fn IZombieMouseDownWithZombie(&mut self, the_x: i32, the_y: i32, the_click_count: i32) {
+        unsafe {
+            if the_click_count >= 0 {
+                let the_board = &mut *self.mBoard;
+                let a_seed_type = (*the_board.mCursorObject).mType;
+                let a_grid_x = the_board.PlantingPixelToGridX(the_x, the_y, a_seed_type);
+                let a_grid_y = the_board.PlantingPixelToGridY(the_x, the_y, a_seed_type);
+                if a_grid_x != -1 && a_grid_y != -1 && the_click_count != 0 {
+                    if self.CanPlantAt(a_grid_x, a_grid_y, a_seed_type) == PlantingReason::PLANTING_OK {
+                        if (*self.mApp).m_easy_planting_cheat
+                            || the_board.TakeSunMoney(the_board.GetCurrentPlantCost(a_seed_type, SeedType::SEED_NONE))
+                        {
+                            the_board.ClearAdvice(AdviceType::ADVICE_I_ZOMBIE_LEFT_OF_LINE as i32);
+                            the_board.ClearAdvice(AdviceType::ADVICE_I_ZOMBIE_NOT_PASSED_LINE as i32);
+                            let a_zombie_type = Self::IZombieSeedTypeToZombieType(a_seed_type);
+                            self.IZombiePlaceZombie(a_zombie_type, a_grid_x, a_grid_y);
+
+                            // C++: 种子包标记已用
+                            let a_seed_bank = the_board.mSeedBank;
+                            if !a_seed_bank.is_null() {
+                                let a_bank_index = (*the_board.mCursorObject).mSeedBankIndex;
+                                if a_bank_index >= 0 && (a_bank_index as usize) < (*a_seed_bank).mSeedPackets.len() {
+                                    (*(*a_seed_bank).mSeedPackets.as_mut_ptr().add(a_bank_index as usize)).WasPlanted();
+                                }
+                            }
+                            // [TODO]: mApp->PlayFoley(FOLEY_PLANT)
+                            the_board.ClearCursor();
+                        }
+                    } else {
+                        the_board.ClearAdvice(AdviceType::ADVICE_NONE as i32);
+                        if a_seed_type == SeedType::SEED_ZOMBIE_BUNGEE {
+                            the_board.DisplayAdvice("[ADVICE_I_ZOMBIE_LEFT_OF_LINE]", 0, AdviceType::ADVICE_I_ZOMBIE_LEFT_OF_LINE as i32);
+                        } else {
+                            the_board.DisplayAdvice("[ADVICE_I_ZOMBIE_NOT_PASSED_LINE]", 0, AdviceType::ADVICE_I_ZOMBIE_NOT_PASSED_LINE as i32);
+                        }
+                    }
+                    return;
+                }
+            }
+            let the_board = &mut *self.mBoard;
+            the_board.RefreshSeedPacketFromCursor();
+            // [TODO]: mApp->PlayFoley(FOLEY_DROP)
+        }
+    }
     /// C++ Challenge::IZombieSetupPlant (Challenge.cpp:4319) — 设置关卡植物
     pub unsafe fn IZombieSetupPlant(&mut self, the_plant: *mut crate::lawn::plant::Plant) {
         if the_plant.is_null() {
