@@ -175,6 +175,24 @@ pub struct Particle {
 }
 
 impl Particle {
+    pub fn update(&mut self) {
+        // C++ TodParticle::Update — 粒子运动与寿命
+        if self.m_dead {
+            return;
+        }
+        self.m_age += 1.0;
+        // C++: 位置积分（速度；轨道插值 TODO）
+        self.m_x += self.m_vx;
+        self.m_y += self.m_vy;
+        self.m_z += self.m_vz;
+        // C++: 速度阻尼近似（无阻力轨道）
+        self.m_vx *= 0.96;
+        self.m_vy *= 0.96;
+        // C++: 寿命结束死亡
+        if self.m_duration > 0.0 && self.m_age >= self.m_duration {
+            self.m_dead = true;
+        }
+    }
     pub fn new() -> Self {
         Particle {
             m_dead: true,
@@ -224,7 +242,13 @@ impl TodParticleEmitter {
                 }
             }
         }
-        // [TODO]: 粒子发射（SpawnParticle）/运动/寿命
+        // C++: 更新已有粒子（遍历）
+        for a_particle in self.m_particles.iter_mut() {
+            if !a_particle.m_dead {
+                a_particle.update();
+            }
+        }
+        // [TODO]: 粒子发射（SpawnParticle）
     }
     pub fn draw(&self, _g: &mut Graphics) {
         // [TODO]: 粒子渲染（图像 + 轨迹）
