@@ -208,6 +208,19 @@ impl Reanimation {
         // [TODO]: Play with explicit frame base
     }
 
+    /// C++ Reanimation::SetPosition — 设置动画位置
+    pub fn set_position(&mut self, the_pos_x: f32, the_pos_y: f32) {
+        self.m_x = the_pos_x;
+        self.m_y = the_pos_y;
+    }
+
+    /// C++ Reanimation::OverrideScale — 覆盖缩放
+    pub fn override_scale(&mut self, the_scale_x: f32, the_scale_y: f32) {
+        self.m_scale = the_scale_x;
+        // [TODO]: mScaleY 独立缩放（当前用统一缩放）
+        let _ = the_scale_y;
+    }
+
     /// C++ Reanimation::StartBlend (Reanimator.cpp:1064) — 混合过渡
     /// [TRANSLATION_NOTE]: mTrackInstances 未翻译，混合过渡简化
     pub fn start_blend(&mut self, _the_blend_time: i32) {

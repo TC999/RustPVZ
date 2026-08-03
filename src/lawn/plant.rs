@@ -1570,8 +1570,104 @@ impl Plant {
         // TODO: Frame and reanimation animation update
     }
 
+    /// C++ Plant::UpdateReanim (Plant.cpp:2737) — 植物动画更新
     pub unsafe fn UpdateReanim(&mut self) {
-        // TODO: Reanimation update
+        let a_body_reanim = self.app().ReanimationTryToGet(self.m_body_reanim_id) as *mut crate::sexy_tod_lib::reanimator::Reanimation;
+        if a_body_reanim.is_null() {
+            return;
+        }
+
+        // C++: UpdateReanimColor()
+        // [TODO]: UpdateReanimColor（冰冻/发光/致幻变色）
+
+        let mut a_offset_x = self.m_shake_offset_x;
+        // [TODO]: ZenGarden::PlantDrawHeightOffset（需 zen_garden 实例）
+        let mut a_offset_y = 0.0;
+        let mut a_scale_x = 1.0;
+        let mut a_scale_y = 1.0;
+
+        // C++: BIG_TIME 挑战放大
+        if (*self.app()).mGameMode == GameMode::GAMEMODE_CHALLENGE_BIG_TIME
+            && (self.m_seed_type == SeedType::SEED_WALLNUT || self.m_seed_type == SeedType::SEED_SUNFLOWER || self.m_seed_type == SeedType::SEED_MARIGOLD)
+        {
+            a_scale_x = 1.5;
+            a_scale_y = 1.5;
+            a_offset_x -= 20.0;
+            a_offset_y -= 40.0;
+        }
+        // C++: 巨型坚果
+        if self.m_seed_type == SeedType::SEED_GIANT_WALLNUT {
+            a_scale_x = 2.0;
+            a_scale_y = 2.0;
+            a_offset_x -= 76.0;
+            a_offset_y -= 64.0;
+        }
+        // C++: 咖啡豆
+        if self.m_seed_type == SeedType::SEED_INSTANT_COFFEE {
+            a_scale_x = 0.8;
+            a_scale_y = 0.8;
+            a_offset_y += 10.0;
+        }
+        // C++: 土豆雷
+        if self.m_seed_type == SeedType::SEED_POTATOMINE {
+            a_scale_x = 0.8;
+            a_scale_y = 0.8;
+            a_offset_x += 12.0;
+            a_offset_y += 12.0;
+        }
+        // C++: 墓碑吞噬者下落
+        if self.m_state == PlantState::STATE_GRAVEBUSTER_EATING {
+            a_offset_y += crate::sexy_tod_lib::tod_common::tod_animate_curve_float(400, 0, self.m_state_countdown, 0.0, 30.0, crate::const_enums::TodCurves::CURVE_LINEAR);
+        }
+        // C++: 唤醒动画
+        if self.m_wake_up_counter > 0 {
+            let a_scale_factor = crate::sexy_tod_lib::tod_common::tod_animate_curve_float(70, 0, self.m_wake_up_counter, 1.0, 0.8, crate::const_enums::TodCurves::CURVE_EASE_SIN_WAVE);
+            a_scale_y *= a_scale_factor;
+            a_offset_y += 80.0 - 80.0 * a_scale_factor;
+        }
+
+        // C++: 更新动画
+        (*a_body_reanim).reanimation_update();
+
+        // C++: 反向豌豆（LEFTPEATER 翻转）
+        if self.m_seed_type == SeedType::SEED_LEFTPEATER {
+            a_offset_x += 80.0 * a_scale_x;
+            a_scale_x *= -1.0;
+        }
+
+        // C++: 盆栽缩放动画
+        if self.m_potted_plant_index != -1 {
+            let a_potted_plant = (*self.app()).m_player_info;
+            if !a_potted_plant.is_null() {
+                let a_potted = unsafe { &*(*self.app()).m_player_info.as_ref().unwrap() }.mPottedPlant[self.m_potted_plant_index as usize].clone();
+                // C++: 朝向翻转
+                if a_potted.mFacing == crate::lawn::system::player_info::FacingDirection::FACING_LEFT {
+                    a_offset_x += 80.0 * a_scale_x;
+                    a_scale_x *= -1.0;
+                }
+
+                // C++: 成长动画（SMALL/MEDIUM/FULL）
+                let (a_offset_x_start, a_offset_x_end, a_offset_y_start, a_offset_y_end, a_scale_start, a_scale_end) = match a_potted.mPlantAge {
+                    crate::lawn::system::player_info::PottedPlantAge::PLANTAGE_SMALL => (20.0, 20.0, 40.0, 40.0, 0.5, 0.5),
+                    crate::lawn::system::player_info::PottedPlantAge::PLANTAGE_MEDIUM => (20.0, 10.0, 40.0, 20.0, 0.5, 0.75),
+                    _ => (10.0, 0.0, 20.0, 0.0, 0.75, 1.0),
+                };
+                let a_animated_offset_x = crate::sexy_tod_lib::tod_common::tod_animate_curve_float(100, 0, self.m_state_countdown, a_offset_x_start, a_offset_x_end, crate::const_enums::TodCurves::CURVE_LINEAR);
+                let a_animated_offset_y = crate::sexy_tod_lib::tod_common::tod_animate_curve_float(100, 0, self.m_state_countdown, a_offset_y_start, a_offset_y_end, crate::const_enums::TodCurves::CURVE_LINEAR);
+                let a_animated_scale = crate::sexy_tod_lib::tod_common::tod_animate_curve_float(100, 0, self.m_state_countdown, a_scale_start, a_scale_end, crate::const_enums::TodCurves::CURVE_LINEAR);
+                a_offset_y += a_animated_offset_y * a_scale_y;
+                a_scale_x *= a_animated_scale;
+                a_scale_y *= a_animated_scale;
+                // C++: 禅境偏移
+                a_offset_x += crate::lawn::zen_garden::ZenGarden::ZenPlantOffsetX(&a_potted as *const crate::lawn::system::player_info::PottedPlant as *mut crate::lawn::system::player_info::PottedPlant);
+                // [TODO]: ZenGarden::PlantPottedDrawHeightOffset（需 zen_garden 实例）
+                let _ = a_scale_y;
+            }
+        }
+
+        // C++: 设置动画位置与缩放
+        (*a_body_reanim).set_position(a_offset_x, a_offset_y);
+        (*a_body_reanim).override_scale(a_scale_x, a_scale_y);
     }
 
     pub unsafe fn NotOnGround(&self) -> bool {
