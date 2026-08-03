@@ -917,8 +917,28 @@ pub fn ZenGardenInitLevel(&mut self) {}
             // C++: 继续行走逻辑（目标/移动）
             // [TODO]: 完整移动（接近目标→转方向/拾取阳光/StinkyPickGoal）
         }
-    }    pub fn OpenStore(&mut self) {}
-    pub fn GetStinky(&self) -> *mut GridItem { std::ptr::null_mut() }
+    }    /// C++ ZenGarden::OpenStore (ZenGarden.cpp:2360) — 打开商店
+    pub unsafe fn OpenStore(&mut self) {
+        self.LeaveGarden();
+        // [TODO]: StoreScreen* aStore = mApp->ShowStoreScreen();
+
+        // [TODO]: TUTORIAL_ZEN_GARDEN_VISIT_STORE 教程：SetupForIntro(2600) + 化肥补给
+        // [TODO]: aStore->mBackButton->SetLabel("[STORE_BACK_TO_GAME]")
+        // [TODO]: aStore->mPage = STORE_PAGE_ZEN1; aStore->WaitForResult(true)
+
+        // [TODO]: aStore->mGoToTreeNow → KillBoard + PreNewGame(TREE_OF_WISDOM)
+        let _go_to_tree_now = false;
+        if _go_to_tree_now {
+            (*self.mApp).KillBoard();
+            (*self.mApp).PreNewGame(GameMode::GAMEMODE_TREE_OF_WISDOM, false);
+        } else {
+            // C++: mNowTime = mApp->GetNowTime(); mNowTM = mApp->GetLocalTime(mNowTime);
+            // [TODO]: GetNowTime 时间同步
+            // C++: mApp->mMusic->MakeSureMusicIsPlaying(MUSIC_TUNE_ZEN_GARDEN)
+            // [TODO]: TUTORIAL_ZEN_GARDEN_VISIT_STORE → FERTILIZE_PLANTS + 提示
+            self.AddStinky();
+        }
+    }    pub fn GetStinky(&self) -> *mut GridItem { std::ptr::null_mut() }
     pub fn StinkyPickGoal(&mut self, _theStinky: *mut GridItem) {}
     pub fn SetupForZenTutorial(&mut self) {}
     pub fn HasPurchasedStinky(&self) -> bool { false }

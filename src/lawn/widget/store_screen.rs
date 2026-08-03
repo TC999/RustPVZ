@@ -13,6 +13,8 @@ pub struct StoreScreen {
     pub mPage: i32,
     pub mEasyBuyingCheat: bool,
     pub mBubbleCountDown: i32,
+    pub mBackButton: *mut crate::lawn::widget::game_button::GameButton,
+    pub mGoToTreeNow: bool,
 }
 
 impl StoreScreen {
@@ -23,6 +25,8 @@ impl StoreScreen {
             mPage: 0,
             mEasyBuyingCheat: false,
             mBubbleCountDown: 0,
+            mBackButton: std::ptr::null_mut(),
+            mGoToTreeNow: false,
         }
     }
         /// C++: static StoreItem gStoreItemSpots[NUM_STORE_PAGES][MAX_PAGE_SPOTS]
@@ -306,5 +310,8 @@ pub fn Draw(&self, g: &mut Graphics) { self.base.Draw(g); }
         }
 
         // [TODO]: mApp->PlaySample(SOUND_BUTTONCLICK)
-    }    pub fn Update(&mut self) {}
+    }    /// C++ StoreScreen::SetupForIntro — 设置开场对话
+    pub unsafe fn SetupForIntro(&mut self, _theDialogIndex: i32) {
+        // [TODO]: CrazyDave 开场对话
+    }
 }
