@@ -436,6 +436,8 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn DrawBackdrop(&self, _g: &mut Graphics) {}
     pub fn MouseDownZenGarden(&mut self, _x: i32, _y: i32, _theClickCount: i32, _theHitResult: *mut std::ffi::c_void) -> bool { false }
     pub fn PlantWatered(&mut self, _thePlant: *mut Plant) {}
+
+    pub fn IsPlantInGoldWateringCanRange(&self, _theX: i32, _theY: i32, _thePlant: *mut Plant) -> bool { false }
     pub fn GetPlantsNeed(&self, _thePottedPlant: *mut PottedPlant) -> PottedPlantNeed { PottedPlantNeed::PLANTNEED_NONE }
     /// C++ ZenGarden::MouseDownWithTool (ZenGarden.cpp:1068) — 工具点击
     pub unsafe fn MouseDownWithTool(&mut self, x: i32, y: i32, the_cursor_type: i32) {
@@ -480,7 +482,142 @@ pub fn ZenGardenInitLevel(&mut self) {}
             }
         }
     }
-    pub fn MouseDownWithFeedingTool(&mut self, _x: i32, _y: i32, _theCursorType: i32) {}
+    /// C++ ZenGarden::MouseDownWithFeedingTool (ZenGarden.cpp:893) — 工具效果
+    pub unsafe fn MouseDownWithFeedingTool(&mut self, x: i32, y: i32, the_cursor_type: i32) {
+        unsafe {
+            let mut a_plant_to_feed: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+            let the_board = &*self.mBoard;
+            let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+            while the_board.IteratePlants(&mut a_plant) {
+                if (*a_plant).m_highlighted && (*a_plant).m_potted_plant_index != -1 {
+                    a_plant_to_feed = a_plant;
+                    break;
+                }
+            }
+
+            if the_cursor_type == CursorType::CURSOR_TYPE_CHOCOLATE as i32 {
+                // C++: 巧克力：先喂 Stinky，再喂植物
+                let a_stinky = self.GetStinky();
+                // [TODO]: GridItem mHighlighted 字段（Stinky 高亮检查）
+                if !a_stinky.is_null() {
+                    self.WakeStinky();
+                    if !(*self.mApp).m_player_info.is_null() {
+                        let a_player = &mut *(*self.mApp).m_player_info;
+                        a_player.mLastStinkyChocolateTime = self.mNowTime as u32;
+                        a_player.mPurchases[StoreItem::STORE_ITEM_CHOCOLATE as usize] -= 1;
+                    }
+                    // [TODO]: AddTodParticle(PARTICLE_PRESENT_PICKUP)
+                }
+
+                if !a_plant_to_feed.is_null() && !(*self.mApp).m_player_info.is_null() {
+                    (*(*self.mApp).m_player_info).mPurchases[StoreItem::STORE_ITEM_CHOCOLATE as usize] -= 1;
+                    self.FeedChocolateToPlant(a_plant_to_feed);
+                }
+            }
+
+            if !a_plant_to_feed.is_null() {
+                // C++: 创建工具 GridItem
+                let board_mut = &mut *self.mBoard;
+                let a_zen_tool = board_mut.mGridItems.data_array_alloc();
+                if a_zen_tool.is_null() {
+                    return;
+                }
+                (*a_zen_tool).mGridItemType = GridItemType::GRIDITEM_ZEN_TOOL;
+                (*a_zen_tool).mGridX = (*a_plant_to_feed).m_plant_col;
+                (*a_zen_tool).mGridY = (*a_plant_to_feed).base.m_row;
+                (*a_zen_tool).mPosX = (*a_plant_to_feed).base.m_x as f32 + 40.0;
+                (*a_zen_tool).mPosY = (*a_plant_to_feed).base.m_y as f32 + 40.0;
+                (*a_zen_tool).mRenderOrder = crate::lawn::board::Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_ABOVE_UI, 0, 0);
+
+                let a_player = &mut *(*self.mApp).m_player_info;
+                if the_cursor_type == CursorType::CURSOR_TYPE_WATERING_CAN as i32 {
+                    if a_player.mPurchases[StoreItem::STORE_ITEM_GOLD_WATERINGCAN as usize] != 0 {
+                        (*a_zen_tool).mPosX = x as f32;
+                        (*a_zen_tool).mPosY = y as f32;
+                        (*a_zen_tool).mGridItemState = 8; /* GRIDITEM_STATE_ZEN_TOOL_GOLD_WATERING_CAN */
+                    } else {
+                        (*a_zen_tool).mGridItemState = 7; /* GRIDITEM_STATE_ZEN_TOOL_WATERING_CAN */
+                    }
+                    // [TODO]: AddReanimation(REANIM_ZENGARDEN_WATERINGCAN) + FOLEY_WATERING
+                } else if the_cursor_type == CursorType::CURSOR_TYPE_FERTILIZER as i32 {
+                    (*a_zen_tool).mGridItemState = 15; /* GRIDITEM_STATE_ZEN_TOOL_FERTILIZER */
+                    a_player.mPurchases[StoreItem::STORE_ITEM_FERTILIZER as usize] -= 1;
+                    // [TODO]: AddReanimation(REANIM_ZENGARDEN_FERTILIZER) + FOLEY_FERTILIZER
+                } else if the_cursor_type == CursorType::CURSOR_TYPE_BUG_SPRAY as i32 {
+                    (*a_zen_tool).mGridItemState = 16; /* GRIDITEM_STATE_ZEN_TOOL_BUG_SPRAY */
+                    a_player.mPurchases[StoreItem::STORE_ITEM_BUG_SPRAY as usize] -= 1;
+                    // [TODO]: AddReanimation(REANIM_ZENGARDEN_BUGSPRAY) + FOLEY_BUGSPRAY
+                } else if the_cursor_type == CursorType::CURSOR_TYPE_PHONOGRAPH as i32 {
+                    (*a_zen_tool).mGridItemState = 17; /* GRIDITEM_STATE_ZEN_TOOL_PHONOGRAPH */
+                    // [TODO]: AddReanimation(REANIM_ZENGARDEN_PHONOGRAPH) + FOLEY_PHONOGRAPH
+                }
+            }
+
+            (*self.mBoard).ClearCursor();
+        }
+    }
+
+    /// C++ ZenGarden::FeedChocolateToPlant (ZenGarden.cpp:999) — 喂巧克力
+    pub unsafe fn FeedChocolateToPlant(&mut self, the_plant: *mut crate::lawn::plant::Plant) {
+        unsafe {
+            if the_plant.is_null() {
+                return;
+            }
+            let a_potted_plant = self.PottedPlantFromIndex((*the_plant).m_potted_plant_index);
+            if a_potted_plant.is_null() {
+                return;
+            }
+            // C++: mLastChocolateTime = mNowTime; mLaunchCounter = 60;
+            (*a_potted_plant).mLastChocolateTime = self.mNowTime;
+            (*the_plant).m_launch_counter = 60;
+            // [TODO]: AddTodParticle(PARTICLE_PRESENT_PICKUP)
+        }
+    }
+
+    /// C++ ZenGarden::DoFeedingTool (ZenGarden.cpp:1007) — 工具生效
+    pub unsafe fn DoFeedingTool(&mut self, x: i32, y: i32, the_tool_type: i32) {
+        unsafe {
+            if the_tool_type == 8 /* GRIDITEM_STATE_ZEN_TOOL_GOLD_WATERING_CAN */ {
+                // C++: 金水壶范围浇水
+                let the_board = &*self.mBoard;
+                let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+                while the_board.IteratePlants(&mut a_plant) {
+                    if self.IsPlantInGoldWateringCanRange(x, y, a_plant) {
+                        let a_potted_plant = self.PottedPlantFromIndex((*a_plant).m_potted_plant_index);
+                        if !a_potted_plant.is_null() && self.GetPlantsNeed(a_potted_plant) == PottedPlantNeed::PLANTNEED_WATER {
+                            self.PlantWatered(a_plant);
+                        }
+                    }
+                }
+                return;
+            }
+
+            // C++: 普通工具按格子生效
+            let a_grid_x = self.PixelToGridX(x, y);
+            let a_grid_y = self.PixelToGridY(x, y);
+            let the_board = &*self.mBoard;
+            let a_plant = the_board.GetTopPlantAt(a_grid_x, a_grid_y, PlantPriority::TOPPLANT_ZEN_TOOL_ORDER);
+            if !a_plant.is_null() {
+                let a_potted_plant = self.PottedPlantFromIndex((*a_plant).m_potted_plant_index);
+                if !a_potted_plant.is_null() {
+                    let a_need = self.GetPlantsNeed(a_potted_plant);
+                    if a_need == PottedPlantNeed::PLANTNEED_WATER && the_tool_type == 7 /* WATERING_CAN */ {
+                        self.PlantWatered(a_plant);
+                    } else if a_need == PottedPlantNeed::PLANTNEED_FERTILIZER && the_tool_type == 15 /* FERTILIZER */ {
+                        self.PlantFertilized(a_plant);
+                    } else if a_need == PottedPlantNeed::PLANTNEED_BUGSPRAY && the_tool_type == 16 /* BUG_SPRAY */ {
+                        self.PlantFulfillNeed(a_plant);
+                    } else if a_need == PottedPlantNeed::PLANTNEED_PHONOGRAPH && the_tool_type == 17 /* PHONOGRAPH */ {
+                        self.PlantFulfillNeed(a_plant);
+                    }
+                }
+
+                // C++: 教程进度
+                // [TODO]: TUTORIAL_ZEN_GARDEN_FERTILIZE_PLANTS 检查 + 化肥补给 + 提示
+            }
+        }
+    }
+
     pub fn DrawPlantOverlay(&self, _g: &mut Graphics, _thePlant: *mut Plant) {}
     pub fn PottedPlantUpdate(&mut self, _thePlant: *mut Plant) {}
     pub fn PlantUpdateProduction(&mut self, _thePlant: *mut Plant) {}
@@ -520,7 +657,6 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn UpdatePlantEffectState(&mut self, _thePlant: *mut Plant) {}
     pub fn CanUseGameObject(&self, _theObjectType: i32) -> bool { false }
     pub fn ZenToolUpdate(&mut self, _theZenTool: *mut GridItem) {}
-    pub fn DoFeedingTool(&mut self, _x: i32, _y: i32, _theToolType: i32) {}
     pub fn AddStinky(&mut self) {}
     pub fn StinkyUpdate(&mut self, _theStinky: *mut GridItem) {}
     pub fn OpenStore(&mut self) {}
@@ -576,5 +712,4 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn StinkyFinishFallingAsleep(&mut self, _theStinky: *mut GridItem, _theBlendTime: i32) {}
     pub fn AdvanceCrazyDaveDialog(&mut self) {}
     pub fn LeaveGarden(&mut self) {}
-    pub fn FeedChocolateToPlant(&mut self, _thePlant: *mut Plant) {}
 }
