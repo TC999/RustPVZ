@@ -322,13 +322,21 @@ impl Reanimation {
                 return false;
             }
 
-            let a_image_alpha = crate::sexy_tod_lib::tod_common::clamp_int(crate::sexy_tod_lib::tod_common::float_round_to_int(a_transform.m_alpha), 0, 255);
+            // C++: 颜色混合（mTrackColor 白色 × mColorOverride × Graphics 颜色）
+            // [TODO]: mTrackInstances（mTrackColor/mIgnoreColorOverride）未翻译
+            let mut a_color = self.m_color_override;
+            // C++: aImageAlpha = ClampInt(FloatRoundToInt(aTransform.mAlpha * aColor.mAlpha), 0, 255)
+            let a_image_alpha = crate::sexy_tod_lib::tod_common::clamp_int(crate::sexy_tod_lib::tod_common::float_round_to_int(a_transform.m_alpha * a_color.m_alpha as f32), 0, 255);
             if a_image_alpha <= 0 {
                 return false;
             }
+            a_color.m_alpha = a_image_alpha;
             if a_transform.m_image.is_null() {
                 return false;
             }
+
+            // [TODO]: 额外叠加色/覆盖色（mEnableExtraAdditiveDraw/mEnableExtraOverlayDraw）
+            // [TODO]: 图集（mReanimAtlas）与裁剪
 
             // C++: ReanimBltMatrix — 用矩阵绘制图像（倾斜/缩放）
             let mut a_matrix = crate::sexy_app_framework::misc::sexy_matrix::SexyMatrix3::new();
