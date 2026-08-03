@@ -1129,8 +1129,99 @@ pub fn ZenGardenInitLevel(&mut self) {}
             }
         }
         std::ptr::null_mut()
-    }    pub fn StinkyPickGoal(&mut self, _theStinky: *mut GridItem) {}
-    pub fn SetupForZenTutorial(&mut self) {}
+    }    /// C++ ZenGarden::StinkyPickGoal (ZenGarden.cpp:1312) — 蜗牛目标选择
+    pub unsafe fn StinkyPickGoal(&mut self, the_stinky: *mut GridItem) {
+        unsafe {
+            if the_stinky.is_null() {
+                return;
+            }
+            // C++: 当前目标距离
+            let a_cur_dist_to_goal = crate::sexy_tod_lib::tod_common::distance_2d(
+                (*the_stinky).mGoalX, (*the_stinky).mGoalY, (*the_stinky).mPosX, (*the_stinky).mPosY,
+            );
+
+            // C++: 选择最佳金币（落地未收集，权重 = 距离 - 金 40 - 钻 80 - 上次目标 20 + 消失倒计时）
+            let mut a_best_coin: *mut crate::lawn::coin::Coin = std::ptr::null_mut();
+            let mut a_cur_weight: f32 = 0.0;
+            let the_board_borrow = &*self.mBoard;
+            let mut a_coin: *mut crate::lawn::coin::Coin = std::ptr::null_mut();
+            while the_board_borrow.IterateCoins(&mut a_coin) {
+                if !(*a_coin).m_is_being_collected && (*a_coin).m_pos_y == (*a_coin).m_ground_y as f32 {
+                    let mut a_weight = crate::sexy_tod_lib::tod_common::distance_2d(
+                        (*a_coin).m_pos_x, (*a_coin).m_pos_y + 30.0, (*the_stinky).mPosX, (*the_stinky).mPosY,
+                    );
+                    if (*a_coin).m_type == CoinType::COIN_GOLD {
+                        a_weight -= 40.0;
+                    } else if (*a_coin).m_type == CoinType::COIN_DIAMOND {
+                        a_weight -= 80.0;
+                    }
+
+                    let a_dist_from_last_goal = crate::sexy_tod_lib::tod_common::distance_2d(
+                        (*a_coin).m_pos_x, (*a_coin).m_pos_y + 30.0, (*the_stinky).mGoalX, (*the_stinky).mGoalY,
+                    );
+                    if a_dist_from_last_goal < 5.0 {
+                        // C++: 上次目标附近金币减少权重（快消失的优先）
+                        a_weight -= 20.0;
+                        a_weight += crate::sexy_tod_lib::tod_common::tod_animate_curve(
+                            3000, 6000, (*a_coin).m_disappear_counter, 0, -40, crate::const_enums::TodCurves::CURVE_LINEAR,
+                        ) as f32;
+                    }
+
+                    if a_best_coin.is_null() || a_weight < a_cur_weight {
+                        a_best_coin = a_coin;
+                        a_cur_weight = a_weight;
+                    }
+                }
+            }
+
+            if !a_best_coin.is_null() {
+                (*the_stinky).mGoalX = (*a_best_coin).m_pos_x;
+                (*the_stinky).mGoalY = (*a_best_coin).m_pos_y + 30.0;
+            } else {
+                // C++: 无金币：保持当前目标（>10 距离）或随机选特殊格子
+                if a_cur_dist_to_goal > 10.0 {
+                    return;
+                }
+
+                let mut a_picks: [crate::sexy_tod_lib::tod_common::TodWeightedGridArray; 32] = [crate::sexy_tod_lib::tod_common::TodWeightedGridArray { m_x: 0, m_y: 0, m_weight: 0 }; 32];
+                let mut a_pick_count = 0;
+
+                let mut a_count = 0;
+                let a_special_grids = self.GetSpecialGridPlacements(&mut a_count);
+                if !a_special_grids.is_null() {
+                    let mut i = 0;
+                    while i < a_count && i < 32 {
+                        let a_grid = &*a_special_grids.add(i as usize);
+                        let the_board2 = &*self.mBoard;
+                        let a_plant = the_board2.GetTopPlantAt(a_grid.mGridX, a_grid.mGridY, PlantPriority::TOPPLANT_ANY);
+                        a_picks[a_pick_count as usize].m_x = a_grid.mPixelX + 15;
+                        a_picks[a_pick_count as usize].m_y = a_grid.mPixelY + 80;
+                        if !a_plant.is_null() {
+                            a_picks[a_pick_count as usize].m_weight = 2000 - (a_picks[a_pick_count as usize].m_y - (*the_stinky).mPosY as i32).abs();
+                        } else {
+                            a_picks[a_pick_count as usize].m_weight = 1;
+                        }
+                        a_pick_count += 1;
+                        i += 1;
+                    }
+                }
+
+                let a_target: *mut crate::sexy_tod_lib::tod_common::TodWeightedGridArray = match crate::sexy_tod_lib::tod_common::tod_pick_from_weighted_grid_array(&mut a_picks) {
+                    Some(g) => g,
+                    None => return,
+                };
+                (*the_stinky).mGoalX = (*a_target).m_x as f32;
+                (*the_stinky).mGoalY = (*a_target).m_y as f32;
+            }
+
+            // C++: 计时重置 + 转身判断
+            (*the_stinky).mGridItemCounter = 100;
+            if (*the_stinky).mGoalX < (*the_stinky).mPosX && (*the_stinky).mGridItemState == 21 /* WALKING_RIGHT */ {
+                (*the_stinky).mGridItemState = 20; /* TURNING_LEFT */
+                (*the_stinky).mMotionTrailCount = 0;
+            }
+        }
+    }    pub fn SetupForZenTutorial(&mut self) {}
     pub fn HasPurchasedStinky(&self) -> bool { false }
     /// C++ ZenGarden::CountPlantsNeedingFertilizer (ZenGarden.cpp:603)
     pub fn CountPlantsNeedingFertilizer(&self) -> i32 {
