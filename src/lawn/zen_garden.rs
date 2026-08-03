@@ -417,7 +417,115 @@ pub fn ZenGardenInitLevel(&mut self) {}
     pub fn PlacePottedPlant(&mut self, _thePottedPlantIndex: isize) -> *mut Plant { std::ptr::null_mut() }
     pub fn PlantPottedDrawHeightOffset(&self, _theSeedType: SeedType, _theScale: f32) -> f32 { 0.0 }
     pub fn ZenPlantOffsetX(_thePottedPlant: *mut PottedPlant) -> f32 { 0.0 }
-    pub fn ZenGardenUpdate(&mut self) {}
+    /// C++ ZenGarden::ZenGardenUpdate (ZenGarden.cpp:1724) — 禅境花园主循环
+    pub unsafe fn ZenGardenUpdate(&mut self) {
+        unsafe {
+            // C++: if (mApp->GetDialog(DIALOG_STORE)) return;
+            // [TODO]: GetDialog 检查
+
+            // C++: mNowTime = mApp->GetNowTime();
+            self.mNowTime = crate::sexy_app_framework::sexy_app_base::sdl_get_ticks() as i64;
+            // C++: mApp->UpdateCrazyDave();
+            (*self.mApp).UpdateCrazyDave();
+
+            let the_board = &mut *self.mBoard;
+            if !the_board.mCursorObject.is_null()
+                && (*the_board.mCursorObject).mCursorType != CursorType::CURSOR_TYPE_NORMAL
+            {
+                if !the_board.mChallenge.is_null() {
+                    (*the_board.mChallenge).mChallengeState = ChallengeState::STATECHALLENGE_NORMAL;
+                    (*the_board.mChallenge).mChallengeStateCounter = 3000;
+                }
+            } else if the_board.mTutorialState == TutorialState::TUTORIAL_OFF as i32 {
+                if !the_board.mChallenge.is_null() {
+                    let a_challenge = &mut *the_board.mChallenge;
+                    if a_challenge.mChallengeStateCounter > 0 {
+                        a_challenge.mChallengeStateCounter -= 1;
+                    }
+                    if a_challenge.mChallengeState == ChallengeState::STATECHALLENGE_NORMAL && a_challenge.mChallengeStateCounter == 0 {
+                        a_challenge.mChallengeState = ChallengeState::STATECHALLENGE_ZEN_FADING;
+                        a_challenge.mChallengeStateCounter = 50;
+                    }
+                }
+            }
+
+            // C++: 更新植物需求 + 盆栽 + 工具 + 蜗牛
+            self.UpdatePlantNeeds();
+            let mut a_plant: *mut crate::lawn::plant::Plant = std::ptr::null_mut();
+            while the_board.IteratePlants(&mut a_plant) {
+                if (*a_plant).m_potted_plant_index != -1 {
+                    self.PottedPlantUpdate(a_plant);
+                }
+            }
+            let mut a_grid_item: *mut crate::lawn::grid_item::GridItem = std::ptr::null_mut();
+            while the_board.IterateGridItems(&mut a_grid_item) {
+                if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_ZEN_TOOL {
+                    self.ZenToolUpdate(a_grid_item);
+                } else if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_STINKY {
+                    self.StinkyUpdate(a_grid_item);
+                }
+            }
+
+            // C++: 教程推进：持续浇水 → 商店
+            if the_board.mTutorialState == TutorialState::TUTORIAL_ZEN_GARDEN_KEEP_WATERING as i32
+                && self.CountPlantsNeedingFertilizer() > 0
+            {
+                the_board.DisplayAdvice("[ADVICE_ZEN_GARDEN_VISIT_STORE]", 0, AdviceType::ADVICE_NONE as i32);
+                the_board.mTutorialState = TutorialState::TUTORIAL_ZEN_GARDEN_VISIT_STORE as i32;
+                if !the_board.mStoreButton.is_null() {
+                    (*the_board.mStoreButton).mDisabled = false;
+                    (*the_board.mStoreButton).mBtnNoDraw = false;
+                }
+            }
+        }
+    }
+
+    /// C++ ZenGarden::UpdatePlantNeeds (ZenGarden.cpp:804)
+    pub unsafe fn UpdatePlantNeeds(&mut self) {
+        unsafe {
+            if (*self.mApp).m_player_info.is_null() {
+                return;
+            }
+            self.mNowTime = crate::sexy_app_framework::sexy_app_base::sdl_get_ticks() as i64;
+            let a_num_potted_plants = (*(*self.mApp).m_player_info).mNumPottedPlants;
+            let mut i = 0;
+            while i < a_num_potted_plants as usize {
+                let a_potted_plant = self.PottedPlantFromIndex(i as i32);
+                if !a_potted_plant.is_null() {
+                    self.RefreshPlantNeeds(a_potted_plant);
+                }
+                i += 1;
+            }
+        }
+    }
+
+    /// C++ ZenGarden::RefreshPlantNeeds (ZenGarden.cpp:783)
+    pub unsafe fn RefreshPlantNeeds(&mut self, the_potted_plant: *mut PottedPlant) {
+        unsafe {
+            if the_potted_plant.is_null() {
+                return;
+            }
+            // C++: 非满阶段或不需要刷新 → 跳过
+            if (*the_potted_plant).mPlantAge != PottedPlantAge::PLANTAGE_FULL || !self.PlantShouldRefreshNeed(the_potted_plant) {
+                return;
+            }
+
+            if crate::lawn::plant::Plant::is_aquatic((*the_potted_plant).mSeedType) {
+                // C++: 水生：更新时间 + 随机需求（杀虫剂~留声机）
+                (*the_potted_plant).mLastWateredTime = self.mNowTime;
+                (*the_potted_plant).mPlantNeed = std::mem::transmute::<i32, PottedPlantNeed>(
+                    crate::sexy_tod_lib::tod_common::rand_range_int(
+                        PottedPlantNeed::PLANTNEED_BUGSPRAY as i32,
+                        PottedPlantNeed::PLANTNEED_PHONOGRAPH as i32,
+                    ),
+                );
+            } else {
+                // C++: 普通：重置喂食次数 + 无需求（下次浇水时重新生成）
+                (*the_potted_plant).mTimesFed = 0;
+                (*the_potted_plant).mPlantNeed = PottedPlantNeed::PLANTNEED_NONE;
+            }
+        }
+    }
     pub fn MouseDownWithFullWheelBarrow(&mut self, _x: i32, _y: i32) {}
     pub fn MouseDownWithEmptyWheelBarrow(&mut self, _thePlant: *mut Plant) {}
     pub fn GotoNextGarden(&mut self) {}
@@ -938,8 +1046,19 @@ pub fn ZenGardenInitLevel(&mut self) {}
             // [TODO]: TUTORIAL_ZEN_GARDEN_VISIT_STORE → FERTILIZE_PLANTS + 提示
             self.AddStinky();
         }
-    }    pub fn GetStinky(&self) -> *mut GridItem { std::ptr::null_mut() }
-    pub fn StinkyPickGoal(&mut self, _theStinky: *mut GridItem) {}
+    }    /// C++ ZenGarden::GetStinky (ZenGarden.cpp:1789)
+    pub unsafe fn GetStinky(&self) -> *mut GridItem {
+        unsafe {
+            let the_board = &*self.mBoard;
+            let mut a_grid_item: *mut GridItem = std::ptr::null_mut();
+            while the_board.IterateGridItems(&mut a_grid_item) {
+                if (*a_grid_item).mGridItemType == GridItemType::GRIDITEM_STINKY {
+                    return a_grid_item;
+                }
+            }
+        }
+        std::ptr::null_mut()
+    }    pub fn StinkyPickGoal(&mut self, _theStinky: *mut GridItem) {}
     pub fn SetupForZenTutorial(&mut self) {}
     pub fn HasPurchasedStinky(&self) -> bool { false }
     /// C++ ZenGarden::CountPlantsNeedingFertilizer (ZenGarden.cpp:603)
