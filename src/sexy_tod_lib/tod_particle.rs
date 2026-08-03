@@ -227,6 +227,45 @@ impl TodParticleEmitter {
             m_x: 0.0, m_y: 0.0,
         }
     }
+    /// C++ TodParticleEmitter::SpawnParticle (TodParticle.cpp:333) — 发射粒子
+    /// [TRANSLATION_NOTE]: 轨道求值（FloatTrackEvaluate）未翻译，用随机值近似
+    pub unsafe fn SpawnParticle(&mut self) -> *mut Particle {
+        // C++: 复用死亡的粒子或创建新粒子
+        let mut a_particle = None;
+        for a_existing in self.m_particles.iter_mut() {
+            if a_existing.m_dead {
+                a_particle = Some(a_existing as *mut Particle);
+                break;
+            }
+        }
+        let a_particle = match a_particle {
+            Some(p) => p,
+            None => {
+                self.m_particles.push(Particle::new());
+                self.m_particles.last_mut().unwrap() as *mut Particle
+            }
+        };
+
+        // C++: 初始化粒子（轨道求值近似：随机）
+        let a_particle = &mut *a_particle;
+        a_particle.m_dead = false;
+        a_particle.m_age = 0.0;
+        a_particle.m_duration = (crate::sexy_app_framework::common::rand_int() % 60 + 30) as f32;
+        a_particle.m_x = self.m_x;
+        a_particle.m_y = self.m_y;
+        a_particle.m_z = 0.0;
+        // C++: 发射角度随机 + 初始速度
+        let a_angle = (crate::sexy_app_framework::common::rand_int() % 628) as f32 / 100.0;
+        let a_speed = (crate::sexy_app_framework::common::rand_int() % 50 + 10) as f32 * 0.01;
+        a_particle.m_vx = a_angle.cos() * a_speed;
+        a_particle.m_vy = a_angle.sin() * a_speed;
+        a_particle.m_vz = 0.0;
+        a_particle.m_scale = 1.0;
+        a_particle.m_alpha = 1.0;
+        a_particle.m_rotation = 0.0;
+        self.m_active_count += 1;
+        a_particle
+    }
     pub fn update(&mut self) {
         // C++ TodParticleEmitter::Update (TodParticle.cpp:788) — 发射器更新
         if self.m_dead {
